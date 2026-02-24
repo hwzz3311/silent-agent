@@ -1,0 +1,17 @@
+[project]
+name = "silent-agent"
+version = "1.1.0"
+description = "浏览器智能代理控制系统 - 隐秘无感的 Chrome 扩展自动化控制"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pillow>=10.0",  # 用于生成图标
+]
+
+[project.scripts]
+silent-agent-relay = "python.relay_server:main"

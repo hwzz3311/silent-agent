@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Neurone 设置</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #22C55E;
+        --accent-secondary: #3B82F6;
+        --panel: color-mix(in oklab, canvas 92%, canvasText 8%);
+        --border: color-mix(in oklab, canvasText 18%, transparent);
+        --muted: color-mix(in oklab, canvasText 70%, transparent);
+        --shadow: 0 10px 30px color-mix(in oklab, canvasText 18%, transparent);
+        font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.5;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(1000px 500px at 10% 0%, color-mix(in oklab, var(--accent) 25%, transparent), transparent 70%),
+          radial-gradient(900px 450px at 90% 0%, color-mix(in oklab, var(--accent-secondary) 15%, transparent), transparent 75%),
+          canvas;
+        color: canvasText;
+      }
+      .wrap {
+        max-width: 860px;
+        margin: 40px auto;
+        padding: 0 24px 60px 24px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+        box-shadow: var(--shadow);
+        display: grid;
+        place-items: center;
+        font-size: 24px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0;
+        letter-spacing: -0.02em;
+        font-weight: 600;
+      }
+      .subtitle {
+        margin: 4px 0 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+      }
+      .card h2 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .card h2 .emoji {
+        font-size: 18px;
+      }
+      .card p {
+        margin: 10px 0 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+      input {
+        width: 140px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: color-mix(in oklab, canvas 92%, canvasText 8%);
+        color: canvasText;
+        outline: none;
+        font-size: 14px;
+        transition: all 0.2s ease;
+      }
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 20%, transparent);
+      }
+      button {
+        padding: 12px 18px;
+        border-radius: 12px;
+        border: none;
+        background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 80%, black 20%));
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px color-mix(in oklab, var(--accent) 30%, transparent);
+      }
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px color-mix(in oklab, var(--accent) 40%, transparent);
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      .hint {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 12px;
+        background: color-mix(in oklab, canvasText 8%, transparent);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .status {
+        margin-top: 12px;
+        font-size: 13px;
+        min-height: 20px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: color-mix(in oklab, canvasText 5%, transparent);
+      }
+      .status[data-kind='ok'] {
+        background: color-mix(in oklab, #22C55E 15%, transparent);
+        color: color-mix(in oklab, #22C55E 85%, canvasText 15%);
+      }
+      .status[data-kind='error'] {
+        background: color-mix(in oklab, #EF4444 15%, transparent);
+        color: color-mix(in oklab, #EF4444 85%, canvasText 15%);
+      }
+      .status:empty {
+        display: none;
+      }
+      pre {
+        background: color-mix(in oklab, canvasText 8%, transparent);
+        padding: 14px;
+        border-radius: 12px;
+        overflow-x: auto;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .steps {
+        counter-reset: step;
+        padding-left: 0;
+        list-style: none;
+      }
+      .steps li {
+        counter-increment: step;
+        margin-bottom: 12px;
+        padding-left: 32px;
+        position: relative;
+      }
+      .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        display: grid;
+        place-items: center;
+      }
+
+      /* 按钮变体 */
+      .btn-blue {
+        background: linear-gradient(135deg, var(--accent-secondary), color-mix(in oklab, var(--accent-secondary) 80%, black 20%)) !important;
+        box-shadow: 0 4px 12px color-mix(in oklab, var(--accent-secondary) 30%, transparent) !important;
+      }
+      .btn-blue:hover {
+        box-shadow: 0 6px 16px color-mix(in oklab, var(--accent-secondary) 40%, transparent) !important;
+      }
+      .btn-muted {
+        background: color-mix(in oklab, canvasText 15%, transparent) !important;
+        color: canvasText !important;
+        box-shadow: none !important;
+      }
+      .btn-muted:hover {
+        background: color-mix(in oklab, canvasText 22%, transparent) !important;
+      }
+
+      /* 推荐网站标签 */
+      .host-presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .host-preset {
+        padding: 6px 14px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: color-mix(in oklab, canvas 95%, canvasText 5%);
+        color: canvasText;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .host-preset:hover {
+        border-color: var(--accent);
+        background: color-mix(in oklab, var(--accent) 10%, transparent);
+      }
+      .host-preset.granted {
+        border-color: var(--accent);
+        background: color-mix(in oklab, var(--accent) 12%, transparent);
+        color: color-mix(in oklab, var(--accent) 85%, canvasText 15%);
+      }
+      .host-preset .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      .host-preset.granted .dot {
+        background: var(--accent);
+      }
+
+      /* 已授权列表 */
+      .host-list {
+        margin-top: 4px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        max-height: 280px;
+        overflow-y: auto;
+      }
+      .host-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        font-size: 13px;
+        border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+        transition: background 0.1s;
+      }
+      .host-item:last-child {
+        border-bottom: none;
+      }
+      .host-item:hover {
+        background: color-mix(in oklab, canvasText 3%, transparent);
+      }
+      .host-item code {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .host-item .host-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: color-mix(in oklab, var(--accent) 15%, transparent);
+        color: color-mix(in oklab, var(--accent) 85%, canvasText 15%);
+        margin-left: 8px;
+        white-space: nowrap;
+      }
+      .host-item .host-remove {
+        margin-left: 8px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: none;
+        background: color-mix(in oklab, #EF4444 12%, transparent);
+        color: color-mix(in oklab, #EF4444 85%, canvasText 15%);
+        font-size: 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+        box-shadow: none;
+        font-weight: 500;
+      }
+      .host-item .host-remove:hover {
+        background: color-mix(in oklab, #EF4444 25%, transparent);
+        transform: none;
+      }
+      .host-empty {
+        padding: 16px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .host-all-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, color-mix(in oklab, var(--accent-secondary) 15%, transparent), color-mix(in oklab, var(--accent) 15%, transparent));
+        color: color-mix(in oklab, var(--accent-secondary) 85%, canvasText 15%);
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="logo" aria-hidden="true">🧠</div>
+        <div>
+          <h1>Neurone</h1>
+          <p class="subtitle">浏览器智能代理控制系统</p>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          <h2><span class="emoji">🚀</span> 快速开始</h2>
+          <ol class="steps">
+            <li>启动 Python Relay 服务器：<code>python relay_server.py</code></li>
+            <li>点击工具栏上的 Neurone 图标连接 Relay</li>
+            <li>图标显示 <strong style="color: #22C55E">ON</strong> 表示已连接</li>
+            <li>打开需要操作的网页，授权网站权限</li>
+            <li>通过 Python 控制器调用工具执行自动化操作</li>
+          </ol>
+          <p>
+            如果图标显示红色 <code>!</code>，表示 Relay 服务器未运行。请先启动服务器。
+          </p>
+        </div>
+
+        <div class="card">
+          <h2><span class="emoji">⚙️</span> Relay 端口配置</h2>
+          <label for="port">端口号</label>
+          <div class="row">
+            <input id="port" type="number" min="1" max="65535" />
+            <button id="save" type="button">保存</button>
+          </div>
+          <div class="hint">
+            默认端口: <code>18792</code><br>
+            扩展将连接到: <code id="relay-url">ws://127.0.0.1:&lt;port&gt;/extension</code>
+          </div>
+          <div class="status" id="status"></div>
+        </div>
+
+        <div class="card">
+          <h2><span class="emoji">💻</span> 启动 Relay 服务器</h2>
+          <pre>cd network_hook/python
+python relay_server.py --port 18792</pre>
+          <p>
+            Relay 服务器作为扩展和 Python 控制器之间的桥梁，负责转发工具调用和结果。
+          </p>
+        </div>
+
+        <div class="card">
+          <h2><span class="emoji">🔑</span> 网站权限</h2>
+          <p>要操作网页内容，需要先授权对应网站的访问权限。</p>
+
+          <!-- 全局操作 -->
+          <div class="row" style="margin-top: 12px">
+            <button id="grant-all" type="button" class="btn-blue">授权所有网站</button>
+            <button id="revoke-all" type="button" class="btn-muted">撤销所有权限</button>
+          </div>
+          <div class="status" id="perm-status"></div>
+
+          <!-- 手动添加 -->
+          <label style="margin-top: 16px">手动添加网站</label>
+          <div class="row">
+            <input id="host-input" type="text" placeholder="例: example.com" style="width: 220px" />
+            <button id="add-host" type="button">添加</button>
+          </div>
+          <div class="hint">输入域名即可，如 <code>baidu.com</code>，会自动匹配 <code>*://*.baidu.com/*</code></div>
+
+          <!-- 推荐网站 -->
+          <label style="margin-top: 16px">常用网站（点击快速添加）</label>
+          <div class="host-presets" id="host-presets"></div>
+
+          <!-- 已授权列表 -->
+          <label style="margin-top: 16px">已授权网站</label>
+          <div class="host-list" id="host-list">
+            <div class="host-empty">加载中...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2><span class="emoji">📖</span> 功能说明</h2>
+          <p><strong>chrome.scripting API</strong> - 使用脚本注入操作页面，兼容所有网站</p>
+          <p><strong>工具系统</strong> - 12+ 内置工具，支持导航、点击、填充、提取、截图等</p>
+          <p><strong>状态指示器</strong> - Badge 显示连接状态</p>
+          <p><strong>自动重连</strong> - 断开后自动重连或点击图标手动连接</p>
+        </div>
+      </div>
+
+      <script type="module" src="options.js"></script>
+    </div>
+  </body>
+</html>
+

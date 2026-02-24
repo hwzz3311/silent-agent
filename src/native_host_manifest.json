@@ -1,0 +1,9 @@
+{
+  "name": "com.neurone.host",
+  "description": "Neurone Browser Control - Native Messaging Host",
+  "path": "python/neuron.py",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://__EXTENSION_ID__/"
+  ]
+}
