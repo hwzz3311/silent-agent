@@ -15,33 +15,37 @@ SilentAgent 是一个 **Chrome 扩展 + Python 控制器** 系统，通过 `chro
 │                                                                     │
 │  ┌──────────────┐   chrome.scripting   ┌──────────────────────┐    │
 │  │   Chrome     │◄────────────────────│   Chrome 扩展        │    │
-│  │   Browser    │   executeScript()    │  (background.js)     │    │
-│  │  (任意标签)   │                      │  12 个内置工具        │    │
+│  │   Browser A  │   executeScript()    │  (background.js)     │    │
+│  │  (key: KEY_A)│                      │  密钥: KEY_A         │    │
 │  └──────────────┘                      └──────────┬───────────┘    │
 │                                                    │                │
-│                                        WebSocket   │  /extension    │
-│                                                    ▼                │
-│                                        ┌──────────────────────┐    │
-│                                        │   Python Relay       │    │
-│                                        │   Server             │    │
-│                                        │   :18792             │    │
-│                                        └──────────┬───────────┘    │
-│                                        WebSocket   │  /controller   │
-│                                                    ▼                │
-│                                        ┌──────────────────────┐    │
-│                                        │   Python 控制器      │    │
-│                                        │  (SilentAgentClient) │    │
-│                                        │   + AI / 业务逻辑    │    │
-│                                        │   + REST API 服务    │    │
-│                                        └──────────────────────┘    │
+│  ┌──────────────┐                            │  /extension    │
+│  │   Chrome     │◄───────────────────────────┘                │
+│  │   Browser B  │                                 ▼                │
+│  │  (key: KEY_B)│                      ┌──────────────────────┐    │
+│  └──────────────┘                      │   Python Relay       │    │
+│                                       │   Server (多密钥)    │    │
+│  ┌──────────────┐                      │   extensions: {     │    │
+│  │   Chrome     │◄────────────────────│     KEY_A: ws_A,      │    │
+│  │   Browser C  │                      │     KEY_B: ws_B,    │    │
+│  │  (key: KEY_C)│                      │     KEY_C: ws_C }    │    │
+│  └──────────────┘                      └──────────┬───────────┘    │
+│                                         WebSocket   │  /controller  │
+│                                                    ▼               │
+│                                         ┌──────────────────────┐    │
+│                                         │   Python 控制器      │    │
+│                                         │  (SilentAgentClient) │    │
+│                                         │   secret_key=KEY_B  │    │
+│                                         │   → 路由到插件 B    │    │
+│                                         └──────────────────────┘    │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 
-通信流程:
-  控制器 → Relay:  { method:"executeTool", params:{ name, args } }
-  Relay  → 扩展:   { type:"tool_call", requestId, payload:{ name, args } }
-  扩展   → 页面:   chrome.scripting.executeScript(...)
-  扩展   → Relay:  { type:"tool_result", requestId, result }
+通信流程 (带密钥):
+  插件 → Relay:    { type:"hello", extensionId, secretKey, tools }
+  控制器 → Relay:  { method:"executeTool", params:{ name, args, secretKey } }
+  Relay  → 扩展:   { type:"tool_call", requestId, secretKey, payload }
+  扩展   → Relay:   { type:"tool_result", requestId, result }
   Relay  → 控制器: { id, result }
 ```
 
@@ -67,7 +71,13 @@ SilentAgent 是一个 **Chrome 扩展 + Python 控制器** 系统，通过 `chro
 - 无 Chrome 调试器横幅（"... is debugging this tab"）
 - 无 CDP 端口暴露
 
-### 5. 业务抽象层
+### 5. 多插件密钥认证（支持同时控制多个浏览器实例）
+- 每个插件根据机器信息生成唯一密钥
+- 服务端按密钥维护多个插件连接，实现路由隔离
+- 控制端可通过密钥参数指定目标插件
+- 支持单一控制端同时管理多个浏览器实例
+
+### 6. 业务抽象层
 - **业务工具框架**: 基于 `Tool` 抽象基类的工具开发框架
 - **站点适配器**: 支持多站点适配 (`Site` 抽象基类)
 - **流程引擎**: 支持流程定义和执行
@@ -359,6 +369,50 @@ async def main():
 asyncio.run(main())
 ```
 
+#### 多插件控制（密钥认证）
+
+```python
+import asyncio
+from src.client.client import SilentAgentClient
+
+async def main():
+    # 方式一：创建客户端时指定密钥
+    # 控制端会使用该密钥连接到对应的插件
+    client_a = SilentAgentClient(secret_key="KEY_A")
+    client_b = SilentAgentClient(secret_key="KEY_B")
+
+    await client_a.connect()
+    await client_b.connect()
+
+    # 操作插件 A
+    await client_a.navigate("https://www.baidu.com")
+
+    # 操作插件 B
+    await client_b.navigate("https://www.taobao.com")
+
+    # 方式二：调用时动态指定密钥
+    result = await client_a.execute_tool(
+        "chrome_navigate",
+        {"url": "https://example.com"},
+        secret_key="KEY_A"  # 覆盖默认密钥
+    )
+
+asyncio.run(main())
+```
+
+### API 调用（带密钥）
+
+```bash
+# 通过 REST API 指定目标插件
+curl -X POST http://127.0.0.1:8080/api/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "chrome_navigate",
+    "params": {"url": "https://example.com"},
+    "secret_key": "KEY_A"
+  }'
+```
+
 #### 方式二：使用业务工具
 
 ```python
@@ -610,8 +664,11 @@ curl http://127.0.0.1:8080/health
 ### 扩展 → Relay
 
 ```json
-// 连接握手
-{"type": "hello", "extensionId": "xxx", "version": "2.0.0", "tools": ["inject_script", "chrome_navigate", ...]}
+// 连接握手（携带密钥）
+{"type": "hello", "extensionId": "xxx", "version": "2.0.0", "tools": ["inject_script", "chrome_navigate", ...], "secretKey": "KEY_XXX"}
+
+// 密钥验证响应
+{"type": "hello_ack", "keyAccepted": true, "secretKey": "KEY_XXX"}
 
 // 工具执行结果
 {"type": "tool_result", "requestId": "abc123", "result": {"content": [{"type": "text", "text": "..."}]}}
@@ -623,8 +680,8 @@ curl http://127.0.0.1:8080/health
 ### Relay → 扩展
 
 ```json
-// 工具调用请求
-{"type": "tool_call", "requestId": "abc123", "payload": {"name": "chrome_click", "args": {"selector": "#btn"}}}
+// 工具调用请求（携带密钥用于验证）
+{"type": "tool_call", "requestId": "abc123", "secretKey": "KEY_XXX", "payload": {"name": "chrome_click", "args": {"selector": "#btn"}}}
 
 // 心跳
 {"type": "ping"}
@@ -633,13 +690,13 @@ curl http://127.0.0.1:8080/health
 ### 控制器 → Relay
 
 ```json
-// 执行工具
-{"id": 1, "method": "executeTool", "params": {"name": "chrome_navigate", "args": {"url": "https://example.com"}}}
+// 执行工具（可指定密钥）
+{"id": 1, "method": "executeTool", "params": {"name": "chrome_navigate", "args": {"url": "https://example.com"}, "secretKey": "KEY_A"}}
 
 // 列出工具
 {"id": 2, "method": "listTools"}
 
-// 获取状态
+// 获取状态（返回多插件状态）
 {"id": 3, "method": "getStatus"}
 ```
 
@@ -652,8 +709,8 @@ curl http://127.0.0.1:8080/health
 // 错误响应
 {"id": 1, "error": "扩展未连接"}
 
-// 事件推送
-{"method": "event", "params": {"type": "extension_connected", "tools": [...]}}
+// 事件推送（带密钥信息）
+{"method": "event", "params": {"type": "extension_connected", "extensionId": "xxx", "secretKey": "KEY_XXX", "tools": [...]}}
 ```
 
 ## 安全性与风险
@@ -727,6 +784,16 @@ curl http://127.0.0.1:8080/health
 | 业务抽象层 | ✅ 完整支持 | ❌ |
 
 ## 更新日志
+
+### 2026-02-25
+
+- ✅ 实现多插件密钥通信机制
+  - 插件端：基于机器信息生成唯一密钥（`generateSecretKey()`）
+  - 服务端：按密钥维护多个插件连接 `extensions: Dict[str, ExtensionInfo]`
+  - 控制端：支持 `secret_key` 参数指定目标插件
+  - API 层：`secret_key` 参数透传到业务工具
+- ✅ 连接时自动初始化 tab 映射（`_init_site_tab_map()`）
+- ✅ `get_site_tab()` 支持模糊匹配（`www.xiaohongshu.com` → `xiaohongshu.com`）
 
 ### 2026-02-15
 
