@@ -67,14 +67,31 @@ logger = logging.getLogger(__name__)
 # ==================== 状态 ====================
 
 @dataclass
+class ExtensionInfo:
+    """扩展连接信息（用于多插件路由）"""
+    ws: ServerConnection
+    extension_id: str
+    version: str
+    tools: list
+    secret_key: str
+    connected_at: datetime = None
+
+
+@dataclass
 class RelayState:
-    extension_ws: Optional[ServerConnection] = None
-    extension_id: Optional[str] = None
-    extension_version: Optional[str] = None
-    extension_tools: list = field(default_factory=list)
+    """
+    Relay 服务器状态
+
+    支持多插件连接：
+    - extensions: Dict[str, ExtensionInfo] - 按密钥存储多个扩展连接
+      key: 插件密钥 (secretKey)
+      value: 扩展连接信息
+    """
+    # 多插件支持：key -> ExtensionInfo
+    extensions: Dict[str, ExtensionInfo] = field(default_factory=dict)
     controller_connections: Set[ServerConnection] = field(default_factory=set)
-    # requestId → asyncio.Future  (等待扩展返回 TOOL_RESULT)
-    pending_tool_calls: Dict[str, asyncio.Future] = field(default_factory=dict)
+    # requestId -> (key, asyncio.Future)  (等待扩展返回 TOOL_RESULT, 关联密钥)
+    pending_tool_calls: Dict[str, tuple] = field(default_factory=dict)
     # 连接时间追踪（用于避免重复日志）
     last_extension_connect_time: float = 0.0
     last_extension_id: Optional[str] = None
@@ -167,70 +184,124 @@ class NeuroneRelayServer:
     # ---------- 扩展连接 ----------
 
     async def _handle_extension(self, ws):
-        logger.info(">>> 进入 _handle_extension 处理")
-        if state.extension_ws:
-            logger.warning("⚠ 已有扩展连接，替换旧连接")
-            try: await state.extension_ws.close()
-            except: pass
+        """
+        处理插件连接（支持多密钥）
 
-        state.extension_ws = ws
-        logger.info("✓ Chrome 扩展已连接")
+        插件通过 HELLO 消息携带 secretKey 进行身份识别
+        同一密钥的插件可以替换旧连接
+        """
+        logger.info(">>> 进入 _handle_extension 处理")
+
+        # 用于临时存储当前连接的密钥，等待 HELLO 消息
+        current_key = None
 
         try:
             async for message in ws:
-                await self._on_extension_msg(message)
-        except ConnectionClosed as e:
-            logger.info(f"扩展断开: code={e.code}")
-        except Exception as e:
-            logger.error(f"扩展异常: {e}")
-        finally:
-            if state.extension_ws is ws:
-                state.extension_ws = None
-                state.extension_id = None
-                state.extension_version = None
-                state.extension_tools = []
-            # 清理 pending
-            for fut in state.pending_tool_calls.values():
-                if not fut.done():
-                    fut.set_exception(Exception("扩展断开连接"))
-            state.pending_tool_calls.clear()
-            # 通知控制器
-            await self._broadcast_event("extension_disconnected", {})
-            logger.info("扩展连接已清理")
+                # 解析消息获取密钥
+                try:
+                    msg_data = json.loads(message)
+                except json.JSONDecodeError:
+                    continue
 
-    async def _on_extension_msg(self, raw):
+                # HELLO 消息：获取密钥并注册连接
+                if msg_data.get("type") == "hello":
+                    secret_key = msg_data.get("secretKey", "")
+                    current_key = secret_key
+
+                    # 检查密钥是否已存在
+                    if secret_key in state.extensions:
+                        old_ext = state.extensions[secret_key]
+                        logger.warning(f"⚠ 密钥 {secret_key[:8]}... 已存在，替换旧连接")
+                        try:
+                            await old_ext.ws.close()
+                        except:
+                            pass
+
+                    # 注册新连接
+                    ext_info = ExtensionInfo(
+                        ws=ws,
+                        extension_id=msg_data.get("extensionId", ""),
+                        version=msg_data.get("version", ""),
+                        tools=msg_data.get("tools", []),
+                        secret_key=secret_key,
+                        connected_at=datetime.utcnow()
+                    )
+                    state.extensions[secret_key] = ext_info
+
+                    # 发送密钥验证响应
+                    await ws.send(json.dumps({
+                        "type": "hello_ack",
+                        "keyAccepted": True,
+                        "secretKey": secret_key
+                    }))
+
+                    logger.info(f"✓ 插件已连接: key={secret_key[:8]}... "
+                                f"id={ext_info.extension_id} v={ext_info.version}")
+
+                    # 广播事件到控制器
+                    await self._broadcast_event("extension_connected", {
+                        "extensionId": ext_info.extension_id,
+                        "version": ext_info.version,
+                        "tools": ext_info.tools,
+                        "secretKey": secret_key,
+                    })
+                    continue
+
+                # 其他消息：按密钥路由
+                if current_key and current_key in state.extensions:
+                    await self._on_extension_msg(message, current_key)
+
+        except ConnectionClosed as e:
+            logger.info(f"插件断开: key={current_key[:8] if current_key else '?'}... code={e.code}")
+        except Exception as e:
+            logger.error(f"插件异常: {e}")
+        finally:
+            # 清理当前密钥的连接
+            if current_key and current_key in state.extensions:
+                if state.extensions[current_key].ws is ws:
+                    del state.extensions[current_key]
+                    logger.info(f"✓ 插件连接已清理: key={current_key[:8]}...")
+
+            # 广播断开事件
+            await self._broadcast_event("extension_disconnected", {
+                "secretKey": current_key
+            })
+
+    async def _on_extension_msg(self, raw, secret_key: str = None):
+        """
+        处理插件消息
+
+        Args:
+            raw: 原始消息
+            secret_key: 插件密钥（可选，用于定位扩展）
+        """
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
             return
 
+        # 如果未指定密钥，从消息中提取
+        if not secret_key:
+            secret_key = data.get("secretKey")
+
         msg_type = data.get("type", "")
 
-        # HELLO
-        if msg_type == "hello":
-            state.extension_id = data.get("extensionId")
-            state.extension_version = data.get("version")
-            state.extension_tools = data.get("tools", [])
-            logger.info(f"  扩展 HELLO: id={state.extension_id}  "
-                        f"v={state.extension_version}  "
-                        f"tools={state.extension_tools}")
-            await self._broadcast_event("extension_connected", {
-                "extensionId": state.extension_id,
-                "version": state.extension_version,
-                "tools": state.extension_tools,
-            })
-            return
-
-        # PONG
+        # PONG（心跳响应）
         if msg_type == "pong":
             return
 
-        # TOOL_RESULT
+        # TOOL_RESULT：完成工具调用
         if msg_type == "tool_result":
             req_id = str(data.get("requestId", ""))
-            fut = state.pending_tool_calls.pop(req_id, None)
-            if fut and not fut.done():
-                fut.set_result(data.get("result"))
+            # 从 pending 中获取密钥和 future
+            pending = state.pending_tool_calls.pop(req_id, None)
+            if pending:
+                key, fut = pending
+                if fut and not fut.done():
+                    if "error" in data:
+                        fut.set_exception(Exception(data.get("error")))
+                    else:
+                        fut.set_result(data.get("result"))
             return
 
     # ---------- 控制器连接 ----------
@@ -239,15 +310,22 @@ class NeuroneRelayServer:
         state.controller_connections.add(ws)
         logger.info(f"✓ 控制器已连接 (总数: {len(state.controller_connections)})")
 
-        # 发送当前状态
+        # 发送当前状态（支持多插件）
+        connected_keys = list(state.extensions.keys())
         await ws.send(json.dumps({
             "method": "event",
             "params": {
                 "type": "status",
-                "extensionConnected": state.extension_ws is not None,
-                "extensionId": state.extension_id,
-                "extensionVersion": state.extension_version,
-                "tools": state.extension_tools,
+                "extensionConnected": len(state.extensions) > 0,
+                "extensionKeys": connected_keys,  # 已连接的密钥列表
+                "extensions": {
+                    key: {
+                        "extensionId": ext.extension_id,
+                        "version": ext.version,
+                        "tools": ext.tools
+                    }
+                    for key, ext in state.extensions.items()
+                }
             }
         }))
 
@@ -277,26 +355,41 @@ class NeuroneRelayServer:
                     params.get("name"),
                     params.get("args", {}),
                     timeout=params.get("timeout", 60),
+                    secret_key=params.get("secretKey"),  # 传递密钥用于多插件路由
                 )
                 await ws.send(json.dumps({"id": msg_id, "result": result}))
 
             elif method == "listTools":
+                # 获取所有已连接插件的工具列表
+                all_tools = set()
+                for ext in state.extensions.values():
+                    all_tools.update(ext.tools)
                 await ws.send(json.dumps({
                     "id": msg_id,
                     "result": {
-                        "tools": state.extension_tools,
-                        "extensionConnected": state.extension_ws is not None,
+                        "tools": list(all_tools),
+                        "extensionConnected": len(state.extensions) > 0,
+                        "extensionKeys": list(state.extensions.keys()),  # 已连接密钥列表
                     }
                 }))
 
             elif method == "getStatus":
+                # 返回多插件状态
                 await ws.send(json.dumps({
                     "id": msg_id,
                     "result": {
-                        "extensionConnected": state.extension_ws is not None,
-                        "extensionId": state.extension_id,
-                        "extensionVersion": state.extension_version,
-                        "tools": state.extension_tools,
+                        "extensionConnected": len(state.extensions) > 0,
+                        # 返回所有已连接插件的详细信息
+                        "extensions": {
+                            key: {
+                                "extensionId": ext.extension_id,
+                                "version": ext.version,
+                                "tools": ext.tools,
+                                "connectedAt": ext.connected_at.isoformat() if ext.connected_at else None,
+                            }
+                            for key, ext in state.extensions.items()
+                        },
+                        "extensionKeys": list(state.extensions.keys()),
                     }
                 }))
 
@@ -308,20 +401,52 @@ class NeuroneRelayServer:
 
     # ---------- 工具调用 ----------
 
-    async def execute_tool(self, name: str, args: dict = None, timeout: float = 60) -> Any:
-        """向扩展发送 TOOL_CALL 并等待 TOOL_RESULT"""
-        if not state.extension_ws:
-            raise Exception("扩展未连接")
+    async def execute_tool(
+        self,
+        name: str,
+        args: dict = None,
+        timeout: float = 60,
+        secret_key: str = None
+    ) -> Any:
+        """
+        向扩展发送 TOOL_CALL 并等待 TOOL_RESULT
+
+        Args:
+            name: 工具名称
+            args: 工具参数
+            timeout: 超时时间
+            secret_key: 目标插件密钥（可选，不指定则发送到第一个连接的插件）
+
+        Returns:
+            工具执行结果
+        """
+        # 根据密钥获取目标插件
+        if secret_key:
+            if secret_key not in state.extensions:
+                raise Exception(f"插件未连接: key={secret_key[:8]}...")
+            target_ws = state.extensions[secret_key].ws
+        else:
+            # 无密钥时使用第一个连接的插件（向后兼容）
+            if not state.extensions:
+                raise Exception("没有已连接的插件")
+            # 取第一个插件
+            first_key = next(iter(state.extensions.keys()))
+            target_ws = state.extensions[first_key].ws
+            secret_key = first_key
+
         if not name:
             raise Exception("工具名称不能为空")
 
         request_id = str(uuid.uuid4())[:8]
         future = asyncio.get_event_loop().create_future()
-        state.pending_tool_calls[request_id] = future
+        # 存储密钥和 future 的元组
+        state.pending_tool_calls[request_id] = (secret_key, future)
 
+        # 消息中携带密钥用于验证
         payload = {
             "type": "tool_call",
             "requestId": request_id,
+            "secretKey": secret_key,  # 携带密钥用于插件验证
             "payload": {
                 "name": name,
                 "args": args or {},
@@ -329,8 +454,8 @@ class NeuroneRelayServer:
         }
 
         try:
-            await state.extension_ws.send(json.dumps(payload))
-            logger.info(f"  → TOOL_CALL: {name}  id={request_id}")
+            await target_ws.send(json.dumps(payload))
+            logger.info(f"  → TOOL_CALL: {name}  id={request_id}  key={secret_key[:8]}...")
             raw_result = await asyncio.wait_for(future, timeout=timeout)
             logger.info(f"  ← TOOL_RESULT: {name}  id={request_id}")
             # 添加调试日志

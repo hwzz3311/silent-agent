@@ -49,7 +49,7 @@ class SilentAgentClient:
             title = await client.extract("title")
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 18792):
+    def __init__(self, host: str = "127.0.0.1", port: int = 18792, secret_key: str = None):
         self.host = host
         self.port = port
         self.ws = None
@@ -59,6 +59,7 @@ class SilentAgentClient:
         self._listen_task: Optional[asyncio.Task] = None
         self._extension_connected = False
         self._extension_tools: list = []
+        self._secret_key = secret_key  # 密钥用于多插件路由
 
     async def __aenter__(self):
         await self.connect()
@@ -162,13 +163,14 @@ class SilentAgentClient:
 
     # ==================== 通用 API ====================
 
-    async def call_tool(self, name: str, timeout: float = 60, **args) -> Any:
+    async def call_tool(self, name: str, timeout: float = 60, secret_key: str = None, **args) -> Any:
         """
         调用浏览器工具
 
         Args:
             name: 工具名称
             timeout: 超时秒数
+            secret_key: 可选的密钥，用于指定目标插件
             **args: 工具参数
 
         Returns:
@@ -176,17 +178,23 @@ class SilentAgentClient:
 
         Example:
             result = await client.call_tool("chrome_navigate", url="https://example.com")
+            # 指定目标插件
+            result = await client.call_tool("chrome_navigate", url="https://example.com", secret_key="TARGET_KEY")
         """
         # 记录调用日志
         print(f"[SilentAgentClient.call_tool] 开始调用工具: name={name}, args.keys={list(args.keys())}")
         if name == "inject_script":
             print(f"[SilentAgentClient.call_tool] inject_script code 长度: {len(args.get('code', ''))}")
 
+        # 确定使用的密钥
+        used_key = secret_key or self._secret_key
+
         try:
             result = await self._send_request("executeTool", {
                 "name": name,
                 "args": args,
                 "timeout": timeout,
+                "secretKey": used_key,  # 传递密钥用于多插件路由
             }, timeout=timeout + 5)
 
             print(f"[SilentAgentClient.call_tool] 工具调用成功: name={name}")

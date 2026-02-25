@@ -33,6 +33,70 @@ const MSG = {
 const STORAGE_STATUS = 'server_status'
 const STORAGE_CONFIG = 'connection_config'
 
+// ==================== 密钥管理 ====================
+
+/**
+ * 密钥存储键名
+ * 用于存储插件的唯一标识密钥
+ */
+const STORAGE_SECRET_KEY = 'secret_key'
+
+/**
+ * 生成基于机器信息的唯一密钥
+ * 结合 extensionId 和随机因子生成，确保唯一性
+ */
+async function generateSecretKey() {
+  // 检查是否已有存储的密钥
+  const stored = await chrome.storage.local.get([STORAGE_SECRET_KEY])
+  if (stored[STORAGE_SECRET_KEY]) {
+    return stored[STORAGE_SECRET_KEY]
+  }
+
+  // 基于机器信息生成密钥
+  // 使用 extensionId + 时间戳 + 随机数生成
+  const extensionId = chrome.runtime.id || 'unknown'
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 15)
+
+  // 简单哈希生成（实际生产可用更复杂的算法）
+  const rawKey = `${extensionId}-${timestamp}-${random}`
+  const key = btoa(rawKey).substring(0, 32).toUpperCase()  // 生成 32 位密钥
+
+  // 存储密钥
+  await chrome.storage.local.set({ [STORAGE_SECRET_KEY]: key })
+
+  console.log('[Neurone] 生成本机密钥:', key)
+  return key
+}
+
+/**
+ * 获取当前密钥（同步版本，需要先确保已生成）
+ */
+function getSecretKeySync() {
+  // 注意：这是一个简化版本，实际应使用异步版本
+  // 完整的实现应该在连接时调用 generateSecretKey()
+  return null
+}
+
+/**
+ * 手动设置固定密钥（用于测试或多设备同步）
+ */
+async function setSecretKey(key) {
+  if (!key || key.length < 8) {
+    return { success: false, error: '密钥长度至少8位' }
+  }
+  await chrome.storage.local.set({ [STORAGE_SECRET_KEY]: key })
+  return { success: true, key }
+}
+
+/**
+ * 清空密钥（重新生成）
+ */
+async function clearSecretKey() {
+  await chrome.storage.local.remove([STORAGE_SECRET_KEY])
+  return { success: true }
+}
+
 // ==================== 工具注册表 ====================
 
 /** @type {Map<string, BaseTool>} */
@@ -1041,13 +1105,30 @@ class NeuroneWSClient {
     this.shouldReconnect = false
     this.reconnectTimer = null
     this.currentUrl = null
+    /** 密钥：用于多插件身份识别和路由 */
+    this.secretKey = null
+    /** 服务器返回的密钥验证状态 */
+    this.keyAccepted = false
   }
 
-  async connect(url) {
+  /**
+   * 连接到 Relay 服务器
+   * @param {string} url - WebSocket URL
+   * @param {string} secretKey - 可选的密钥，用于多插件路由
+   */
+  async connect(url, secretKey = null) {
     if (!url) return { success: false, error: '未提供 URL' }
     if (this.socket) { try { this.socket.close() } catch {} }
     this.clearReconnectTimer()
     this.currentUrl = url
+
+    // 如果未提供密钥，则自动生成
+    if (!secretKey) {
+      secretKey = await generateSecretKey()
+    }
+    this.secretKey = secretKey
+    console.log(`[Neurone] 使用密钥连接: ${secretKey.substring(0, 8)}...`)
+
     this.shouldReconnect = true
 
     return new Promise(resolve => {
@@ -1062,22 +1143,46 @@ class NeuroneWSClient {
           clearTimeout(timer)
           this.socket = ws
           console.log(`[Neurone] WebSocket 已连接: ${url}`)
+
+          // 发送 HELLO 消息，携带密钥
+          // 服务器将通过密钥识别不同的插件实例
           this.send({
             type: MSG.HELLO,
             extensionId: chrome.runtime.id,
             version: chrome.runtime.getManifest().version,
             tools: Array.from(toolRegistry.keys()),
+            secretKey: this.secretKey  // 携带密钥用于身份识别
           })
+
           void updateServerStatus({ connected: true, serverUrl: url })
           updateBadge('on')
           void chrome.action.setTitle({ title: 'Neurone: 已连接 (点击断开)' })
           resolve({ success: true })
         }
-        ws.onmessage = (ev) => void this._onMessage(ev.data)
+
+        // 处理服务器对密钥的验证结果
+        const handleHelloAck = (data) => {
+          // 如果服务器返回密钥验证失败，断开连接
+          if (data.keyAccepted === false) {
+            console.error('[Neurone] 密钥验证失败:', data.error || '未知错误')
+            this.disconnect()
+            resolve({ success: false, error: data.error || '密钥验证失败' })
+            return true  // 表示已处理
+          }
+          // 密钥验证成功
+          if (data.keyAccepted === true) {
+            console.log('[Neurone] 密钥验证通过:', this.secretKey.substring(0, 8) + '...')
+            this.keyAccepted = true
+          }
+          return false  // 未处理，继续
+        }
+
+        ws.onmessage = (ev) => void this._onMessage(ev.data, handleHelloAck)
         ws.onclose = (ev) => {
           clearTimeout(timer)
           console.log(`[Neurone] WebSocket 关闭: code=${ev.code}`)
           this.socket = null
+          this.keyAccepted = false
           // 标记为待重连（Service Worker 重启时需要恢复）
           void setPendingReconnect()
           this._scheduleReconnect()
@@ -1113,7 +1218,12 @@ class NeuroneWSClient {
 
   // ---------- 内部 ----------
 
-  async _onMessage(raw) {
+  /**
+   * 处理接收到的消息
+   * @param {string|ArrayBuffer|Blob} raw - 原始消息
+   * @param {Function} helloAckCallback - 可选的回调，用于处理 HELLO 响应（密钥验证）
+   */
+  async _onMessage(raw, helloAckCallback = null) {
     let text = raw
     if (raw instanceof ArrayBuffer) text = new TextDecoder().decode(raw)
     else if (raw instanceof Blob) text = await raw.text()
@@ -1123,8 +1233,28 @@ class NeuroneWSClient {
 
     const type = msg.type || msg.method
 
+    // 处理 HELLO 响应（密钥验证结果）
+    if (type === 'hello_ack' || type === MSG.HELLO || (msg.extensionId && helloAckCallback)) {
+      if (helloAckCallback) {
+        const handled = helloAckCallback(msg)
+        if (handled) return
+      }
+    }
+
     if (type === MSG.PING || type === 'ping') {
       this.send({ type: MSG.PONG })
+      return
+    }
+
+    // 工具调用携带密钥验证
+    // 如果服务端指定了密钥，检查是否匹配
+    if (msg.secretKey && msg.secretKey !== this.secretKey) {
+      console.warn(`[Neurone] 密钥不匹配: 期望 ${this.secretKey}, 收到 ${msg.secretKey}`)
+      this.send({
+        type: MSG.TOOL_RESULT,
+        requestId: msg.requestId,
+        result: { content: [{ type: 'error', text: '密钥不匹配' }], isError: true }
+      })
       return
     }
 
@@ -1174,10 +1304,13 @@ async function getRelayPort() {
 
 async function getConnectionConfig() {
   const stored = await chrome.storage.local.get([STORAGE_CONFIG])
+  const keyStored = await chrome.storage.local.get([STORAGE_SECRET_KEY])
   const port = await getRelayPort()
+
   return {
     serverUrl: `ws://127.0.0.1:${port}/extension`,
     autoReconnect: true,
+    secretKey: keyStored[STORAGE_SECRET_KEY] || null,  // 添加密钥到配置
     ...stored[STORAGE_CONFIG],
   }
 }
@@ -1266,10 +1399,11 @@ async function main() {
   console.log(`[Neurone] v${chrome.runtime.getManifest().version} 已加载`)
   console.log(`[Neurone] 已注册 ${toolRegistry.size} 个工具:`, Array.from(toolRegistry.keys()))
 
-  // 自动连接
+  // 自动连接（支持密钥参数）
   const config = await getConnectionConfig()
   const status = await getServerStatus()
   console.log(`[Neurone] Relay URL: ${config.serverUrl}`)
+  console.log(`[Neurone] 密钥: ${config.secretKey ? config.secretKey.substring(0, 8) + '...' : '自动生成'}`)
   console.log(`[Neurone] 上次状态: pendingReconnect=${status.pendingReconnect}, connected=${status.connected}`)
 
   // 如果之前有连接或待重连，尝试恢复连接
@@ -1279,7 +1413,8 @@ async function main() {
       await updateServerStatus({ pendingReconnect: false })
     }
     updateBadge('connecting')
-    await wsClient.connect(config.serverUrl)
+    // 传入密钥参数用于多插件识别
+    await wsClient.connect(config.serverUrl, config.secretKey)
   }
 }
 
@@ -1293,7 +1428,8 @@ chrome.action.onClicked.addListener(async () => {
     updateBadge('connecting')
     void chrome.action.setTitle({ title: 'Neurone: 正在连接...' })
     const config = await getConnectionConfig()
-    const r = await wsClient.connect(config.serverUrl)
+    // 传入密钥参数用于多插件识别和路由
+    const r = await wsClient.connect(config.serverUrl, config.secretKey)
     if (!r.success) {
       updateBadge('error')
       void chrome.action.setTitle({ title: `Neurone: 连接失败 (${r.error})` })
@@ -1311,9 +1447,10 @@ chrome.runtime.onMessage.addListener((req, _sender, sendResponse) => {
   const handle = async () => {
     switch (req.type) {
       case 'GET_STATUS':
-        return { ...(await getServerStatus()), connected: wsClient.isConnected() }
+        return { ...(await getServerStatus()), connected: wsClient.isConnected(), secretKey: wsClient.secretKey }
       case 'CONNECT_WEBSOCKET':
-        return await wsClient.connect(req.url)
+        // 支持传入密钥参数，用于指定插件身份
+        return await wsClient.connect(req.url, req.secretKey)
       case 'DISCONNECT_WEBSOCKET':
         wsClient.disconnect(); return { success: true }
       case 'GET_CONNECTION_CONFIG':

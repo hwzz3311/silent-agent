@@ -248,9 +248,10 @@ class ControlTool(Tool[ControlParams, dict]):
                 context=context
             )
 
-            # 获取 client 和 tab_id
+            # 获取 client、tab_id 和 secret_key
             client = getattr(context, 'client', None)
             tab_id = getattr(context, 'tab_id', None)
+            secret_key = getattr(context, 'secret_key', None)
 
             # 如果没有 tab_id，先获取活动标签页
             if not tab_id and client:

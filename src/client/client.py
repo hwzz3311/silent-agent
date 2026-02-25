@@ -127,6 +127,7 @@ class SilentAgentClient:
         path: str = "/controller",
         auto_reconnect: bool = True,
         reconnect_delay: float = 5.0,
+        secret_key: str = None,
     ):
         self.config = ConnectionConfig(
             host=host,
@@ -134,9 +135,12 @@ class SilentAgentClient:
             path=path,
             auto_reconnect=auto_reconnect,
             reconnect_delay=reconnect_delay,
+            secret_key=secret_key,
         )
         self._connection = ConnectionManager(self.config)
         self._default_timeout = 60.0
+        # 密钥：用于多插件路由，指定目标插件
+        self._secret_key = secret_key
         # 网站域名到标签页 ID 的映射表
         self._site_tab_map: Dict[str, int] = {}
 
@@ -353,9 +357,22 @@ class SilentAgentClient:
 
         Returns:
             工具执行结果
+
+        Note:
+            统一从 context 获取 secret_key，业务工具可通过 context.secret_key 访问
+            无需每个业务工具单独实现获取逻辑
         """
         if name not in BUSINESS_TOOLS:
             raise ValueError(f"未知业务工具: {name}")
+
+        # 统一获取 secret_key：优先使用 context 中的，否则使用默认的
+        secret_key = getattr(context, 'secret_key', None) if context else None
+        if not secret_key:
+            secret_key = self._secret_key
+
+        # 确保 context 有 secret_key 属性（供业务工具使用）
+        if context and not hasattr(context, 'secret_key'):
+            context.secret_key = secret_key
 
         module_path, func_name = BUSINESS_TOOLS[name]
 
@@ -430,7 +447,8 @@ class SilentAgentClient:
         name: str,
         params: Dict[str, Any] = None,
         timeout: float = None,
-        context: 'ExecutionContext' = None
+        context: 'ExecutionContext' = None,
+        secret_key: str = None
     ) -> Dict[str, Any]:
         """
         执行工具
@@ -442,6 +460,7 @@ class SilentAgentClient:
             params: 工具参数
             timeout: 超时时间（秒）
             context: 可选的执行上下文（用于业务工具访问浏览器）
+            secret_key: 可选的密钥，用于指定目标插件（不传则使用默认密钥）
 
         Returns:
             工具执行结果
@@ -479,6 +498,9 @@ class SilentAgentClient:
         # 将 API 工具名映射到扩展工具名
         extension_tool_name = self.TOOL_NAME_MAP.get(name, name)
 
+        # 确定使用的密钥：优先使用传入的参数，否则使用默认密钥
+        used_key = secret_key or self._secret_key
+
         # 发送执行请求 (使用 relay_server 期望的格式)
         timeout = timeout or self._default_timeout
         request = {
@@ -487,6 +509,7 @@ class SilentAgentClient:
                 "name": extension_tool_name,
                 "args": params or {},
                 "timeout": timeout,
+                "secretKey": used_key,  # 传递密钥用于多插件路由
             },
         }
 
@@ -691,18 +714,22 @@ class SilentAgentClient:
 
     # ========== 代理方法 ==========
 
-    async def call_tool(self, name: str, timeout: float = 60, **args) -> Any:
+    async def call_tool(self, name: str, timeout: float = 60, secret_key: str = None, **args) -> Any:
         """
         代理调用浏览器工具
 
         Args:
             name: 工具名称
             timeout: 超时秒数
+            secret_key: 可选的密钥，用于指定目标插件
             **args: 工具参数
 
         Returns:
             工具执行结果
         """
+        # 确定使用的密钥
+        used_key = secret_key or self._secret_key
+
         # 使用 relay_server 期望的格式
         message = {
             "method": "executeTool",
@@ -710,6 +737,7 @@ class SilentAgentClient:
                 "name": name,
                 "args": args,
                 "timeout": timeout,
+                "secretKey": used_key,  # 传递密钥用于多插件路由
             }
         }
         result = await self._connection.send_and_wait(

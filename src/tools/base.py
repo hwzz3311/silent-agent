@@ -58,6 +58,7 @@ class ExecutionContext:
         retry_count: 重试次数
         retry_delay: 重试间隔（毫秒）
         client: 已连接的 SilentAgentClient 实例
+        secret_key: 插件密钥，用于多插件路由
     """
     tab_id: Optional[int] = None
     world: str = "MAIN"
@@ -66,6 +67,7 @@ class ExecutionContext:
     retry_count: int = 1
     retry_delay: int = 1000
     client: Any = None
+    secret_key: Optional[str] = None  # 密钥用于多插件路由
 
     def get_variable(self, name: str, default: Any = None) -> Any:
         """获取变量"""

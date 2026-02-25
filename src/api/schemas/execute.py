@@ -18,6 +18,7 @@ class ExecuteRequest(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict, description="工具参数")
     timeout: Optional[int] = Field(None, ge=1000, le=300000, description="超时时间（毫秒）")
     tab_id: Optional[int] = Field(None, description="标签页 ID")
+    secret_key: Optional[str] = Field(None, description="插件密钥，用于多插件路由")
 
 
 class ExecuteResponse(BaseModel):

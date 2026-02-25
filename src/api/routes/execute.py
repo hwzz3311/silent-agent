@@ -66,17 +66,22 @@ async def execute_tool(request: ExecuteRequest):
         )
 
     try:
-        # 创建 ExecutionContext 并传入 tab_id 和 client
+        # 创建 ExecutionContext 并传入 tab_id、client 和 secret_key
         from src.tools.base import ExecutionContext
-        context = ExecutionContext(tab_id=request.tab_id, client=client)
+        context = ExecutionContext(
+            tab_id=request.tab_id,
+            client=client,
+            secret_key=request.secret_key  # 传递密钥用于多插件路由
+        )
 
         # 执行工具调用
-        logger.info(f"[API] 开始执行工具: {request.tool}, tab_id={request.tab_id}")
+        logger.info(f"[API] 开始执行工具: {request.tool}, tab_id={request.tab_id}, secret_key={request.secret_key}")
         result = await client.execute_tool(
             name=request.tool,
             params=request.params or {},
             timeout=(request.timeout or 60000) / 1000,
             context=context,
+            secret_key=request.secret_key,  # 传递密钥用于多插件路由
         )
         logger.debug(f"[API] 工具执行结果: {json.dumps(result, ensure_ascii=False, default=str)}")
         # 记录响应日志

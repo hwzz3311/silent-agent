@@ -44,6 +44,8 @@ class ConnectionConfig:
     heartbeat_interval: float = 30.0
     heartbeat_timeout: float = 10.0
     connection_timeout: float = 30.0
+    # 密钥：用于多插件路由，连接时传递给服务端
+    secret_key: Optional[str] = None
 
     @property
     def url(self) -> str:
