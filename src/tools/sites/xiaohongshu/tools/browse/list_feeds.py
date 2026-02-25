@@ -72,13 +72,14 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         logger.info("开始获取小红书笔记列表")
         logger.debug(f"参数: tab_id={params.tab_id}, page_type={params.page_type}, channel={params.channel}, max_items={params.max_items}")
 
+        # 从 context 获取 client 和 tab_id
+        client = getattr(context, 'client', None)
+        tab_id = params.tab_id or context.tab_id
+        logger.debug(f"从 context 获取 client: {client is not None}, tab_id: {tab_id}")
+
         # ========== 频道切换 ==========
         if params.channel and params.channel != "recommend":
             await self._switch_channel(client, tab_id, params.channel)
-
-        # 从 context 获取 client
-        client = getattr(context, 'client', None)
-        logger.debug(f"从 context 获取 client: {client is not None}")
 
         if not client:
             # 如果 context 没有 client，调用 site 的方法
