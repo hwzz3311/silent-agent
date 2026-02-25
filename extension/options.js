@@ -3,6 +3,7 @@
  */
 
 const DEFAULT_PORT = 18792
+const STORAGE_EXCLUDED_DOMAINS = 'excluded_domains_list'  // 排除的域名列表（当有 all_urls 授权时）
 
 // 常用网站预设列表
 const PRESET_HOSTS = [
@@ -135,9 +136,14 @@ async function refreshPermissionsUI() {
   const origins = await getGrantedOrigins()
   const hasAll = hasAllUrlsPermission(origins)
 
+  // 获取排除列表
+  const excludedData = await chrome.storage.local.get([STORAGE_EXCLUDED_DOMAINS])
+  const excludedDomainList = excludedData[STORAGE_EXCLUDED_DOMAINS] || []
+
   // 更新状态文字
   if (hasAll) {
-    setPermStatus('ok', '✓ 已授权所有网站访问权限')
+    const excludedCount = excludedDomainList.length
+    setPermStatus('ok', `✓ 已授权所有网站访问权限${excludedCount > 0 ? `（已排除 ${excludedCount} 个）` : ''}`)
   } else if (origins.length) {
     setPermStatus('ok', `✓ 已授权 ${origins.length} 个源`)
   } else {
@@ -145,26 +151,28 @@ async function refreshPermissionsUI() {
   }
 
   // 渲染推荐网站标签
-  renderPresets(origins, hasAll)
+  renderPresets(origins, hasAll, excludedDomainList)
 
   // 渲染已授权列表
-  renderHostList(origins, hasAll)
+  renderHostList(origins, hasAll, excludedDomainList)
 }
 
 /**
  * 渲染推荐网站标签
  */
-function renderPresets(grantedOrigins, hasAll) {
+function renderPresets(grantedOrigins, hasAll, excludedDomainList = []) {
   const container = document.getElementById('host-presets')
   if (!container) return
   container.innerHTML = ''
 
   for (const { domain, label } of PRESET_HOSTS) {
-    const granted = hasAll || isDomainGranted(domain, grantedOrigins)
+    // 排除列表中的域名视为未授权
+    const isExcluded = excludedDomainList.includes(domain)
+    const granted = (hasAll && !isExcluded) || isDomainGranted(domain, grantedOrigins)
     const tag = document.createElement('div')
     tag.className = 'host-preset' + (granted ? ' granted' : '')
     tag.innerHTML = `<span class="dot"></span>${label}<span style="opacity:0.5;font-size:11px">${domain}</span>`
-    tag.title = granted ? `${domain} 已授权` : `点击授权 ${domain}`
+    tag.title = granted ? `${domain} 已授权` : (isExcluded ? `已排除 ${domain}，点击恢复授权` : `点击授权 ${domain}`)
 
     if (!granted) {
       tag.addEventListener('click', () => void addHostPermission(domain))
@@ -176,7 +184,7 @@ function renderPresets(grantedOrigins, hasAll) {
 /**
  * 渲染已授权网站列表
  */
-function renderHostList(grantedOrigins, hasAll) {
+function renderHostList(grantedOrigins, hasAll, excludedDomainList = []) {
   const container = document.getElementById('host-list')
   if (!container) return
   container.innerHTML = ''
@@ -190,6 +198,26 @@ function renderHostList(grantedOrigins, hasAll) {
     item.className = 'host-item'
     item.innerHTML = `<code>&lt;all_urls&gt;</code><span class="host-all-badge">全部网站</span>`
     container.appendChild(item)
+
+    // 显示排除列表
+    if (excludedDomainList.length > 0) {
+      const excludedTitle = document.createElement('div')
+      excludedTitle.style.cssText = 'font-size:12px;color:var(--muted);margin:12px 0 8px 0;padding-left:4px'
+      excludedTitle.textContent = '已排除的网站（撤销授权）'
+      container.appendChild(excludedTitle)
+
+      for (const domain of excludedDomainList.sort()) {
+        const item2 = document.createElement('div')
+        item2.className = 'host-item'
+        item2.innerHTML = `<code>${domain}</code><span class="host-badge" style="background: color-mix(in oklab, #EF4444 15%, transparent); color: color-mix(in oklab, #EF4444 85%, canvasText 15%);">已排除</span><button class="host-remove" data-excluded="">恢复</button>`
+
+        const btn = item2.querySelector('.host-remove')
+        btn.dataset.domain = domain
+        btn.addEventListener('click', () => void removeExcludedDomain(domain))
+
+        container.appendChild(item2)
+      }
+    }
   }
 
   // 去重并排序
@@ -288,6 +316,27 @@ async function removeHostPermission(origin) {
     setPermStatus('', `已移除 ${originToDisplay(origin)}`)
   } catch (e) {
     setPermStatus('error', `✗ 移除失败: ${e.message}`)
+  }
+  await refreshPermissionsUI()
+}
+
+/**
+ * 从排除列表中移除域名（恢复授权）
+ */
+async function removeExcludedDomain(domain) {
+  try {
+    const excludedData = await chrome.storage.local.get([STORAGE_EXCLUDED_DOMAINS])
+    let excludedDomainList = excludedData[STORAGE_EXCLUDED_DOMAINS] || []
+    const index = excludedDomainList.indexOf(domain)
+    if (index > -1) {
+      excludedDomainList.splice(index, 1)
+      await chrome.storage.local.set({
+        [STORAGE_EXCLUDED_DOMAINS]: excludedDomainList
+      })
+    }
+    setPermStatus('ok', `✓ 已恢复 ${domain} 授权`)
+  } catch (e) {
+    setPermStatus('error', `✗ 恢复失败: ${e.message}`)
   }
   await refreshPermissionsUI()
 }

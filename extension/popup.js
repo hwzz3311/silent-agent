@@ -11,6 +11,7 @@ console.log('[Popup.js] 文件开始加载 at', new Date().toISOString())
 const STORAGE_CONFIG = 'connection_config'
 const STORAGE_STATUS = 'server_status'
 const STORAGE_SECRET_KEY = 'secret_key'
+const STORAGE_EXCLUDED_DOMAINS = 'excluded_domains_list'  // 排除的域名列表（当有 all_urls 授权时）
 
 // 元素引用
 const elements = {
@@ -131,8 +132,15 @@ async function checkCurrentPageAuth(tab) {
     const perms = await chrome.permissions.getAll()
     const grantedOrigins = perms.origins || []
 
-    // 检查是否授权所有网站
-    const allGranted = grantedOrigins.includes('<all_urls>') || grantedOrigins.includes('*://*/*')
+    // 获取排除列表（当有 all_urls 授权时使用）
+    const excludedData = await chrome.storage.local.get([STORAGE_EXCLUDED_DOMAINS])
+    const excludedDomainList = excludedData[STORAGE_EXCLUDED_DOMAINS] || []
+
+    // 检查是否在排除列表中
+    const isExcluded = excludedDomainList.includes(mainDomain)
+
+    // 检查是否授权所有网站（排除列表中的域名视为未授权）
+    const allGranted = (grantedOrigins.includes('<all_urls>') || grantedOrigins.includes('*://*/*')) && !isExcluded
 
     // 检查具体域名 - 使用主域名匹配
     const domainGranted = grantedOrigins.some(origin => {
@@ -197,16 +205,37 @@ async function authorizeCurrentPage(tab) {
     const mainDomain = getMainDomain(hostname)
     console.log('[Popup] mainDomain:', mainDomain)
 
-    const origin = mainDomainToOrigin(mainDomain)
+    const origin = mainDomainToOrigins(mainDomain)
     console.log('[Popup] origin:', origin)
 
-    // 使用 chrome.permissions API 请求权限
-    const granted = await chrome.permissions.request({ origins: [origin] })
+    // 获取当前授权状态
+    const perms = await chrome.permissions.getAll()
+    const grantedOrigins = perms.origins || []
+    const hasAllUrls = grantedOrigins.includes('<all_urls>') || grantedOrigins.includes('*://*/*')
 
-    if (granted) {
-      showToast(`已授权 ${mainDomain} 域名`)
+    // 如果有 all_urls 授权且域名在排除列表中，从排除列表移除（不需要再请求具体权限）
+    if (hasAllUrls) {
+      const excludedData = await chrome.storage.local.get([STORAGE_EXCLUDED_DOMAINS])
+      let excludedDomainList = excludedData[STORAGE_EXCLUDED_DOMAINS] || []
+      const index = excludedDomainList.indexOf(mainDomain)
+      if (index > -1) {
+        excludedDomainList.splice(index, 1)
+        await chrome.storage.local.set({
+          [STORAGE_EXCLUDED_DOMAINS]: excludedDomainList
+        })
+        showToast(`已恢复 ${mainDomain} 授权`)
+      } else {
+        showToast(`${mainDomain} 已有全部网站授权`)
+      }
     } else {
-      showToast('用户拒绝了权限请求')
+      // 没有 all_urls 授权时，使用 chrome.permissions API 请求权限
+      const granted = await chrome.permissions.request({ origins: [origin] })
+
+      if (granted) {
+        showToast(`已授权 ${mainDomain} 域名`)
+      } else {
+        showToast('用户拒绝了权限请求')
+      }
     }
 
     // 刷新授权状态
@@ -226,29 +255,46 @@ async function revokeCurrentPage(tab) {
     const url = new URL(tab.url)
     const hostname = url.hostname
     const mainDomain = getMainDomain(hostname)
-    const origin = mainDomainToOrigin(mainDomain)
 
     // 获取当前所有已授权的 origins
     const perms = await chrome.permissions.getAll()
     const grantedOrigins = perms.origins || []
 
-    // 查找需要撤销的 origin（匹配主域名）
-    const originsToRemove = grantedOrigin.filter(o => {
-      const oMainDomain = getMainDomain(o.replace('*://*.', '').replace('/*', ''))
-      return oMainDomain === mainDomain
-    })
+    // 检查是否有 all_urls 授权
+    const hasAllUrls = grantedOrigins.includes('<all_urls>') || grantedOrigins.includes('*://*/*')
 
-    if (originsToRemove.length > 0) {
-      await chrome.permissions.remove({ origins: originsToRemove })
+    if (hasAllUrls) {
+      // 有 all_urls 授权时，添加到排除列表
+      const excludedData = await chrome.storage.local.get([STORAGE_EXCLUDED_DOMAINS])
+      let excludedDomainList = excludedData[STORAGE_EXCLUDED_DOMAINS] || []
+
+      if (!excludedDomainList.includes(mainDomain)) {
+        excludedDomainList.push(mainDomain)
+        await chrome.storage.local.set({
+          [STORAGE_EXCLUDED_DOMAINS]: excludedDomainList
+        })
+      }
+      showToast(`已撤销 ${mainDomain} 域名`)
+    } else {
+      // 没有 all_urls 授权时，直接撤销具体域名
+      const originsToRemove = grantedOrigins.filter(o => {
+        const oMainDomain = getMainDomain(o.replace('*://*.', '').replace('/*', ''))
+        return oMainDomain === mainDomain
+      })
+
+      if (originsToRemove.length > 0) {
+        await chrome.permissions.remove({ origins: originsToRemove })
+      }
+      showToast(`已撤销 ${mainDomain} 域名`)
     }
 
-    showToast(`已撤销 ${mainDomain} 域名`)
     // 刷新授权状态
     const info = await checkCurrentPageAuth(tab)
     updateAuthStatus(info)
   } catch (e) {
     console.error('[Popup] 撤销失败:', e)
     showToast('撤销失败: ' + e.message)
+    showToast('撤销失败: ' + e)
   }
 }
 
