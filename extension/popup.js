@@ -4,6 +4,10 @@
  * 处理 popup 界面的交互：显示密钥、连接状态、配置和授权
  */
 
+// 立即执行：确保脚本被加载
+console.log('[Popup.js] 文件开始加载')
+alert('[Popup.js] 文件开始加载 - 检查是否能弹出')
+
 // 常量
 const STORAGE_CONFIG = 'connection_config'
 const STORAGE_STATUS = 'server_status'
