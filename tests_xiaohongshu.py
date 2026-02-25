@@ -397,7 +397,7 @@ class XiaohongshuTestSuite:
         try:
             result = await self.api.xhs_list_feeds(
                 channel="recommend",
-                max_items=50
+                max_items=1
             )
             has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
             print_result("获取推荐频道笔记列表", has_feeds, f"结果: {result.get('data', result)}")

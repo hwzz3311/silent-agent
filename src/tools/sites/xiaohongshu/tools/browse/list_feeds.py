@@ -98,7 +98,11 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             logger.debug(f"从 context 获取 tab_id: {tab_id}")
 
         if not tab_id and hasattr(client, 'get_site_tab'):
-            # 从全局 site tab 映射获取
+            # 从全局 site tab 映射获取（需要先通过 refresh_site_tabs 初始化）
+            secret_key = getattr(context, 'secret_key', None)
+            if secret_key:
+                # 按需初始化对应插件的 tab 映射
+                await client.refresh_site_tabs(secret_key)
             tab_id = client.get_site_tab(site_domain)
             logger.debug(f"从 site_tab_map 获取 tab_id: {tab_id}")
 
