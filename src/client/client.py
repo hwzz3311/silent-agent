@@ -141,13 +141,12 @@ class SilentAgentClient:
         # 网站域名到标签页 ID 的映射表
         self._site_tab_map: Dict[str, int] = {}
 
-        # 注册扩展连接事件：当扩展连接时重新初始化 tab 映射
+        # 注册扩展连接事件
         self._connection.on_event("extension_connected", self._on_extension_connected)
 
     async def _on_extension_connected(self, params: dict) -> None:
-        """扩展连接事件处理器，重新初始化 tab 映射"""
-        logger.info("[SilentAgentClient] 扩展已连接，重新初始化 tab 映射")
-        await self._init_site_tab_map()
+        """扩展连接事件处理器"""
+        logger.info("[SilentAgentClient] 扩展已连接")
 
     async def __aenter__(self):
         await self.connect()
@@ -161,26 +160,30 @@ class SilentAgentClient:
     async def connect(self) -> ConnectionInfo:
         """连接到服务器"""
         info = await self._connection.connect()
-        # 连接成功后，尝试初始化 tab 映射
-        await self._init_site_tab_map()
         return info
 
-    async def _init_site_tab_map(self) -> None:
+    async def _init_site_tab_map(self, secret_key: str = None) -> None:
         """
         初始化网站域名到标签页的映射
 
         通过浏览器扩展获取所有标签页，然后根据 URL 提取域名，
         建立域名到 tabId 的映射关系。
+
+        Args:
+            secret_key: 插件密钥，用于指定目标插件进行初始化
         """
         if not self.is_connected:
             return
 
+        # 确定使用的密钥
+        used_key = secret_key or self._secret_key
+
         try:
-            # 调用 browser_control 的 query_tabs 获取所有标签页
+            # 调用 browser_control 的 query_tabs 获取所有标签页（传入密钥）
             result = await self.execute_tool("browser_control", {
                 "action": "query_tabs",
                 "params": {}
-            }, timeout=10)
+            }, timeout=10, secret_key=used_key)
 
             if result.get("success") and result.get("data"):
                 tabs = result["data"]
@@ -255,6 +258,8 @@ class SilentAgentClient:
 
         支持精确匹配和模糊匹配（如 www.xiaohongshu.com 匹配 xiaohongshu.com）
 
+        注意：使用前需先调用 refresh_site_tabs(secret_key) 初始化对应插件的映射
+
         Args:
             site_domain: 网站域名（如 xiaohongshu.com 或 www.xiaohongshu.com）
 
@@ -287,17 +292,20 @@ class SilentAgentClient:
         if site_domain in self._site_tab_map:
             del self._site_tab_map[site_domain]
 
-    async def refresh_site_tabs(self) -> Dict[str, int]:
+    async def refresh_site_tabs(self, secret_key: str = None) -> Dict[str, int]:
         """
         刷新网站域名到标签页的映射
 
         重新从浏览器获取所有标签页并更新映射表
 
+        Args:
+            secret_key: 插件密钥，用于指定目标插件
+
         Returns:
             新的域名到 tabId 的映射字典
         """
         self._site_tab_map.clear()
-        await self._init_site_tab_map()
+        await self._init_site_tab_map(secret_key)
         return self._site_tab_map
 
     @property

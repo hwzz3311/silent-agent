@@ -27,6 +27,9 @@ from datetime import datetime
 API_BASE_URL = "http://127.0.0.1:8080"
 RELAY_URL = "http://127.0.0.1:18792"
 
+# 插件密钥（用于多插件路由）
+SECRET_KEY = "CG1PCGPNY2DHB2PKYMNLYWTOYNBPAGTO"
+
 # 颜色输出
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -47,8 +50,9 @@ def print_result(name: str, success: bool, message: str = ""):
 class XiaohongshuAPIClient:
     """小红书 API 客户端"""
 
-    def __init__(self, base_url: str = API_BASE_URL):
+    def __init__(self, base_url: str = API_BASE_URL, secret_key: str = SECRET_KEY):
         self.base_url = base_url
+        self.secret_key = secret_key
         self.session = None
 
     async def connect(self):
@@ -88,12 +92,16 @@ class XiaohongshuAPIClient:
 
     # ===== 工具执行相关 =====
 
-    async def execute_tool(self, tool: str, params: Dict[str, Any] = None, timeout: int = 60000) -> Dict[str, Any]:
+    async def execute_tool(self, tool: str, params: Dict[str, Any] = None, timeout: int = 60000, secret_key: str = None) -> Dict[str, Any]:
         """执行工具调用"""
+        # 如果未传入 secret_key，使用默认密钥
+        if secret_key is None:
+            secret_key = self.secret_key
         data = {
             "tool": tool,
             "params": params or {},
-            "timeout": timeout
+            "timeout": timeout,
+            "secret_key": secret_key
         }
         return await self.request("POST", "/api/v1/execute", data=data)
 
