@@ -255,8 +255,8 @@ async function connect() {
   })
 
   // 获取密钥
-  const [keyData] = await chrome.storage.local.get([STORAGE_SECRET_KEY])
-  const secretKey = keyData[STORAGE_SECRET_KEY]
+  const keyData = await chrome.storage.local.get(STORAGE_SECRET_KEY)
+  const secretKey = keyData && keyData[STORAGE_SECRET_KEY]
 
   updateConnectionStatus(false, true)
 
