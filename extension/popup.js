@@ -180,13 +180,22 @@ function updateAuthStatus(info) {
 
 // 授权当前页面（使用 chrome.permissions API）
 async function authorizeCurrentPage(tab) {
+  console.log('[Popup] authorizeCurrentPage 被调用')
+  console.log('[Popup] getMainDomain:', typeof getMainDomain)
+  console.log('[Popup] mainDomainToOrigin:', typeof mainDomainToOrigin)
+
   if (!tab || !tab.url) return
 
   try {
     const url = new URL(tab.url)
     const hostname = url.hostname
+    console.log('[Popup] hostname:', hostname)
+
     const mainDomain = getMainDomain(hostname)
+    console.log('[Popup] mainDomain:', mainDomain)
+
     const origin = mainDomainToOrigin(mainDomain)
+    console.log('[Popup] origin:', origin)
 
     // 使用 chrome.permissions API 请求权限
     const granted = await chrome.permissions.request({ origins: [origin] })
