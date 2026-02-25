@@ -7,10 +7,6 @@
 from typing import Optional, Dict, List
 from pydantic import BaseModel, Field
 
-from src.tools.business.selectors import (
-    SelectorType,
-    SelectorInfo,
-)
 
 
 class XHSPageSelectors(BaseModel):

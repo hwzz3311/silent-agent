@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generic, TypeVar, Optional, Dict, List
 from pydantic import BaseModel, Field
-import time
 
 from src.core.result import Result, ResultMeta, Error, ErrorCode
 
@@ -242,7 +241,6 @@ class Tool(ABC, Generic[TParams, TResult]):
             return params_type
 
         # 尝试从泛型基类获取类型参数
-        import typing
         orig_bases = getattr(self.__class__, '__orig_bases__', None)
         if orig_bases:
             for base in orig_bases:

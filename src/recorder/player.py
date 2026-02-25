@@ -5,14 +5,12 @@
 """
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
-from src.core.result import Result
-from src.flows.context import FlowContext
 from .storage import RecordedAction, Recording, RecordingStorage
-from .adapter import SelectorAdapter, ElementMatcher, ElementInfoExtractor
+from .adapter import SelectorAdapter, ElementMatcher
 
 
 class PlaybackState:

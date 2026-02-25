@@ -9,7 +9,6 @@ Neurone Demo - 完整闭环演示
 """
 
 import asyncio
-import json
 import sys
 import os
 
@@ -98,7 +97,7 @@ async def demo_health_check():
     try:
         await client.connect()
         print("  [OK] CDP 连接成功!")
-        print(f"  启用域: DOM, Input")
+        print("  启用域: DOM, Input")
 
         # 测试发送命令
         result = await client.send_command("Browser.getVersion")
@@ -127,7 +126,7 @@ async def demo_get_dom(client: CDPClient):
         return count
 
     total_nodes = count_nodes(dom)
-    print(f"  [OK] 获取完成!")
+    print("  [OK] 获取完成!")
     print(f"  节点总数: {total_nodes}")
 
     # 打印前 5 层结构

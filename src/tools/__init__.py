@@ -55,7 +55,6 @@ from .browser import (
 )
 
 # 自动注册所有内置工具
-from .base import ToolFactory
 from .browser import *  # noqa: F401
 
 

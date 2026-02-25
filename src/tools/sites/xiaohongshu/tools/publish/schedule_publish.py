@@ -10,7 +10,6 @@ from datetime import datetime
 
 from src.tools.base import ExecutionContext
 from src.tools.business.base import BusinessTool
-from src.tools.business.errors import BusinessException
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
 from src.tools.business.registry import BusinessToolRegistry
@@ -78,7 +77,7 @@ class SchedulePublishTool(BusinessTool[XiaohongshuSite, XHSSchedulePublishParams
         except ValueError:
             return XHSSchedulePublishResult(
                 success=False,
-                message=f"时间格式无效，请使用 ISO 格式，如 2026-02-20T10:00:00"
+                message="时间格式无效，请使用 ISO 格式，如 2026-02-20T10:00:00"
             )
 
         # 调用网站适配器的定时发布方法

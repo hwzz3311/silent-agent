@@ -4,7 +4,6 @@
 提供在页面中执行函数调用的功能。
 """
 
-from typing import Optional, Any
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool

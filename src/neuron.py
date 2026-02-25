@@ -26,7 +26,7 @@ import asyncio
 import json
 import sys
 import os
-from typing import Optional, Dict, Any
+from typing import Optional
 
 # Add python directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

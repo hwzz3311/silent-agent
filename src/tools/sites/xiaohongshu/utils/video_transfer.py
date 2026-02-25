@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool

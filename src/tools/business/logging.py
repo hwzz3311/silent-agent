@@ -7,7 +7,7 @@
 import functools
 import logging
 import time
-from typing import TYPE_CHECKING, Optional, Callable, Any, Dict
+from typing import TYPE_CHECKING, Callable, Any, Dict
 
 if TYPE_CHECKING:
     pass

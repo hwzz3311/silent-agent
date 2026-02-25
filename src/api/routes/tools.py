@@ -4,7 +4,6 @@
 提供工具列表、搜索、详情等接口。
 """
 
-from typing import List
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.api.schemas import (

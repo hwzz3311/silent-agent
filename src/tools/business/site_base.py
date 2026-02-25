@@ -5,7 +5,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Dict, Any, List
+from typing import TYPE_CHECKING, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:

@@ -6,7 +6,6 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
-from enum import Enum
 from pydantic import BaseModel, Field
 
 from .common import ToolCall, ExecutionStatus

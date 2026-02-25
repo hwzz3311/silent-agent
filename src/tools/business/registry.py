@@ -5,7 +5,7 @@
 """
 
 from typing import (
-    Dict, Optional, Type, List, Set, Any, Callable
+    Dict, Optional, Type, List, Set, Any
 )
 import logging
 import inspect
@@ -337,7 +337,6 @@ class BusinessToolRegistry:
         Returns:
             Dict[str, BusinessTool]: 匹配的工具
         """
-        import re
         query_lower = query.lower()
         result = {}
 

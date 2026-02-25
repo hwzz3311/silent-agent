@@ -16,7 +16,6 @@ import os
 import shutil
 import stat
 import sys
-import subprocess
 
 
 def get_chrome_user_data_dir() -> str:

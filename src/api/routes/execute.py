@@ -8,8 +8,7 @@ import json
 import logging
 import traceback
 from datetime import datetime
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, status
 
 from src.api.schemas import (
     ExecuteRequest,
@@ -18,7 +17,6 @@ from src.api.schemas import (
     BatchExecuteResponse,
     FlowExecuteRequest,
     FlowExecuteResponse,
-    ExecutionStatus,
     ErrorResponse,
 )
 

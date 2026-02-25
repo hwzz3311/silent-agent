@@ -6,8 +6,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from src.tools.base import Tool, ToolInfo

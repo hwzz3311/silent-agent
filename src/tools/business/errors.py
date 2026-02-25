@@ -5,7 +5,7 @@
 """
 
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Any, Dict, List
+from typing import TYPE_CHECKING, Optional, Any, Dict
 from pydantic import BaseModel
 
 if TYPE_CHECKING:

@@ -4,11 +4,10 @@
 提供页面导航功能。
 """
 
-from typing import Optional
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
-from src.core.result import Result, ResultMeta
+from src.core.result import Result
 
 
 class NavigateParams(ToolParameters):

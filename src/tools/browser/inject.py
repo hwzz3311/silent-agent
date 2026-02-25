@@ -4,7 +4,7 @@
 提供在页面中执行 JavaScript 的功能。
 """
 
-from typing import Literal, Optional
+from typing import Literal
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool

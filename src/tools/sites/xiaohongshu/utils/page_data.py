@@ -8,7 +8,7 @@
 
 import json
 from typing import Optional, Any
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
 from src.core.result import Result, Error

@@ -8,7 +8,7 @@ from typing import Optional, Literal
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
-from src.core.result import Result, ResultMeta
+from src.core.result import Result
 
 
 class ClickParams(ToolParameters):

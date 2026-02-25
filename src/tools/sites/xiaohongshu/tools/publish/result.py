@@ -4,7 +4,7 @@
 提供发布相关工具的结果定义。
 """
 
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel
 
 

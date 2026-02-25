@@ -4,7 +4,7 @@
 提供浏览相关工具的参数定义。
 """
 
-from typing import Optional, List
+from typing import Optional
 from pydantic import Field
 
 from src.tools.base import ToolParameters

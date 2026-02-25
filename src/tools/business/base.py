@@ -12,11 +12,9 @@ from abc import ABC
 from typing import (
     TYPE_CHECKING, Generic, TypeVar, Optional, Dict, Any, Type, List
 )
-from pydantic import BaseModel
 
 from src.tools.base import Tool, ToolParameters
 from src.core.result import Result, ResultMeta, Error
-from src.tools.business.errors import BusinessErrorCode
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
@@ -233,7 +231,7 @@ class BusinessTool(
         Returns:
             Result[bool]: 检查是否通过
         """
-        from .errors import BusinessException, BusinessErrorCode
+        from .errors import BusinessErrorCode
 
         # 检查是否需要登录
         if self.required_login:

@@ -10,7 +10,6 @@ from typing import Any
 
 from src.tools.base import ExecutionContext
 from src.tools.business.base import BusinessTool
-from src.tools.business.errors import BusinessException
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
 from src.tools.business.registry import BusinessToolRegistry
@@ -685,7 +684,6 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         Returns:
             bool: 是否成功
         """
-        import random
         logger.info("滚动到页面底部...")
 
         # 方案：使用简单的分步滚动，每次滚动后等待触发加载
@@ -853,7 +851,6 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         max_items: int
     ) -> list:
         """从指定容器中提取笔记数据"""
-        import json
 
         # 使用 JavaScript 提取所有笔记数据
         # 注意：选择器需要根据实际页面结构调整

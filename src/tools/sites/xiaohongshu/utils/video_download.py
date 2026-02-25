@@ -7,7 +7,6 @@
 """
 
 import asyncio
-import json
 from datetime import datetime
 from typing import Optional, Dict, Any
 from pydantic import Field
@@ -18,7 +17,6 @@ from src.core.result import Result
 # 复用 video_transfer.py 中的视频暂存管理
 from .video_transfer import (
     VideoStore,
-    StoredVideo,
     get_video_store,
 )
 

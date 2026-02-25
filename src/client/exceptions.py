@@ -4,7 +4,6 @@
 定义 WebSocket 客户端相关的异常类型。
 """
 
-from typing import Optional
 
 
 class ClientException(Exception):

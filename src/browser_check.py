@@ -27,7 +27,6 @@ import os
 import sys
 import time
 import traceback
-from typing import Any, Dict, List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from relay_client import RelayClient

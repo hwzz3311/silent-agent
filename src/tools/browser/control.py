@@ -8,7 +8,7 @@
 
 import asyncio
 import logging
-from typing import Optional, Any, Dict, List, Union
+from typing import Any, Dict, List
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
@@ -224,7 +224,6 @@ class ControlTool(Tool[ControlParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理获取登录二维码操作"""
-        from src.tools.browser.extract import ExtractTool
         from src.tools.browser.navigate import NavigateTool
 
         try:
@@ -449,7 +448,6 @@ class ControlTool(Tool[ControlParams, dict]):
         """处理发布图文笔记操作"""
         from src.tools.browser.fill import FillTool
         from src.tools.browser.click import ClickTool
-        from src.tools.browser.wait import WaitTool
 
         try:
             title = params.get("title", "")
@@ -507,7 +505,6 @@ class ControlTool(Tool[ControlParams, dict]):
         """处理发布视频笔记操作"""
         from src.tools.browser.fill import FillTool
         from src.tools.browser.click import ClickTool
-        from src.tools.browser.wait import WaitTool
 
         try:
             title = params.get("title", "")
@@ -566,7 +563,6 @@ class ControlTool(Tool[ControlParams, dict]):
         """处理定时发布操作"""
         # 定时发布功能通常需要后端支持，这里返回提示信息
         from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
 
         try:
             title = params.get("title", "")
@@ -624,7 +620,6 @@ class ControlTool(Tool[ControlParams, dict]):
                 )
 
             # 提取状态信息
-            from src.tools.browser.extract import ExtractTool
             from src.tools.browser.evaluate import EvaluateTool
 
             eval_tool = EvaluateTool()
@@ -678,9 +673,6 @@ class ControlTool(Tool[ControlParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理搜索操作"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
-        from src.tools.browser.wait import WaitTool
 
         try:
             keyword = params.get("keyword", "")
@@ -701,7 +693,6 @@ class ControlTool(Tool[ControlParams, dict]):
             await asyncio.sleep(2)
 
             # 提取搜索结果
-            from src.tools.browser.extract import ExtractTool
             from src.tools.browser.evaluate import EvaluateTool
 
             eval_tool = EvaluateTool()
@@ -756,7 +747,6 @@ class ControlTool(Tool[ControlParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理点赞操作"""
-        from src.tools.browser.click import ClickTool
         from src.tools.browser.evaluate import EvaluateTool
 
         try:

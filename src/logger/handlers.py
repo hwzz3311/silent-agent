@@ -7,15 +7,12 @@
 import gzip
 import json
 import logging
-import os
 import sys
 import threading
-import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
-from io import StringIO
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict
 
 
 class BaseHandler(ABC):
@@ -178,7 +175,7 @@ class RotatingFileHandler(FileHandler):
         for i in range(1, self.backup_count + 1):
             keep.add(f".{i}.log.gz")
 
-        for f in self.filename.parent.glob(f"*.log.gz"):
+        for f in self.filename.parent.glob("*.log.gz"):
             if f.name not in keep:
                 f.unlink()
 

@@ -10,12 +10,10 @@ from typing import Any
 from src.tools.base import ExecutionContext
 
 from src.tools.business.base import BusinessTool
-from src.tools.business.errors import BusinessException
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
 from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from src.client.client import SilentAgentClient
 from .params import XHSCheckLoginStatusParams
 from .result import XHSCheckLoginStatusResult
 
@@ -239,7 +237,7 @@ class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusPara
                             user_info = json.loads(user_info)
                             logger.debug(f"成功解析 JSON 字符串: {type(user_info).__name__}")
                         except (json.JSONDecodeError, ValueError):
-                            logger.debug(f"无法解析为 JSON，保持字符串")
+                            logger.debug("无法解析为 JSON，保持字符串")
                             continue
 
                     # 处理 Vue ref 对象（包含 _rawValue 或 _value）

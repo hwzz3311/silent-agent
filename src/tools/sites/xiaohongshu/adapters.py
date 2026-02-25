@@ -5,7 +5,6 @@
 """
 
 from typing import TYPE_CHECKING, Optional, Dict, Any, List
-from pydantic import Field
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
@@ -14,18 +13,11 @@ from src.tools.base import ExecutionContext
 from src.core.result import Result, Error
 
 from src.tools.business.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
-from src.tools.business.errors import BusinessException, BusinessErrorCode
+from src.tools.business.errors import BusinessException
 
 # 导入新框架的工具（替代旧的 src.tools.xhs）
 from .utils import (
     ReadPageDataTool,
-    InjectScriptTool,
-    VideoDownloadTool,
-    VideoChunkTransferTool,
-    VideoUploadInterceptTool,
-    UploadFileTool,
-    SetFilesTool,
-    get_video_store,
 )
 
 
@@ -186,7 +178,6 @@ class XiaohongshuSite(Site):
             Result[bool]: 导航是否成功
         """
         from src.tools.browser.navigate import NavigateTool
-        from src.tools.browser.wait import WaitTool
 
         # 构建 URL
         url_map = {
@@ -276,7 +267,6 @@ class XiaohongshuSite(Site):
 
         import logging
         logger = logging.getLogger("xiaohongshu")
-        from src.tools.business.errors import BusinessException
 
         try:
             ctx = context or self._create_default_context()
@@ -358,7 +348,7 @@ class XiaohongshuSite(Site):
 
             # 记录调试信息
             if not silent:
-                logger.info(f"[check_login_status] === 全局变量检查 ===")
+                logger.info("[check_login_status] === 全局变量检查 ===")
                 logger.info(f"[check_login_status] 已检查的数据源: {data_sources}")
                 logger.info(f"[check_login_status] 最终获取的 user_info: {user_info}")
                 if last_error:
@@ -393,7 +383,7 @@ class XiaohongshuSite(Site):
                     })
                 else:
                     if not silent:
-                        logger.info(f"[check_login_status] ✗ 全局变量检测未登录，继续检查...")
+                        logger.info("[check_login_status] ✗ 全局变量检测未登录，继续检查...")
 
             # ========================================
             # 方式2: 通过 DOM 元素检查登录状态（参考原 Go 实现）
@@ -411,7 +401,7 @@ class XiaohongshuSite(Site):
             ]
 
             if not silent:
-                logger.info(f"[check_login_status] === DOM 元素检查 ===")
+                logger.info("[check_login_status] === DOM 元素检查 ===")
                 logger.info(f"[check_login_status] 检查登录元素选择器: {login_selectors}")
 
             dom_login_check = None
@@ -460,7 +450,7 @@ class XiaohongshuSite(Site):
             ]
 
             if not silent:
-                logger.info(f"[check_login_status] === 未登录元素检查 ===")
+                logger.info("[check_login_status] === 未登录元素检查 ===")
                 logger.info(f"[check_login_status] 检查未登录元素选择器: {logout_selectors}")
 
             for selector in logout_selectors:
@@ -487,7 +477,7 @@ class XiaohongshuSite(Site):
             # ========================================
             page_info = await self.get_page_info(context)
             if not silent:
-                logger.info(f"[check_login_status] === 页面 URL 检查 ===")
+                logger.info("[check_login_status] === 页面 URL 检查 ===")
 
             if page_info.success:
                 url = page_info.data.url if page_info.data else ""
@@ -499,7 +489,7 @@ class XiaohongshuSite(Site):
                 # 如果 URL 包含 login 路径，认为未登录
                 if url and "/login" in url:
                     if not silent:
-                        logger.info(f"[check_login_status] URL 包含 /login，返回未登录")
+                        logger.info("[check_login_status] URL 包含 /login，返回未登录")
                     return Result.ok({
                         "is_logged_in": False,
                         "username": None,
@@ -515,7 +505,7 @@ class XiaohongshuSite(Site):
             # ========================================
             if not silent:
                 logger.warning("[check_login_status] ✗ 所有检查方式都无法确定登录状态，默认返回未登录")
-                logger.info(f"[check_login_status] === 检查结束 ===")
+                logger.info("[check_login_status] === 检查结束 ===")
             return Result.ok({
                 "is_logged_in": False,
                 "username": None,
@@ -553,7 +543,6 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Any]: 提取的数据
         """
-        from src.tools.business.errors import BusinessException
 
         try:
             extractors = {
@@ -619,7 +608,6 @@ class XiaohongshuSite(Site):
             return result
 
         except Exception as e:
-            from src.tools.business.errors import BusinessException
             return Result.fail(
                 error=Error.from_exception(e)
             )
@@ -633,7 +621,6 @@ class XiaohongshuSite(Site):
         Args:
             context: 执行上下文
         """
-        from src.tools.browser.wait import WaitTool
 
         try:
             # 等待页面主体加载

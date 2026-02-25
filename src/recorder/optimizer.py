@@ -4,7 +4,7 @@
 提供录制操作序列的优化功能，包括 AI 优化和手动优化。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from datetime import datetime
 import re
 

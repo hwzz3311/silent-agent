@@ -5,17 +5,14 @@ WebSocket 客户端模块
 """
 
 import asyncio
-import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from .connection import ConnectionManager, ConnectionConfig, ConnectionInfo
 from .exceptions import (
-    ClientException,
     ConnectionError,
     DisconnectedError,
     TimeoutError,
-    ExtensionNotConnectedError,
 )
 
 

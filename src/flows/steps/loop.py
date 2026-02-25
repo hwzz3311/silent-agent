@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from .base import FlowStep, StepType, StepStatus, StepConfig, StepResult
 from .. import FlowContext
