@@ -299,7 +299,6 @@
   <body>
     <!-- 测试：确保 popup 被加载 -->
     <div id="debug-test" style="color:red;font-size:10px;position:fixed;top:0;left:0;z-index:9999;background:white;">Popup loading...</div>
-    <script>document.getElementById('debug-test').textContent = 'Popup loaded at ' + new Date().toISOString();</script>
 
     <!-- 头部 -->
     <div class="header">
@@ -359,5 +358,15 @@
     <div class="toast" id="toast"></div>
 
     <script src="popup.js" defer></script>
+    <script>
+      // 等待 DOM 准备好后更新测试文字
+      setTimeout(() => {
+        const testEl = document.getElementById('debug-test');
+        if (testEl) {
+          testEl.textContent = 'Popup fully loaded at ' + new Date().toISOString();
+          testEl.style.background = '#90EE90';
+        }
+      }, 500);
+    </script>
   </body>
 </html>
