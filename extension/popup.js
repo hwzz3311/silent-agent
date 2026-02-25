@@ -101,7 +101,12 @@ function getMainDomain(hostname) {
   return parts.slice(-2).join('.')
 }
 
-// 检查当前页面是否已授权
+// 主域名转 origins 模式（*://*.github.io/*）
+function mainDomainToOrigins(mainDomain) {
+  return `*://*.${mainDomain}/*`
+}
+
+// 检查当前页面是否已授权（使用 chrome.permissions API）
 async function checkCurrentPageAuth(tab) {
   if (!tab || !tab.url) {
     return { granted: false, url: '' }
@@ -116,30 +121,21 @@ async function checkCurrentPageAuth(tab) {
       return { granted: false, url: '浏览器特殊页面', isSpecial: true }
     }
 
-    const urlStr = url.origin
     const hostname = url.hostname
-    const mainDomain = getMainDomain(hostname)  // 获取主域名
+    const mainDomain = getMainDomain(hostname)
 
-    const perms = await chrome.storage.local.get('hostPermissions')
-    const allHosts = (perms && perms.hostPermissions) || []
+    // 获取当前所有已授权的 origins（使用 chrome.permissions API）
+    const perms = await chrome.permissions.getAll()
+    const grantedOrigins = perms.origins || []
 
     // 检查是否授权所有网站
-    const allGranted = allHosts.includes('<all_urls>') || allHosts.includes('*://*/*')
+    const allGranted = grantedOrigins.includes('<all_urls>') || grantedOrigins.includes('*://*/*')
 
     // 检查具体域名 - 使用主域名匹配
-    const domainGranted = allHosts.some(host => {
-      if (host.includes('*')) {
-        // 通配符匹配：*://*.baidu.com/* 匹配 *.baidu.com
-        const pattern = host.replace(/\./g, '\\.').replace(/\*/g, '.*')
-        return new RegExp(pattern).test(urlStr) ||
-               new RegExp(pattern).test(hostname) ||
-               new RegExp(pattern).test(mainDomain)
-      }
-      // 提取权限中的域名并匹配主域名
-      const hostParts = host.replace('*://*.', '').replace('/*', '').split('.')
-      const hostMainDomain = hostParts.slice(-2).join('.')
-      // 主域名匹配：baidu.com 匹配 baidu.com, *.baidu.com
-      return mainDomain === hostMainDomain || hostname.includes(hostMainDomain)
+    const domainGranted = grantedOrigins.some(origin => {
+      // 检查是否匹配主域名
+      const originMainDomain = getMainDomain(origin.replace('*://*.', '').replace('/*', ''))
+      return originMainDomain === mainDomain
     })
 
     return {
@@ -182,38 +178,25 @@ function updateAuthStatus(info) {
   }
 }
 
-// 授权当前页面（使用主域名匹配）
+// 授权当前页面（使用 chrome.permissions API）
 async function authorizeCurrentPage(tab) {
   if (!tab || !tab.url) return
 
   try {
     const url = new URL(tab.url)
     const hostname = url.hostname
-    const mainDomain = getMainDomain(hostname)  // 获取主域名
+    const mainDomain = getMainDomain(hostname)
+    const origin = mainDomainToOrigin(mainDomain)
 
-    // 获取当前权限
-    const perms = await chrome.storage.local.get('hostPermissions')
-    const allHosts = (perms && perms.hostPermissions) || []
+    // 使用 chrome.permissions API 请求权限
+    const granted = await chrome.permissions.request({ origins: [origin] })
 
-    // 添加主域名权限（匹配该主域名下所有子域名和路径）
-    // 例如：pinduoduo-sdk.github.io -> *://*.github.io/*
-    const newHost = `*://*.${mainDomain}/*`
-
-    // 检查是否已存在相同主域名的权限
-    const existingMainDomain = allHosts.some(h => {
-      if (h.includes('*')) {
-        const hostMain = getMainDomain(h.replace('*://*.', '').replace('/*', ''))
-        return hostMain === mainDomain
-      }
-      return false
-    })
-
-    if (!existingMainDomain && !allHosts.includes('<all_urls>')) {
-      allHosts.push(newHost)
-      await chrome.storage.local.set({ hostPermissions: allHosts })
+    if (granted) {
+      showToast(`已授权 ${mainDomain} 域名`)
+    } else {
+      showToast('用户拒绝了权限请求')
     }
 
-    showToast(`已授权 ${mainDomain} 域名`)
     // 刷新授权状态
     const info = await checkCurrentPageAuth(tab)
     updateAuthStatus(info)
@@ -223,27 +206,29 @@ async function authorizeCurrentPage(tab) {
   }
 }
 
-// 撤销当前页面授权（使用主域名匹配）
+// 撤销当前页面授权（使用 chrome.permissions API）
 async function revokeCurrentPage(tab) {
   if (!tab || !tab.url) return
 
   try {
     const url = new URL(tab.url)
     const hostname = url.hostname
-    const mainDomain = getMainDomain(hostname)  // 获取主域名
+    const mainDomain = getMainDomain(hostname)
+    const origin = mainDomainToOrigin(mainDomain)
 
-    // 获取当前权限
-    const perms = await chrome.storage.local.get('hostPermissions')
-    let allHosts = (perms && perms.hostPermissions) || []
+    // 获取当前所有已授权的 origins
+    const perms = await chrome.permissions.getAll()
+    const grantedOrigins = perms.origins || []
 
-    // 移除该主域名的权限
-    allHosts = allHosts.filter(h => {
-      if (!h.includes('*')) return true
-      const hostMain = getMainDomain(h.replace('*://*.', '').replace('/*', ''))
-      return hostMain !== mainDomain
+    // 查找需要撤销的 origin（匹配主域名）
+    const originsToRemove = grantedOrigin.filter(o => {
+      const oMainDomain = getMainDomain(o.replace('*://*.', '').replace('/*', ''))
+      return oMainDomain === mainDomain
     })
 
-    await chrome.storage.local.set({ hostPermissions: allHosts })
+    if (originsToRemove.length > 0) {
+      await chrome.permissions.remove({ origins: originsToRemove })
+    }
 
     showToast(`已撤销 ${mainDomain} 域名`)
     // 刷新授权状态
