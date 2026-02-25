@@ -137,6 +137,16 @@ class SilentAgentClient:
         )
         self._connection = ConnectionManager(self.config)
         self._default_timeout = 60.0
+        # 网站域名到标签页 ID 的映射表
+        self._site_tab_map: Dict[str, int] = {}
+
+        # 注册扩展连接事件：当扩展连接时重新初始化 tab 映射
+        self._connection.on_event("extension_connected", self._on_extension_connected)
+
+    async def _on_extension_connected(self, params: dict) -> None:
+        """扩展连接事件处理器，重新初始化 tab 映射"""
+        logger.info("[SilentAgentClient] 扩展已连接，重新初始化 tab 映射")
+        await self._init_site_tab_map()
 
     async def __aenter__(self):
         await self.connect()
@@ -149,7 +159,59 @@ class SilentAgentClient:
 
     async def connect(self) -> ConnectionInfo:
         """连接到服务器"""
-        return await self._connection.connect()
+        info = await self._connection.connect()
+        # 连接成功后，尝试初始化 tab 映射
+        await self._init_site_tab_map()
+        return info
+
+    async def _init_site_tab_map(self) -> None:
+        """
+        初始化网站域名到标签页的映射
+
+        通过浏览器扩展获取所有标签页，然后根据 URL 提取域名，
+        建立域名到 tabId 的映射关系。
+        """
+        if not self.is_connected:
+            return
+
+        try:
+            # 调用 browser_control 的 query_tabs 获取所有标签页
+            result = await self.execute_tool("browser_control", {
+                "action": "query_tabs",
+                "params": {}
+            }, timeout=10)
+
+            if result.get("success") and result.get("data"):
+                tabs = result["data"]
+                for tab in tabs:
+                    tab_id = tab.get("tabId")
+                    url = tab.get("url", "")
+                    if not url or not tab_id:
+                        continue
+
+                    # 提取域名
+                    try:
+                        from urllib.parse import urlparse
+                        parsed = urlparse(url)
+                        domain = parsed.netloc.lower()
+                        # 移除端口号
+                        if ":" in domain:
+                            domain = domain.split(":")[0]
+                        # 忽略空白域名
+                        if not domain:
+                            continue
+                        # 存储域名到 tabId 的映射
+                        self._site_tab_map[domain] = tab_id
+                        logger.info(f"[_init_site_tab_map] 映射域名 '{domain}' -> tabId {tab_id}")
+                    except Exception as e:
+                        logger.warning(f"[_init_site_tab_map] 解析域名失败: {url}, {e}")
+
+                logger.info(f"[_init_site_tab_map] 初始化完成，共 {len(self._site_tab_map)} 个映射")
+            else:
+                logger.warning(f"[_init_site_tab_map] 获取标签页失败: {result}")
+
+        except Exception as e:
+            logger.warning(f"[_init_site_tab_map] 初始化失败: {e}")
 
     async def disconnect(self, reason: str = "用户断开") -> None:
         """断开连接"""
@@ -173,6 +235,74 @@ class SilentAgentClient:
     def connection_info(self) -> ConnectionInfo:
         """获取连接信息"""
         return self._connection.info
+
+    # ========== 网站 Tab 映射管理 ==========
+
+    def set_site_tab(self, site_domain: str, tab_id: int) -> None:
+        """
+        设置网站域名对应的标签页
+
+        Args:
+            site_domain: 网站域名（如 xiaohongshu.com）
+            tab_id: 标签页 ID
+        """
+        self._site_tab_map[site_domain] = tab_id
+
+    def get_site_tab(self, site_domain: str) -> Optional[int]:
+        """
+        获取网站域名对应的标签页
+
+        支持精确匹配和模糊匹配（如 www.xiaohongshu.com 匹配 xiaohongshu.com）
+
+        Args:
+            site_domain: 网站域名（如 xiaohongshu.com 或 www.xiaohongshu.com）
+
+        Returns:
+            标签页 ID，如果没有返回 None
+        """
+        # 精确匹配
+        if site_domain in self._site_tab_map:
+            return self._site_tab_map[site_domain]
+
+        # 模糊匹配：移除前缀后匹配（如 www.xiaohongshu.com -> xiaohongshu.com）
+        domain = site_domain.lower()
+        # 尝试去掉常见前缀
+        for prefix in ("www.", "m.", "mobile.", "shop.", "creator.", "creatorcenter.", "work."):
+            if domain.startswith(prefix):
+                base_domain = domain[len(prefix):]
+                if base_domain in self._site_tab_map:
+                    return self._site_tab_map[base_domain]
+                # 继续尝试多级前缀
+                for prefix2 in ("www.", "m.", "mobile.", "shop."):
+                    if base_domain.startswith(prefix2):
+                        base_domain2 = base_domain[len(prefix2):]
+                        if base_domain2 in self._site_tab_map:
+                            return self._site_tab_map[base_domain2]
+
+        return None
+
+    def clear_site_tab(self, site_domain: str) -> None:
+        """清除网站域名对应的标签页"""
+        if site_domain in self._site_tab_map:
+            del self._site_tab_map[site_domain]
+
+    async def refresh_site_tabs(self) -> Dict[str, int]:
+        """
+        刷新网站域名到标签页的映射
+
+        重新从浏览器获取所有标签页并更新映射表
+
+        Returns:
+            新的域名到 tabId 的映射字典
+        """
+        self._site_tab_map.clear()
+        await self._init_site_tab_map()
+        return self._site_tab_map
+
+    @property
+    def site_tab_map(self) -> Dict[str, int]:
+        """获取当前网站域名到标签页的映射（只读副本）"""
+        return dict(self._site_tab_map)
 
     @property
     def tools(self) -> List[str]:

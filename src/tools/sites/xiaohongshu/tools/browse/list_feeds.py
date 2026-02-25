@@ -70,7 +70,11 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             XHSListFeedsResult: 获取结果
         """
         logger.info("开始获取小红书笔记列表")
-        logger.debug(f"参数: tab_id={params.tab_id}, page_type={params.page_type}, max_items={params.max_items}")
+        logger.debug(f"参数: tab_id={params.tab_id}, page_type={params.page_type}, channel={params.channel}, max_items={params.max_items}")
+
+        # ========== 频道切换 ==========
+        if params.channel and params.channel != "recommend":
+            await self._switch_channel(client, tab_id, params.channel)
 
         # 从 context 获取 client
         client = getattr(context, 'client', None)
@@ -80,8 +84,11 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             # 如果 context 没有 client，调用 site 的方法
             return await self._extract_via_site(params, context, site)
 
+        # 小红书域名
+        site_domain = "xiaohongshu.com"
+
         # ========== tab_id 管理 ==========
-        # 优先级：参数 > context > 获取活动标签页 > 创建新标签页
+        # 优先级：参数 > context > site_tab_map > 获取活动标签页 > 创建新标签页
         tab_id = params.tab_id
         logger.debug(f"初始 tab_id: {tab_id}")
 
@@ -89,6 +96,18 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             # 从 context 获取 tab_id
             tab_id = context.tab_id
             logger.debug(f"从 context 获取 tab_id: {tab_id}")
+
+        if not tab_id and hasattr(client, 'get_site_tab'):
+            # 从全局 site tab 映射获取
+            tab_id = client.get_site_tab(site_domain)
+            logger.debug(f"从 site_tab_map 获取 tab_id: {tab_id}")
+
+            # 检测 tab 是否还可用
+            if tab_id and not await self._is_tab_valid(client, tab_id):
+                logger.warning(f"site_tab_map 中的 tab_id={tab_id} 已失效，将重新获取")
+                if hasattr(client, 'clear_site_tab'):
+                    client.clear_site_tab(site_domain)
+                tab_id = None
 
         if not tab_id:
             # 获取当前活动标签页
@@ -120,6 +139,11 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
                 logger.info(f"创建新标签页成功: tabId={tab_id}")
             else:
                 logger.warning(f"创建新标签页失败: {nav_result.get('error')}")
+
+        # 保存 tab_id 到全局映射
+        if tab_id and hasattr(client, 'set_site_tab'):
+            client.set_site_tab(site_domain, tab_id)
+            logger.debug(f"保存 tab_id 到 site_tab_map: {site_domain} -> {tab_id}")
 
         # 如果还是没有 tab_id，抛出错误
         if not tab_id:
@@ -167,18 +191,33 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         # ========== 检测并关闭登录弹窗 ==========
         await self._close_login_popup(client, tab_id)
 
-        # ========== 从页面提取数据 ==========
-        # 方法1: 尝试从 JavaScript 全局变量获取数据
+        # ========== 从页面提取数据（支持自动滚动加载更多） ==========
+        # 策略：优先从全局变量获取（数据最完整），不足时通过 DOM 获取
+
         sources = [
-            "__INITIAL_STATE__.explore.feeds",
-            "__INITIAL_STATE__.note.feeds",
-            "__NUXT__.data.0.feeds",
-            "window.__FEEDS__",
+            # 首页推荐相关
+            "__INITIAL_STATE__.home.recommend",
             "__INITIAL_STATE__.home.feeds",
+            "__INITIAL_STATE__.home.items",
+            # 发现页相关
+            "__INITIAL_STATE__.explore.feeds",
+            "__INITIAL_STATE__.explore.items",
+            "__INITIAL_STATE__.note.feeds",
+            "__INITIAL_STATE__.note.items",
+            # 通用
+            "__NUXT__.data.0.feeds",
+            "__NUXT__.data.0.items",
+            "window.__FEEDS__",
+            "window.__DATA__",
             "__INITIAL_STATE__.discover.feeds",
+            # 小红书新版数据结构
+            "window.__INITIAL_STATE__.home",
+            "window.__INITIAL_STATE__.explore",
         ]
 
         feeds_data = None
+
+        # 尝试从全局变量获取数据
         for source in sources:
             logger.debug(f"尝试从 {source} 获取数据...")
             try:
@@ -203,21 +242,121 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
                 logger.debug(f"从 {source} 获取失败: {str(e)}")
                 continue
 
-        # 方法2: 如果全局变量没有数据，尝试通过 DOM 选择器提取
+        # 如果全局变量没有数据，通过 DOM 提取
         if not feeds_data or (isinstance(feeds_data, list) and len(feeds_data) == 0):
             logger.info("尝试通过 DOM 选择器提取笔记数据...")
             feeds_data = await self._extract_feeds_via_dom(client, tab_id, params.max_items)
 
-        # ========== 解析数据 ==========
+        # 使用去重逻辑获取更多数据
+        # 小红书 DOM 容器只维护 12 条数据，需要通过滚动替换
+        seen_ids = set()  # 已获取的 note_id 集合
+        if feeds_data:
+            for item in feeds_data:
+                note_id = item.get("noteId") or item.get("id") or item.get("note_id") or ""
+                if note_id:
+                    seen_ids.add(note_id)
+
+        total_count = len(feeds_data) if feeds_data else 0
+        max_scrolls = 10  # 最多滚动10次
+        consecutive_no_new = 0  # 连续无新数据的次数
+
+        while total_count < params.max_items and max_scrolls > 0:
+            logger.info(f"当前获取 {total_count} 条，需要 {params.max_items} 条，滚动页面加载更多...")
+
+            # 滚动到页面底部
+            await self._scroll_to_bottom(client, tab_id)
+
+            # 滚动后等待更长时间确保新内容完全加载（至少 4 秒）
+            wait_seconds = 4.5
+            logger.debug(f"等待 {wait_seconds} 秒让内容加载完成...")
+            await asyncio.sleep(wait_seconds)
+
+            # 滚动后重新获取数据
+            new_feeds = None
+
+            # 优先从全局变量获取
+            for source in sources:
+                try:
+                    result = await client.execute_tool("read_page_data", {
+                        "path": source,
+                        "tabId": tab_id
+                    }, timeout=15000)
+
+                    if result.get("success") and result.get("data"):
+                        data = result.get("data")
+                        feed_list = None
+
+                        if isinstance(data, list):
+                            feed_list = data
+                        elif isinstance(data, dict):
+                            for field in ['items', 'data', 'feeds', 'list', 'notes', 'cardList']:
+                                if field in data and isinstance(data[field], list):
+                                    feed_list = data[field]
+                                    break
+
+                        if feed_list:
+                            new_feeds = feed_list
+                            logger.info(f"滚动后从 {source} 获取到 {len(new_feeds)} 条")
+                            break
+                except Exception:
+                    continue
+
+            # 如果全局变量没新数据通过 DOM 获取
+            if not new_feeds:
+                logger.info("滚动后通过 DOM 选择器重新提取...")
+                new_feeds = await self._extract_feeds_via_dom(client, tab_id, params.max_items)
+
+            # 去重处理 - 检查是否有新数据
+            new_items = []
+            if new_feeds:
+                for item in new_feeds:
+                    note_id = item.get("noteId") or item.get("id") or item.get("note_id") or ""
+                    if note_id and note_id not in seen_ids:
+                        new_items.append(item)
+                        seen_ids.add(note_id)
+
+            new_count = len(new_items)
+            if new_count > 0:
+                # 有新数据，追加到列表
+                if feeds_data is None:
+                    feeds_data = []
+                feeds_data.extend(new_items)
+                total_count = len(feeds_data)
+                consecutive_no_new = 0
+                logger.info(f"滚动后新增 {new_count} 条，共获取 {total_count} 条")
+            else:
+                # 无新数据
+                consecutive_no_new += 1
+                logger.info(f"滚动后无新数据（连续 {consecutive_no_new} 次）")
+
+                # 连续 2 次无新数据说明已到底
+                if consecutive_no_new >= 2:
+                    logger.info("连续无新数据，认为已到底")
+                    break
+
+                # 如果 DOM 获取为空，尝试刷新页面
+                if not new_feeds or (isinstance(new_feeds, list) and len(new_feeds) == 0):
+                    logger.warning("DOM 获取为空，尝试刷新页面...")
+                    refresh_result = await client.execute_tool("chrome_navigate", {
+                        "url": "https://www.xiaohongshu.com/",
+                        "newTab": False
+                    }, timeout=10000)
+                    if refresh_result.get("success"):
+                        await asyncio.sleep(3)
+                        max_scrolls -= 1
+                        continue
+
+            max_scrolls -= 1
+
+        # ========== 检查是否获取到数据 ==========
         if not feeds_data or (isinstance(feeds_data, list) and len(feeds_data) == 0):
-            logger.warning("未能获取到笔记数据，尝试滚动页面加载更多")
-            # 可以在这里添加滚动页面逻辑
+            logger.warning("未能获取到笔记数据")
             return XHSListFeedsResult(
                 success=True,
                 items=[],
                 has_more=False,
                 total_count=0,
-                message="未找到笔记，请确保页面已加载或尝试滚动"
+                message="未找到笔记，请确保页面已加载"
             )
 
         # 转换为 FeedItem 列表
@@ -417,6 +556,239 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         }
         return url_map.get(page_type, "https://www.xiaohongshu.com/")
 
+    # 频道到 DOM ID 的映射
+    CHANNEL_TO_DOM_ID = {
+        "recommend": "homefeed_recommend",
+        "fashion": "homefeed.fashion_v3",
+        "food": "homefeed.food_v3",
+        "cosmetics": "homefeed.cosmetics_v3",
+        "movie_and_tv": "homefeed.movie_and_tv_v3",
+        "career": "homefeed.career_v3",
+        "love": "homefeed.love_v3",
+        "household_product": "homefeed.household_product_v3",
+        "gaming": "homefeed.gaming_v3",
+        "travel": "homefeed.travel_v3",
+        "fitness": "homefeed.fitness_v3",
+    }
+
+    async def _switch_channel(self, client, tab_id: int, channel: str) -> bool:
+        """
+        切换到指定频道
+
+        Args:
+            client: 浏览器客户端
+            tab_id: 标签页 ID
+            channel: 频道名称
+
+        Returns:
+            bool: 是否成功切换
+        """
+        dom_id = self.CHANNEL_TO_DOM_ID.get(channel)
+        if not dom_id:
+            logger.warning(f"未知的频道: {channel}")
+            return False
+
+        logger.info(f"尝试切换到频道: {channel} (dom_id: {dom_id})")
+
+        # 构建选择器：#channel-container > div#{dom_id}
+        # 注意：f-string 表达式中不能有反斜杠，所以先存储替换后的字符串
+        escaped_dom_id = dom_id.replace('.', r'\.')
+        selector = f"#channel-container > div#{escaped_dom_id}"
+
+        # 检查频道 tab 是否存在
+        check_code = f"document.querySelector('{selector}') !== null"
+        result = await client.execute_tool("inject_script", {
+            "code": check_code,
+            "tabId": tab_id
+        }, timeout=1500)
+
+        if not (result.get("success") and result.get("data") is True):
+            logger.warning(f"未找到频道 tab: {selector}")
+            # 尝试备选选择器
+            alt_selector = f"div#{escaped_dom_id}.channel"
+            check_alt = f"document.querySelector('{alt_selector}') !== null"
+            alt_result = await client.execute_tool("inject_script", {
+                "code": check_alt,
+                "tabId": tab_id
+            }, timeout=1500)
+
+            if alt_result.get("success") and alt_result.get("data") is True:
+                selector = alt_selector
+                logger.info(f"使用备选选择器: {selector}")
+            else:
+                logger.warning(f"频道 tab 不存在: {channel}")
+                return False
+
+        # 点击频道 tab
+        click_code = f"""
+        (function() {{
+            const tab = document.querySelector('{selector}');
+            if (tab) {{
+                tab.click();
+                return true;
+            }}
+            return false;
+        }})()
+        """
+        click_result = await client.execute_tool("inject_script", {
+            "code": click_code,
+            "tabId": tab_id
+        }, timeout=1500)
+
+        if click_result.get("success") and click_result.get("data") is True:
+            logger.info(f"成功点击频道: {channel}")
+            # 等待内容加载
+            await asyncio.sleep(2)
+            return True
+        else:
+            logger.warning(f"点击频道失败: {channel}")
+            return False
+
+    async def _is_tab_valid(self, client, tab_id: int) -> bool:
+        """
+        检测标签页是否还可用
+
+        通过尝试读取页面标题来判断 tab 是否有效
+
+        Args:
+            client: 浏览器客户端
+            tab_id: 标签页 ID
+
+        Returns:
+            bool: tab 是否有效
+        """
+        try:
+            # 尝试读取页面标题，如果 tab 已关闭会失败
+            result = await client.execute_tool("read_page_data", {
+                "path": "document.title",
+                "tabId": tab_id
+            }, timeout=5000)
+
+            is_valid = result.get("success", False)
+            logger.debug(f"检测 tab_id={tab_id} 是否有效: {is_valid}")
+            return is_valid
+        except Exception as e:
+            logger.debug(f"检测 tab_id={tab_id} 有效性失败: {e}")
+            return False
+
+    async def _scroll_to_bottom(self, client, tab_id: int) -> bool:
+        """
+        滚动到页面底部
+
+        使用分段滚动，每段滚动后等待确保触发懒加载
+
+        Args:
+            client: 浏览器客户端
+            tab_id: 标签页 ID
+
+        Returns:
+            bool: 是否成功
+        """
+        import random
+        logger.info("滚动到页面底部...")
+
+        # 方案：使用简单的分步滚动，每次滚动后等待触发加载
+        scroll_code = """
+        (function() {
+            const scrollHeight = document.body.scrollHeight;
+            const windowHeight = window.innerHeight;
+            const maxScroll = Math.max(0, scrollHeight - windowHeight);
+
+            // 分4次滚动，确保每次都能触发懒加载
+            const step = Math.ceil(maxScroll / 4);
+            const positions = [step, step * 2, step * 3, maxScroll];
+
+            positions.forEach((pos, index) => {
+                setTimeout(() => {
+                    window.scrollTo(0, pos);
+                }, index * 300);
+            });
+
+            // 最后滚动到底部
+            setTimeout(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+            }, 1500);
+
+            return true;
+        })()
+        """
+
+        result = await client.execute_tool("inject_script", {
+            "code": scroll_code,
+            "tabId": tab_id
+        }, timeout=5000)
+
+        if result.get("success"):
+            logger.debug("滚动到底部已触发")
+            return True
+        else:
+            logger.warning("滚动到底部失败")
+            return False
+
+    async def _scroll_page(self, client, tab_id: int, scroll_count: int) -> bool:
+        """
+        滚动页面加载更多内容（隐蔽安全版本）
+
+        使用更自然的滚动方式，避免被风控检测：
+        - 每次滚动距离较小（约视口高度的 30-50%）
+        - 带有随机延迟和随机滚动距离
+        - 模拟人类滚动的缓动效果
+
+        Args:
+            client: 浏览器客户端
+            tab_id: 标签页 ID
+            scroll_count: 滚动次数
+
+        Returns:
+            bool: 是否成功
+        """
+        import random
+        logger.info(f"开始隐蔽滚动页面 {scroll_count} 次...")
+
+        for i in range(scroll_count):
+            # 随机滚动距离（视口高度的 30-50%），模拟人类不规则滚动
+            scroll_distance = f"window.innerHeight * {random.uniform(0.3, 0.5):.2f}"
+
+            # 使用更自然的滚动方式：平滑滚动 + 随机延迟
+            scroll_code = f"""
+            (function() {{
+                // 随机延时启动，模拟人类行为
+                const delay = {random.randint(100, 500)};
+                setTimeout(function() {{
+                    // 使用 scrollTo 带平滑效果
+                    const currentY = window.scrollY;
+                    const targetY = currentY + {scroll_distance};
+                    window.scrollTo({{
+                        top: targetY,
+                        behavior: 'smooth'
+                    }});
+                }}, delay);
+                return true;
+            }})()
+            """
+
+            result = await client.execute_tool("inject_script", {
+                "code": scroll_code,
+                "tabId": tab_id
+            }, timeout=3000)
+
+            if result.get("success"):
+                logger.debug(f"第 {i+1} 次滚动已触发")
+
+                # 随机等待时间（1.5-3秒），让滚动完成并加载新内容
+                wait_time = random.uniform(1.5, 3.0)
+                logger.debug(f"等待 {wait_time:.1f} 秒让内容加载...")
+                await asyncio.sleep(wait_time)
+            else:
+                logger.warning(f"第 {i+1} 次滚动失败")
+
+            # 每次滚动后额外随机等待，模拟人类阅读/思考时间
+            extra_wait = random.uniform(0.5, 1.5)
+            await asyncio.sleep(extra_wait)
+
+        logger.info("页面滚动完成")
+        return True
+
     async def _extract_feeds_via_dom(
         self,
         client,
@@ -548,6 +920,7 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         """
 
         logger.debug(f"执行 DOM 提取脚本，容器: {container_selector}")
+        # logger.info(f"js_code : {js_code}")
         result = await client.execute_tool("inject_script", {
             "code": js_code,
             "tabId": tab_id
@@ -581,6 +954,7 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
 # 便捷函数
 async def list_feeds(
     page_type: str = "home",
+    channel: str = "recommend",
     max_items: int = 20,
     tab_id: int = None,
     context: ExecutionContext = None
@@ -589,8 +963,9 @@ async def list_feeds(
     便捷的获取笔记列表函数
 
     Args:
-        page_type: 页面类型
-        max_items: 最大获取数量
+        page_type: 页面类型 (home/discover/following)
+        channel: 频道类型 (recommend/fashion/food/cosmetics/movie_and_tv/career/love/household_product/gaming/travel/fitness)
+        max_items: 最大获取数量（会自动滚动加载直到获取足够数量）
         tab_id: 标签页 ID
         context: 执行上下文
 
@@ -601,6 +976,7 @@ async def list_feeds(
     params = XHSListFeedsParams(
         tab_id=tab_id,
         page_type=page_type,
+        channel=channel,
         max_items=max_items
     )
     ctx = context or ExecutionContext()

@@ -117,9 +117,21 @@ class XiaohongshuAPIClient:
         return await self.execute_tool("xhs_delete_cookies", {})
 
     # 浏览相关
-    async def xhs_list_feeds(self, max_items: int = 10) -> Dict[str, Any]:
-        """获取笔记列表"""
-        return await self.execute_tool("xhs_list_feeds", {"max_items": max_items})
+    async def xhs_list_feeds(
+        self,
+        channel: str = "recommend",
+        max_items: int = 10
+    ) -> Dict[str, Any]:
+        """获取笔记列表
+
+        Args:
+            channel: 频道类型 (recommend/fashion/food/cosmetics/movie_and_tv/career/love/household_product/gaming/travel/fitness)
+            max_items: 最大获取数量（会自动滚动加载直到获取足够数量）
+        """
+        return await self.execute_tool("xhs_list_feeds", {
+            "channel": channel,
+            "max_items": max_items
+        })
 
     async def xhs_search_feeds(self, keyword: str, max_items: int = 20) -> Dict[str, Any]:
         """搜索笔记"""
@@ -367,19 +379,65 @@ class XiaohongshuTestSuite:
         print(f"\n{CYAN}=== 小红书浏览工具测试 ==={RESET}")
 
         # 导航到小红书首页
-        try:
-            result = await self.api.navigate("https://www.xiaohongshu.com/")
-            print_result("导航到小红书首页", result.get("success", False) or "跳转" in str(result.get("data", "")), f"结果: {result.get('data', result)}")
-        except Exception as e:
-            print_result("导航到小红书首页", False, str(e))
+        # try:
+        #     result = await self.api.navigate("https://www.xiaohongshu.com/")
+        #     print_result("导航到小红书首页", result.get("success", False) or "跳转" in str(result.get("data", "")), f"结果: {result.get('data', result)}")
+        # except Exception as e:
+        #     print_result("导航到小红书首页", False, str(e))
 
-        # 获取笔记列表
+        # 测试1: 获取推荐频道笔记列表（默认）
         try:
-            result = await self.api.xhs_list_feeds(max_items=5)
-            has_feeds = result.get("success", False) or "feeds" in str(result.get("data", ""))
-            print_result("获取笔记列表", has_feeds, f"结果: {result.get('data', result)}")
+            result = await self.api.xhs_list_feeds(
+                channel="recommend",
+                max_items=50
+            )
+            has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
+            print_result("获取推荐频道笔记列表", has_feeds, f"结果: {result.get('data', result)}")
         except Exception as e:
-            print_result("获取笔记列表", False, str(e))
+            print_result("获取推荐频道笔记列表", False, str(e))
+
+        # 测试2: 获取更多笔记（测试自动滚动加载）
+        # try:
+        #     result = await self.api.xhs_list_feeds(
+        #         channel="recommend",
+        #         max_items=15
+        #     )
+        #     has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
+        #     data = result.get("data", {})
+        #     count = len(data.get("items", [])) if isinstance(data, dict) else 0
+        #     print_result("获取更多笔记(自动滚动)", has_feeds and count >= 15, f"获取到 {count} 条")
+        # except Exception as e:
+        #     print_result("获取更多笔记(自动滚动)", False, str(e))
+
+        # 测试3: 获取穿搭频道笔记列表
+        # try:
+        #     result = await self.api.xhs_list_feeds(
+        #         channel="fashion",
+        #         max_items=5
+        #     )
+        #     has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
+        #     print_result("获取穿搭频道笔记列表", has_feeds, f"结果: {result.get('data', result)}")
+        # except Exception as e:
+        #     print_result("获取穿搭频道笔记列表", False, str(e))
+        #
+        # # 测试4: 获取美食频道笔记列表
+        # try:
+        #     result = await self.api.xhs_list_feeds(
+        #         channel="food",
+        #         max_items=5
+        #     )
+        #     has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
+        #     print_result("获取美食频道笔记列表", has_feeds, f"结果: {result.get('data', result)}")
+        # except Exception as e:
+        #     print_result("获取美食频道笔记列表", False, str(e))
+        #
+        # # 测试5: 默认参数测试
+        # try:
+        #     result = await self.api.xhs_list_feeds()
+        #     has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
+        #     print_result("获取笔记列表(默认参数)", has_feeds, f"结果: {result.get('data', result)}")
+        # except Exception as e:
+        #     print_result("获取笔记列表(默认参数)", False, str(e))
 
         # 搜索笔记
         # try:
@@ -655,7 +713,7 @@ async def main():
         if command == "browse":
             async with suite.api:
                 await suite.test_browse_tools()
-                await suite.test_browser_tools_on_xhs()
+                # await suite.test_browser_tools_on_xhs()
             return
 
         if command == "interact":

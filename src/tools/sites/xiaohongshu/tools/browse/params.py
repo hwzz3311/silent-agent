@@ -17,8 +17,8 @@ class XHSListFeedsParams(ToolParameters):
     Attributes:
         tab_id: 标签页 ID
         page_type: 页面类型（home/discover/following）
+        channel: 频道类型，默认 recommend（推荐），可选值：recommend/fashion/food/cosmetics/movie_and_tv/career/love/household_product/gaming/travel/fitness
         max_items: 最大获取数量，默认 20
-        scroll_count: 滚动次数，默认 3
     """
     tab_id: Optional[int] = Field(
         default=None,
@@ -28,17 +28,15 @@ class XHSListFeedsParams(ToolParameters):
         default="home",
         description="页面类型: home/discover/following"
     )
+    channel: str = Field(
+        default="recommend",
+        description="频道类型: recommend(推荐)/fashion(穿搭)/food(美食)/cosmetics(美妆)/movie_and_tv(影视)/career(职场)/love(情感)/household_product(家居)/gaming(游戏)/travel(旅行)/fitness(健身)"
+    )
     max_items: int = Field(
         default=20,
         ge=1,
         le=100,
         description="最大获取数量"
-    )
-    scroll_count: int = Field(
-        default=3,
-        ge=1,
-        le=10,
-        description="滚动次数"
     )
 
 
