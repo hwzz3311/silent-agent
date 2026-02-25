@@ -328,6 +328,9 @@ function openSettingsPage() {
 
 // 初始化
 async function init() {
+  console.log('[Popup] init 开始执行')
+  console.log('[Popup] authBtn 元素:', elements.authBtn)
+
   // 加载配置
   const config = await getConfig()
 
@@ -361,6 +364,9 @@ async function init() {
 }
 
 // 绑定事件
+console.log('[Popup] 开始绑定事件')
+console.log('[Popup] elements:', elements)
+
 elements.connectBtn.addEventListener('click', connect)
 elements.disconnectBtn.addEventListener('click', disconnect)
 elements.copyKey.addEventListener('click', copyKey)
