@@ -72,9 +72,9 @@ class InjectScriptTool(Tool[InjectScriptParams, Any]):
         context: ExecutionContext
     ) -> Result[Any]:
         """在 MAIN 世界执行代码"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         # 包装代码以接收参数
         wrapped_code = self._wrap_code_with_args(params.code, params.args)
@@ -97,9 +97,9 @@ class InjectScriptTool(Tool[InjectScriptParams, Any]):
         context: ExecutionContext
     ) -> Result[Any]:
         """在 ISOLATED 世界执行代码"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         # 包装代码以接收参数
         wrapped_code = self._wrap_code_with_args(params.code, params.args)

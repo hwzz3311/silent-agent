@@ -29,15 +29,15 @@ class NavigateTool(Tool[NavigateParams, dict]):
     ) -> Result[dict]:
         """执行导航"""
         import logging
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
         logger = logging.getLogger("navigate")
 
         # 优先使用已连接的 client（从 context 传入），避免重复创建连接
         client = getattr(context, 'client', None)
         if not client:
-            logger.info("[NavigateTool] context 中无 client，创建新的 NeuroneClient")
-            client = NeuroneClient()
+            logger.info("[NavigateTool] context 中无 client，创建新的 SilentAgentClient")
+            client = SilentAgentClient()
             await client.connect()
         else:
             logger.info(f"[NavigateTool] 使用 context.client: {type(client)}")

@@ -32,9 +32,9 @@ class FillTool(Tool[FillParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """执行填充"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             raw_result = await client.call_tool(

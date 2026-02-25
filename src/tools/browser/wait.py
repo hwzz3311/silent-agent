@@ -29,9 +29,9 @@ class WaitTool(Tool[WaitParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """执行等待"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             raw_result = await client.call_tool(

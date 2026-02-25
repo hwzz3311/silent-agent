@@ -88,8 +88,8 @@ class VideoUploadInterceptTool(Tool[VideoUploadInterceptParams, VideoUploadInter
             # 获取标签页 ID
             tab_id = params.tab_id or context.tab_id
             if not tab_id:
-                from src.relay_client import NeuroneClient
-                client = NeuroneClient()
+                from src.relay_client import SilentAgentClient
+                client = SilentAgentClient()
                 try:
                     page_info = await client.call_tool("chrome_get_page_info")
                     tab_id = page_info.get("tabId")
@@ -122,9 +122,9 @@ class VideoUploadInterceptTool(Tool[VideoUploadInterceptParams, VideoUploadInter
         timeout: int
     ) -> VideoUploadInterceptResult:
         """执行拦截逻辑"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             # 1. 注入拦截器

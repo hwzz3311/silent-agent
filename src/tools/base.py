@@ -57,7 +57,7 @@ class ExecutionContext:
         timeout: 执行超时时间（毫秒）
         retry_count: 重试次数
         retry_delay: 重试间隔（毫秒）
-        client: 已连接的 NeuroneClient 实例
+        client: 已连接的 SilentAgentClient 实例
     """
     tab_id: Optional[int] = None
     world: str = "MAIN"

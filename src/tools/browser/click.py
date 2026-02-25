@@ -33,9 +33,9 @@ class ClickTool(Tool[ClickParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """执行点击"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             # 调用扩展的 click 工具
@@ -47,7 +47,7 @@ class ClickTool(Tool[ClickParams, dict]):
                 waitForNav=params.wait_for_navigation,
             )
 
-            # NeuroneClient 返回的是原始结果 (dict)，需要转换为 Result
+            # SilentAgentClient 返回的是原始结果 (dict)，需要转换为 Result
             if isinstance(raw_result, dict):
                 if raw_result.get("content"):
                     # 工具返回格式: {content: [{type: 'text' | 'error', text: ...}]}

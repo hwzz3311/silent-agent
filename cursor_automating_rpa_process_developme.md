@@ -105,7 +105,7 @@ Microsoft 推出的 **Model Context Protocol** 服务器，让 AI Agent 通过**
        ↓
   LLM（GPT-4/Claude）规划操作步骤
        ↓
-  调用 NeuroneClient 的现有工具（click/fill/navigate/inject...）
+  调用 SilentAgentClient 的现有工具（click/fill/navigate/inject...）
        ↓
   截图/提取页面信息 → 反馈给 LLM → 继续下一步
 ```
@@ -144,7 +144,7 @@ dom_summary = await client.inject("""
 
 1. **人工录制一次操作**（通过 content script 监听用户操作事件）
 2. **LLM 分析录制结果**，识别关键步骤、去除冗余操作
-3. **生成可参数化的 Python 脚本**（使用 NeuroneClient API）
+3. **生成可参数化的 Python 脚本**（使用 SilentAgentClient API）
 4. 后续直接执行脚本，无需 LLM 参与
 
 ---
@@ -165,7 +165,7 @@ dom_summary = await client.inject("""
 
 对于你的项目，**最实际的路径是方案 A + B 的组合**：
 
-1. **短期**：在 Python 控制器层接入 LLM（如 OpenAI API），用 `chrome_screenshot` + DOM 解析结果作为上下文，让 LLM 自动调用 NeuroneClient 的 12 个工具——这样改动最小，可以快速验证
+1. **短期**：在 Python 控制器层接入 LLM（如 OpenAI API），用 `chrome_screenshot` + DOM 解析结果作为上下文，让 LLM 自动调用 SilentAgentClient 的 12 个工具——这样改动最小，可以快速验证
 2. **中期**：开发操作录制功能（方案 C），让 LLM 只需要跑一次就能生成可复用脚本
 3. **长期**：参考 WALT（ICLR 2026）的思路，将常用网站的操作逆向工程为确定性工具，减少对 LLM 的依赖
 
@@ -545,7 +545,7 @@ asyncio.run(main())
 
 1. **录制层**：通过 `inject_script` 注入事件监听器（方案 A），捕获用户操作
 2. **存储层**：将操作序列保存为 JSON（参考 Chrome DevTools Recorder 格式）
-3. **回放层**：将 JSON 操作序列转换为 `NeuroneClient` 的 API 调用（比如 `client.click()`、`client.fill()` 等）
+3. **回放层**：将 JSON 操作序列转换为 `SilentAgentClient` 的 API 调用（比如 `client.click()`、`client.fill()` 等）
 4. **AI 优化层（可选）**：将录制的操作序列交给 LLM，让它去除冗余步骤、参数化变量、添加错误处理
 
 这比 Browser-Use 的方案更简单——因为你不需要生成 Playwright 脚本，只需要生成 Neurone 自己的工具调用序列即可。而且你的方案保持了**隐蔽性**优势，不需要 Playwright/CDP。

@@ -38,8 +38,8 @@ async def get_client():
     """获取全局客户端实例"""
     global _client
     if _client is None:
-        from src.client.client import NeuroneClient
-        _client = NeuroneClient()
+        from src.client.client import SilentAgentClient
+        _client = SilentAgentClient()
         try:
             await _client.connect()
         except Exception as e:

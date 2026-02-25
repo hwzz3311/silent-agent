@@ -145,9 +145,9 @@ class ReadPageDataTool(Tool[ReadPageDataParams, ReadPageDataResult]):
         tab_id: Optional[int] = None
     ) -> Result[Any]:
         """执行读取脚本"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             raw_result = await client.call_tool(

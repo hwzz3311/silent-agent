@@ -28,13 +28,13 @@ class EvaluateTool(Tool[EvaluateParams, any]):
         context: ExecutionContext
     ) -> Result[any]:
         """执行求值"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
         # 优先使用已连接的 client（从 context 传入），避免重复创建连接
         client = getattr(context, 'client', None)
         if not client:
             # 如果 context 中没有 client，则创建新的并连接
-            client = NeuroneClient()
+            client = SilentAgentClient()
             await client.connect()
 
         try:

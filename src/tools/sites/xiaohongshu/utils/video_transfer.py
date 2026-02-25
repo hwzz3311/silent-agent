@@ -337,8 +337,8 @@ class VideoChunkTransferTool(Tool[VideoChunkTransferParams, VideoChunkTransferRe
             # 获取标签页 ID
             tab_id = params.tab_id or context.tab_id
             if not tab_id:
-                from src.relay_client import NeuroneClient
-                client = NeuroneClient()
+                from src.relay_client import SilentAgentClient
+                client = SilentAgentClient()
                 try:
                     page_info = await client.call_tool("chrome_get_page_info")
                     tab_id = page_info.get("tabId")
@@ -373,9 +373,9 @@ class VideoChunkTransferTool(Tool[VideoChunkTransferParams, VideoChunkTransferRe
         timeout: int
     ) -> VideoChunkTransferResult:
         """执行分块传输"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             # 计算分块数

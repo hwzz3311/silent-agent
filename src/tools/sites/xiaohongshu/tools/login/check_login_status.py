@@ -15,7 +15,7 @@ from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
 from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from src.client.client import NeuroneClient
+from src.client.client import SilentAgentClient
 from .params import XHSCheckLoginStatusParams
 from .result import XHSCheckLoginStatusResult
 

@@ -38,7 +38,7 @@ src/tools/sites/                 # 网站特定实现 [小红书示例]
     ↓
 src/tools/base.py                # 底层工具基类
     ↓
-relay_client.NeuroneClient           # WebSocket 客户端
+relay_client.SilentAgentClient           # WebSocket 客户端
     ↓
 Chrome Extension                     # 浏览器扩展
 ```

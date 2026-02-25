@@ -29,9 +29,9 @@ class InjectTool(Tool[InjectParams, any]):
         context: ExecutionContext
     ) -> Result[any]:
         """执行注入"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             raw_result = await client.call_tool(

@@ -32,9 +32,9 @@ class ExtractTool(Tool[ExtractParams, any]):
         context: ExecutionContext
     ) -> Result[any]:
         """执行提取"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             raw_result = await client.call_tool(

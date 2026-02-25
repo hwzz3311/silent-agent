@@ -226,9 +226,9 @@ class VideoDownloadTool(Tool[VideoDownloadParams, VideoDownloadResult]):
         speed: float
     ):
         """在页面显示下载进度"""
-        from src.relay_client import NeuroneClient
+        from src.relay_client import SilentAgentClient
 
-        client = NeuroneClient()
+        client = SilentAgentClient()
 
         try:
             if total > 0:

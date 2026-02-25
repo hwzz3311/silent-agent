@@ -95,9 +95,9 @@ class UploadFileTool(Tool[UploadFileParams, UploadFileResult]):
     ) -> Result[UploadFileResult]:
         """执行文件上传"""
         try:
-            from src.relay_client import NeuroneClient
+            from src.relay_client import SilentAgentClient
 
-            client = NeuroneClient()
+            client = SilentAgentClient()
 
             # 构建注入代码
             inject_code = self._create_upload_code(
@@ -247,9 +247,9 @@ class SetFilesTool(Tool[SetFilesParams, SetFilesResult]):
     ) -> Result[SetFilesResult]:
         """执行多文件设置"""
         try:
-            from src.relay_client import NeuroneClient
+            from src.relay_client import SilentAgentClient
 
-            client = NeuroneClient()
+            client = SilentAgentClient()
 
             # 构建注入代码
             # Pydantic v2+ uses model_dump, v1 uses dict
