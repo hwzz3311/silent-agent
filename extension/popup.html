@@ -357,16 +357,11 @@
     <!-- 提示消息 -->
     <div class="toast" id="toast"></div>
 
-    <script src="popup.js" defer></script>
+    <!-- 直接在 HTML 中执行测试代码 -->
     <script>
-      // 等待 DOM 准备好后更新测试文字
-      setTimeout(() => {
-        const testEl = document.getElementById('debug-test');
-        if (testEl) {
-          testEl.textContent = 'Popup fully loaded at ' + new Date().toISOString();
-          testEl.style.background = '#90EE90';
-        }
-      }, 500);
+      document.write('<div id="inline-test" style="color:blue">Inline script executed at ' + new Date().toISOString() + '</div>');
     </script>
+
+    <script src="popup.js" onload="alert('popup.js loaded')"></script>
   </body>
 </html>
