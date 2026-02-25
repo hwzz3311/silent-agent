@@ -297,6 +297,10 @@
     </style>
   </head>
   <body>
+    <!-- 测试：确保 popup 被加载 -->
+    <div id="debug-test" style="color:red;font-size:10px;position:fixed;top:0;left:0;z-index:9999;background:white;">Popup loading...</div>
+    <script>document.getElementById('debug-test').textContent = 'Popup loaded at ' + new Date().toISOString();</script>
+
     <!-- 头部 -->
     <div class="header">
       <div class="logo">🧠</div>
@@ -354,6 +358,6 @@
     <!-- 提示消息 -->
     <div class="toast" id="toast"></div>
 
-    <script src="popup.js"></script>
+    <script src="popup.js" defer></script>
   </body>
 </html>
