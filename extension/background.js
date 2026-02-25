@@ -647,6 +647,7 @@ class A11yTreeTool extends BaseTool {
     const tid = await this.resolveTabId(tabId)
     await this.waitForTabLoad(tid).catch(() => {})
 
+    // 固定传递所有参数，使用 null 填充空位（Chrome 会自动过滤 null）
     const r = await this.execInTabMain(tid, (act, nid, pred, lim) => {
       const generator = new A11yTreeGenerator()
       let result = null
@@ -654,8 +655,9 @@ class A11yTreeTool extends BaseTool {
       switch (act) {
         case 'get_tree':
           result = generator.buildFullTree()
-          // 限制返回的节点详情数量
-          const nodeIds = result.rootIds.slice(0, lim)
+          // 限制返回的节点详情数量 (lim 可能是 undefined，使用默认值 100)
+          const maxLim = lim || 100
+          const nodeIds = result.rootIds.slice(0, maxLim)
           const nodeMap = {}
           nodeIds.forEach(id => {
             nodeMap[id] = result.nodes[id]
@@ -671,13 +673,13 @@ class A11yTreeTool extends BaseTool {
           return result
 
         case 'query':
-          result = generator.queryNodes(pred || {})
-          return result.slice(0, lim)
+          result = generator.queryNode(pred || {})
+          return result.slice(0, lim || 100)
 
         default:
           return { error: `未知操作: ${act}` }
       }
-    }, [action, nodeId, predicate, limit])
+    }, [action, nodeId || null, predicate || null, limit])
 
     return this.ok(r)
   }
@@ -1465,7 +1467,23 @@ chrome.runtime.onMessage.addListener((req, _sender, sendResponse) => {
         return { error: '未知消息类型' }
     }
   }
+
   handle().then(sendResponse).catch(e => sendResponse({ error: e.message }))
+
+  // 收到消息时检查是否需要重连（Service Worker 可能刚启动）
+  // 由于无法在 Promise 回调中使用 await，改为延迟执行
+  if (!wsClient.isConnected()) {
+    setTimeout(async () => {
+      const status = await getServerStatus()
+      const config = await getConnectionConfig()
+      if (status.pendingReconnect && config.autoReconnect) {
+        console.log('[Neurone] 收到消息，尝试自动重连...')
+        await updateServerStatus({ pendingReconnect: false })
+        await wsClient.connect(config.serverUrl, config.secretKey)
+      }
+    }, 100)
+  }
+
   return true  // 保持 sendResponse 通道
 })
 

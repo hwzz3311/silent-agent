@@ -405,17 +405,17 @@ class XiaohongshuTestSuite:
             print_result("获取推荐频道笔记列表", False, str(e))
 
         # 测试2: 获取更多笔记（测试自动滚动加载）
-        # try:
-        #     result = await self.api.xhs_list_feeds(
-        #         channel="recommend",
-        #         max_items=15
-        #     )
-        #     has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
-        #     data = result.get("data", {})
-        #     count = len(data.get("items", [])) if isinstance(data, dict) else 0
-        #     print_result("获取更多笔记(自动滚动)", has_feeds and count >= 15, f"获取到 {count} 条")
-        # except Exception as e:
-        #     print_result("获取更多笔记(自动滚动)", False, str(e))
+        try:
+            result = await self.api.xhs_list_feeds(
+                channel="recommend",
+                max_items=15
+            )
+            has_feeds = result.get("success", False) or "feed" in str(result.get("data", ""))
+            data = result.get("data", {})
+            count = len(data.get("items", [])) if isinstance(data, dict) else 0
+            print_result("获取更多笔记(自动滚动)", has_feeds and count >= 15, f"获取到 {count} 条")
+        except Exception as e:
+            print_result("获取更多笔记(自动滚动)", False, str(e))
 
         # 测试3: 获取穿搭频道笔记列表
         # try:
