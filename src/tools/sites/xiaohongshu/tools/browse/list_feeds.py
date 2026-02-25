@@ -901,14 +901,32 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
                     likes = parseInt(num) || 0;
                 }}
 
+                // URL 和 note_id（从封面链接提取）
+                let noteUrl = '';
+                let noteId = '';
+                let coverLinkEl = section.querySelector('div > a.cover.mask.ld') ||
+                                   section.querySelector('a.cover.mask.ld') ||
+                                   section.querySelector('a.cover') ||
+                                   section.querySelector('[class*="cover"] a');
+                if (coverLinkEl) {{
+                    noteUrl = coverLinkEl.href || coverLinkEl.getAttribute('href') || '';
+                    // 从 URL 中提取 note_id: /explore/xxx
+                    if (noteUrl) {{
+                        const match = noteUrl.match(/\/explore\/([a-zA-Z0-9]+)/);
+                        if (match) {{
+                            noteId = match[1];
+                        }}
+                    }}
+                }}
+
                 if (title || coverImage) {{
                     items.push({{
                         title: title,
                         cover_image: coverImage,
                         author: author,
                         likes: likes,
-                        note_id: '',
-                        url: ''
+                        note_id: noteId,
+                        url: noteUrl
                     }});
                 }}
             }}
