@@ -90,6 +90,17 @@ async function getCurrentTab() {
   return tab
 }
 
+// 获取主域名（如 github.io from pinduoduo-sdk.github.io）
+function getMainDomain(hostname) {
+  const parts = hostname.split('.')
+  // 考虑常见的多级域名：com.cn, com.hk 等
+  if (parts.length <= 2) {
+    return hostname
+  }
+  // 取最后两个部分作为主域名
+  return parts.slice(-2).join('.')
+}
+
 // 检查当前页面是否已授权
 async function checkCurrentPageAuth(tab) {
   if (!tab || !tab.url) {
@@ -106,26 +117,36 @@ async function checkCurrentPageAuth(tab) {
     }
 
     const urlStr = url.origin
+    const hostname = url.hostname
+    const mainDomain = getMainDomain(hostname)  // 获取主域名
+
     const [perms] = await chrome.storage.local.get(['hostPermissions'])
     const allHosts = perms?.hostPermissions || []
 
     // 检查是否授权所有网站
     const allGranted = allHosts.includes('<all_urls>') || allHosts.includes('*://*/*')
 
-    // 检查具体域名
+    // 检查具体域名 - 使用主域名匹配
     const domainGranted = allHosts.some(host => {
       if (host.includes('*')) {
-        // 通配符匹配
+        // 通配符匹配：*://*.baidu.com/* 匹配 *.baidu.com
         const pattern = host.replace(/\./g, '\\.').replace(/\*/g, '.*')
-        return new RegExp(pattern).test(urlStr)
+        return new RegExp(pattern).test(urlStr) ||
+               new RegExp(pattern).test(hostname) ||
+               new RegExp(pattern).test(mainDomain)
       }
-      return host.includes(url.hostname)
+      // 提取权限中的域名并匹配主域名
+      const hostParts = host.replace('*://*.', '').replace('/*', '').split('.')
+      const hostMainDomain = hostParts.slice(-2).join('.')
+      // 主域名匹配：baidu.com 匹配 baidu.com, *.baidu.com
+      return mainDomain === hostMainDomain || hostname.includes(hostMainDomain)
     })
 
     return {
       granted: allGranted || domainGranted,
       url: tab.url,
-      hostname: url.hostname,
+      hostname: hostname,
+      mainDomain: mainDomain,
     }
   } catch (e) {
     console.error('[Popup] 检查授权失败:', e)
@@ -161,27 +182,38 @@ function updateAuthStatus(info) {
   }
 }
 
-// 授权当前页面
+// 授权当前页面（使用主域名匹配）
 async function authorizeCurrentPage(tab) {
   if (!tab || !tab.url) return
 
   try {
     const url = new URL(tab.url)
     const hostname = url.hostname
+    const mainDomain = getMainDomain(hostname)  // 获取主域名
 
     // 获取当前权限
     const [perms] = await chrome.storage.local.get(['hostPermissions'])
     const allHosts = perms?.hostPermissions || []
 
-    // 添加域名权限（匹配该域名下所有路径）
-    const newHost = `*://*.${hostname}/*`
+    // 添加主域名权限（匹配该主域名下所有子域名和路径）
+    // 例如：pinduoduo-sdk.github.io -> *://*.github.io/*
+    const newHost = `*://*.${mainDomain}/*`
 
-    if (!allHosts.includes(newHost) && !allHosts.includes('<all_urls>')) {
+    // 检查是否已存在相同主域名的权限
+    const existingMainDomain = allHosts.some(h => {
+      if (h.includes('*')) {
+        const hostMain = getMainDomain(h.replace('*://*.', '').replace('/*', ''))
+        return hostMain === mainDomain
+      }
+      return false
+    })
+
+    if (!existingMainDomain && !allHosts.includes('<all_urls>')) {
       allHosts.push(newHost)
       await chrome.storage.local.set({ hostPermissions: allHosts })
     }
 
-    showToast('授权成功')
+    showToast(`已授权 ${mainDomain} 域名`)
     // 刷新授权状态
     const info = await checkCurrentPageAuth(tab)
     updateAuthStatus(info)
@@ -191,25 +223,29 @@ async function authorizeCurrentPage(tab) {
   }
 }
 
-// 撤销当前页面授权
+// 撤销当前页面授权（使用主域名匹配）
 async function revokeCurrentPage(tab) {
   if (!tab || !tab.url) return
 
   try {
     const url = new URL(tab.url)
     const hostname = url.hostname
+    const mainDomain = getMainDomain(hostname)  // 获取主域名
 
     // 获取当前权限
     const [perms] = await chrome.storage.local.get(['hostPermissions'])
     let allHosts = perms?.hostPermissions || []
 
-    // 移除该域名的权限
-    const newHost = `*://*.${hostname}/*`
-    allHosts = allHosts.filter(h => h !== newHost)
+    // 移除该主域名的权限
+    allHosts = allHosts.filter(h => {
+      if (!h.includes('*')) return true
+      const hostMain = getMainDomain(h.replace('*://*.', '').replace('/*', ''))
+      return hostMain !== mainDomain
+    })
 
     await chrome.storage.local.set({ hostPermissions: allHosts })
 
-    showToast('撤销成功')
+    showToast(`已撤销 ${mainDomain} 域名`)
     // 刷新授权状态
     const info = await checkCurrentPageAuth(tab)
     updateAuthStatus(info)
