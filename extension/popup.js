@@ -120,8 +120,8 @@ async function checkCurrentPageAuth(tab) {
     const hostname = url.hostname
     const mainDomain = getMainDomain(hostname)  // 获取主域名
 
-    const [perms] = await chrome.storage.local.get(['hostPermissions'])
-    const allHosts = perms?.hostPermissions || []
+    const perms = await chrome.storage.local.get('hostPermissions')
+    const allHosts = (perms && perms.hostPermissions) || []
 
     // 检查是否授权所有网站
     const allGranted = allHosts.includes('<all_urls>') || allHosts.includes('*://*/*')
@@ -192,8 +192,8 @@ async function authorizeCurrentPage(tab) {
     const mainDomain = getMainDomain(hostname)  // 获取主域名
 
     // 获取当前权限
-    const [perms] = await chrome.storage.local.get(['hostPermissions'])
-    const allHosts = perms?.hostPermissions || []
+    const perms = await chrome.storage.local.get('hostPermissions')
+    const allHosts = (perms && perms.hostPermissions) || []
 
     // 添加主域名权限（匹配该主域名下所有子域名和路径）
     // 例如：pinduoduo-sdk.github.io -> *://*.github.io/*
@@ -233,8 +233,8 @@ async function revokeCurrentPage(tab) {
     const mainDomain = getMainDomain(hostname)  // 获取主域名
 
     // 获取当前权限
-    const [perms] = await chrome.storage.local.get(['hostPermissions'])
-    let allHosts = perms?.hostPermissions || []
+    const perms = await chrome.storage.local.get('hostPermissions')
+    let allHosts = (perms && perms.hostPermissions) || []
 
     // 移除该主域名的权限
     allHosts = allHosts.filter(h => {
