@@ -2,6 +2,7 @@
 FastAPI 应用模块
 
 提供 Neurone RPA Server 的 API 入口。
+支持多种浏览器客户端模式：extension/puppeteer/hybrid
 """
 
 from contextlib import asynccontextmanager
@@ -25,41 +26,69 @@ from src.api.routes import tools, execute, flows
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 全局客户端实例
-_client = None
+# 全局客户端实例（统一浏览器客户端）
+_browser_client = None
 
 
 async def get_client():
-    """获取全局客户端实例"""
-    global _client
-    if _client is None:
-        from src.client.client import SilentAgentClient
-        _client = SilentAgentClient()
-        try:
-            await _client.connect()
-        except Exception as e:
-            logger.warning(f"无法连接到扩展: {e}")
-    return _client
+    """获取全局浏览器客户端实例（统一接口）"""
+    global _browser_client
+    if _browser_client is None:
+        from src.browser import BrowserClientFactory, BrowserMode
+        from src.config import get_config
+
+        config = get_config()
+        mode = config.browser.mode
+
+        logger.info(f"创建浏览器客户端，模式: {mode.value}")
+
+        if mode == BrowserMode.EXTENSION:
+            # 使用旧的客户端（向后兼容）
+            from src.client.client import SilentAgentClient
+            _browser_client = SilentAgentClient()
+            try:
+                await _browser_client.connect()
+            except Exception as e:
+                logger.warning(f"无法连接到扩展: {e}")
+        else:
+            # 使用新的统一客户端
+            _browser_client = BrowserClientFactory.create_client(mode)
+            try:
+                await _browser_client.connect()
+                logger.info(f"浏览器客户端已连接 (模式: {mode.value})")
+            except Exception as e:
+                logger.warning(f"浏览器客户端连接失败: {e}")
+
+    return _browser_client
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时
-    logger.info("Neurone RPA Server 启动中...")
+    from src.config import get_config
+    config = get_config()
+
+    logger.info(f"Neurone RPA Server 启动中... 浏览器模式: {config.browser.mode.value}")
     try:
         client = await get_client()
-        logger.info(f"客户端已连接: {client.is_connected}")
+        # 检查连接状态
+        is_connected = getattr(client, 'is_connected', lambda: False)()
+        logger.info(f"客户端状态: {is_connected}")
     except Exception as e:
-        logger.warning(f"客户端连接失败: {e}")
+        logger.warning(f"客户端初始化失败: {e}")
 
     yield
 
     # 关闭时
     logger.info("Neurone RPA Server 关闭中...")
-    if client:
-        await client.close()
-    client = None
+    global _browser_client
+    if _browser_client:
+        try:
+            await _browser_client.close()
+        except Exception as e:
+            logger.warning(f"客户端关闭失败: {e}")
+    _browser_client = None
 
 
 # 创建 FastAPI 应用

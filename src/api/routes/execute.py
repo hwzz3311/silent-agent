@@ -64,12 +64,17 @@ async def execute_tool(request: ExecuteRequest):
         )
 
     try:
-        # 创建 ExecutionContext 并传入 tab_id、client 和 secret_key
+        # 创建 ExecutionContext 并传入 tab_id、client、secret_key 和 browser_mode
         from src.tools.base import ExecutionContext
+        from src.config import get_config
+        from src.browser.client_factory import BrowserMode
+
+        config = get_config()
         context = ExecutionContext(
             tab_id=request.tab_id,
             client=client,
-            secret_key=request.secret_key  # 传递密钥用于多插件路由
+            secret_key=request.secret_key,  # 传递密钥用于多插件路由
+            browser_mode=config.browser.mode.value  # 浏览器客户端模式
         )
 
         # 执行工具调用
