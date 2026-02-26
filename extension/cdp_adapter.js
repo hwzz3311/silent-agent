@@ -3,12 +3,12 @@
 
 提供对 Chrome DevTools Protocol (CDP) 命令的兼容性抽象。
 
-虽然本扩展不使用真实的 CDP 协议，但为了：
+功能：
 1. 统一的命令接口
 2. 便于未来迁移
 3. 与其他工具链集成
-
-我们提供 CDP 风格的命令抽象层。
+4. 支持获取调试端口（用于混合模式）
+5. 支持真实无障碍树获取
 
 支持的命令域：
 - Runtime: 脚本执行
@@ -16,6 +16,10 @@
 - Page: 页面控制
 - Network: 网络请求（受限）
 - Accessibility: 无障碍访问
+
+混合模式支持：
+- 可获取当前 Chrome 的调试端口
+- 通过 WebSocket 连接到真实 CDP 获取真实无障碍树
 */
 
 // ==================== 错误码定义 ====================
@@ -217,6 +221,76 @@ class CDPAdapter {
     return this.executeCommand('Accessibility', 'getFullAXTree');
   }
 
+  // ========== 调试端口（混合模式用）==========
+
+  /**
+   * 获取 Chrome 调试端口信息
+   * 用于混合模式：Puppeteer 启动的浏览器可以通过此获取 CDP 连接
+   */
+  async getDebugPort() {
+    return this.executeCommand('Browser', 'getDebugPort');
+  }
+
+  /**
+   * 通过真实 CDP 获取无障碍树
+   * 此方法在混合模式下由 Python 端调用
+   */
+  async getAccessibilityTreeViaCDP() {
+    try {
+      // 获取调试端口
+      const debugInfo = await this.getDebugPort();
+      if (!debugInfo.success || !debugInfo.data) {
+        return this._createErrorResponse(
+          CDP_ERROR_CODES.INTERNAL_ERROR,
+          '无法获取调试端口'
+        );
+      }
+
+      const { host, port } = debugInfo.data;
+
+      // 通过 WebSocket 连接 CDP
+      return new Promise((resolve) => {
+        const ws = new WebSocket(`ws://${host}:${port}`);
+
+        ws.onopen = () => {
+          // 发送 Accessibility.getFullAXTree 命令
+          ws.send(JSON.stringify({
+            id: 1,
+            method: 'Accessibility.getFullAXTree',
+            params: {}
+          }));
+        };
+
+        ws.onmessage = (event) => {
+          const response = JSON.parse(event.data);
+          ws.close();
+          resolve(this._createSuccessResponse('Accessibility.getFullAXTree', response.result || {}));
+        };
+
+        ws.onerror = (error) => {
+          resolve(this._createErrorResponse(
+            CDP_ERROR_CODES.INTERNAL_ERROR,
+            `CDP 连接错误: ${error.message}`
+          ));
+        };
+
+        // 超时处理
+        setTimeout(() => {
+          ws.close();
+          resolve(this._createErrorResponse(
+            CDP_ERROR_CODES.EVALUATION_TIMEOUT,
+            'CDP 请求超时'
+          ));
+        }, 10000);
+      });
+    } catch (e) {
+      return this._createErrorResponse(
+        CDP_ERROR_CODES.INTERNAL_ERROR,
+        `获取无障碍树失败: ${e.message}`
+      );
+    }
+  }
+
   // ========== 内部方法 ==========
 
   _registerDefaultHandlers() {
@@ -333,6 +407,28 @@ class CDPAdapter {
         rootIds: [],
         totalNodes: 0,
         timestamp: Date.now(),
+      };
+    });
+
+    // Browser.getDebugPort 处理器 - 获取调试端口信息
+    this.registerCommand('Browser', 'getDebugPort', async () => {
+      // 尝试获取 Chrome 调试端口
+      // 注意：扩展内无法直接获取调试端口，需要通过特定方式
+      // 这里返回一个标记，由 Python 端处理
+
+      // 方法1: 尝试从 chrome.runtime 获取（如果有的话）
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+        // 扩展模式，返回特殊标记
+        return {
+          mode: 'extension',
+          message: '扩展模式，需要通过 Python 端连接',
+        };
+      }
+
+      // 默认返回unknow
+      return {
+        mode: 'unknown',
+        message: '无法确定浏览器模式',
       };
     });
   }
