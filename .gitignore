@@ -33,3 +33,4 @@ htmlcov/
 
 # 其他
 .DS_Store
+/CLAUDE.md

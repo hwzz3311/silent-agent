@@ -68,20 +68,30 @@ class TestClient:
             "new_tab": new_tab
         })
 
-    async def get_a11y_tree(self, action: str = "get_tree", limit: int = 100):
+    async def get_a11y_tree(self, action: str = "get_tree", limit: int = 100, tab_id: int = None):
         """获取无障碍树"""
-        return await self.execute_tool("a11y_tree", {
+        params = {
             "action": action,
             "limit": limit
-        }, timeout=30000)
+        }
+        if tab_id:
+            params["tabId"] = tab_id  # 注意：扩展端期望 tabId (camelCase)
+        print(f">>> get_a11y_tree 参数: {params}")
+        return await self.execute_tool("a11y_tree", params, timeout=30000)
 
 
 async def main():
     async with TestClient() as client:
-        # 1. 导航到小红书首页
-        print(">>> 导航到小红书首页...")
+        # 1. 导航到知乎文章页
+        print(">>> 导航到知乎文章页...")
         result = await client.navigate("https://zhuanlan.zhihu.com/p/381044910", new_tab=True)
         print(f"导航结果: {json.dumps(result, ensure_ascii=False)[:500]}")
+
+        # 从导航结果中提取 tabId
+        tab_id = None
+        if result.get("success") and result.get("data"):
+            tab_id = result["data"].get("tabId")
+            print(f">>> 获取到 tabId: {tab_id}")
 
         # 等待页面加载
         print(">>> 等待页面加载 (5秒)...")
@@ -89,9 +99,9 @@ async def main():
 
         # 2. 获取无障碍树
         print(">>> 获取无障碍树...")
-        result = await client.get_a11y_tree(action="get_tree", limit=200)
+        result = await client.get_a11y_tree(action="get_tree", limit=200, tab_id=tab_id)
 
-        print(f"\n=== 无障碍树结果 ===")
+        print(f"\n=== c ===")
         print(f"成功: {result.get('success')}")
 
         if result.get("success"):

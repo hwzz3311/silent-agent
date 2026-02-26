@@ -107,18 +107,23 @@ function registerTool(tool) {
 }
 
 async function executeTool({ name, args }) {
+  console.log(`[executeTool] ===== 开始 ===== name=${name}, args=${JSON.stringify(args)}`)
+
   const tool = toolRegistry.get(name)
+  console.log(`[executeTool] toolRegistry.get(${name}) =`, tool)
+
   if (!tool) {
+    console.error(`[executeTool] 工具未找到: ${name}, registry keys:`, Array.from(toolRegistry.keys()))
     return { content: [{ type: 'error', text: `未知工具: ${name}` }], isError: true }
   }
   try {
-    console.log(`[Neurone] 执行工具: ${name}`, args)
+    console.log(`[executeTool] 准备执行工具: ${name}, args=`, args)
     const result = await tool.execute(args || {})
-    console.log(`[Neurone] 工具完成: ${name}`)
+    console.log(`[executeTool] 工具执行完成: ${name}, result=`, result)
     return result
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[Neurone] 工具失败: ${name} →`, msg)
+    console.error(`[executeTool] 工具执行异常: ${name} →`, msg, err.stack)
     return { content: [{ type: 'error', text: msg }], isError: true }
   }
 }
@@ -204,6 +209,8 @@ class BaseTool {
  */
 class A11yTreeGenerator {
   constructor() {
+    console.log('[A11yTreeGenerator] ===== 构造函数开始 =====')
+
     // HTML 标签到 ARIA role 的隐式映射
     this.SEMANTIC_TAG_ROLES = {
       'A': 'link',
@@ -253,17 +260,26 @@ class A11yTreeGenerator {
       '[tabindex]:not([tabindex="-1"])',
       '[contenteditable="true"]',
     ].join(', ')
+
+    console.log('[A11yTreeGenerator] 选择器:', this.INTERACTIVE_SELECTORS)
+    console.log('[A11yTreeGenerator] ===== 构造函数完成 =====')
   }
 
   /**
    * 构建完整无障碍树
    */
   buildFullTree() {
+    console.log('[A11yTreeGenerator.buildFullTree] ===== 开始 =====')
+    console.log('[A11yTreeGenerator.buildFullTree] 选择器:', this.INTERACTIVE_SELECTORS)
+
     const elements = document.querySelectorAll(this.INTERACTIVE_SELECTORS)
+    console.log('[A11yTreeGenerator.buildFullTree] querySelectorAll 结果数量:', elements.length)
+
     const nodes = []
     const nodeMap = new Map()
 
     // 第一遍：创建所有节点
+    console.log('[A11yTreeGenerator.buildFullTree] 第一遍: 创建节点')
     elements.forEach((el, index) => {
       const node = this._buildNode(el, index)
       if (node) {
@@ -644,47 +660,96 @@ class A11yTreeTool extends BaseTool {
   constructor() { super('a11y_tree') }
 
   async execute({ action = 'get_tree', nodeId, predicate, limit = 100, tabId }) {
+    console.log('[A11yTreeTool] ===== 开始执行 ===== action=', action, 'limit=', limit, 'tabId=', tabId)
     const tid = await this.resolveTabId(tabId)
     await this.waitForTabLoad(tid).catch(() => {})
 
-    // 固定传递所有参数，使用 null 填充空位（Chrome 会自动过滤 null）
-    const r = await this.execInTabMain(tid, (act, nid, pred, lim) => {
-      const generator = new A11yTreeGenerator()
-      let result = null
+    const paramsJson = JSON.stringify({ action, nodeId, predicate, limit })
+    console.log('[A11yTreeTool] paramsJson=', paramsJson)
 
-      switch (act) {
-        case 'get_tree':
-          result = generator.buildFullTree()
-          // 限制返回的节点详情数量 (lim 可能是 undefined，使用默认值 100)
-          const maxLim = lim || 100
-          const nodeIds = result.rootIds.slice(0, maxLim)
-          const nodeMap = {}
-          nodeIds.forEach(id => {
-            nodeMap[id] = result.nodes[id]
+    // 直接在函数内部定义（不使用 eval/字符串）
+    try {
+      console.log('[A11yTreeTool] 准备调用 execInTab, tabId=', tid)
+
+      const r = await this.execInTab(tid, function(params) {
+        // 参数解析
+        const p = JSON.parse(params)
+        const act = p.action
+        const lim = p.limit
+
+        // 常量定义
+        const SEMANTIC_TAG_ROLES = {
+          'A': 'link', 'BUTTON': 'button', 'INPUT': 'textbox', 'SELECT': 'combobox',
+          'TEXTAREA': 'textbox', 'H1': 'heading', 'H2': 'heading', 'H3': 'heading',
+          'H4': 'heading', 'H5': 'heading', 'H6': 'heading', 'NAV': 'navigation',
+          'MAIN': 'main', 'HEADER': 'banner', 'FOOTER': 'contentinfo', 'FORM': 'form',
+          'ARTICLE': 'article', 'ASIDE': 'complementary', 'SECTION': 'region',
+          'TABLE': 'table', 'TH': 'columnheader', 'TD': 'cell', 'UL': 'list',
+          'OL': 'list', 'LI': 'listitem', 'IMG': 'image', 'SVG': 'image', 'CANVAS': 'img',
+        }
+        const INTERACTIVE_SELECTORS = [
+          'a[href]', 'button', 'input:not([type=hidden])', 'select', 'textarea',
+          '[role=button]', '[role=link]', '[role=checkbox]', '[role=radio]',
+          '[role=textbox]', '[role=combobox]', '[role=menuitem]',
+          '[tabindex]:not([tabindex=-1])', '[contenteditable=true]',
+        ].join(', ')
+
+        // 辅助函数
+        const getElementId = function(el) { return el.id || 'el_' + Math.random().toString(36).slice(2, 9) }
+        const buildNode = function(el) {
+          const role = el.getAttribute('role') || SEMANTIC_TAG_ROLES[el.tagName] || 'unknown'
+          const name = el.getAttribute('aria-label') || el.getAttribute('title') || (el.innerText && el.innerText.trim().slice(0, 100)) || el.id || el.tagName
+          // 保存 element 引用，用于后续建立父子关系
+          return { id: getElementId(el), role: role, name: name, value: el.value || '', children: [], element: el }
+        }
+        const serializeNode = function(n) { return { id: n.id, role: n.role, name: n.name, value: n.value, children: n.children } }
+
+        // 构建树
+        const buildFullTree = function(limit) {
+          const elements = document.querySelectorAll(INTERACTIVE_SELECTORS)
+          const nodes = []
+          elements.forEach(function(el) {
+            const node = buildNode(el)
+            if (node) nodes.push(node)
           })
-          return { ...result, nodes: nodeMap }
+          // 建立父子关系
+          const rootNodes = []
+          nodes.forEach(function(node) {
+            let parent = node.element?.parentElement
+            while (parent && parent !== document.body) {
+              const parentNode = nodes.find(function(n) { return n.element === parent })
+              if (parentNode) { parentNode.children.push(node.id); break }
+              parent = parent.parentElement
+            }
+            if (!parent || parent === document.body) rootNodes.push(node.id)
+          })
+          const maxLim = limit || 100
+          const nodeIds = rootNodes.slice(0, maxLim)
+          const nodeMap = {}
+          nodes.forEach(function(n) { if (nodeIds.indexOf(n.id) >= 0) nodeMap[n.id] = serializeNode(n) })
+          return { rootIds: nodeIds, nodes: nodeMap, totalNode: nodes.length, timestamp: Date.now() }
+        }
 
-        case 'get_focused':
-          result = generator.buildFocusedNode()
-          return result
+        // 执行
+        console.log('[A11yTree] act=', act, 'lim=', lim)
+        let result = null
+        if (act === 'get_tree') {
+          result = buildFullTree(lim)
+        } else {
+          result = { error: '未知操作: ' + act }
+        }
+        console.log('[A11yTree] result totalNode=', result.totalNode)
+        return result
+      }, [paramsJson])
 
-        case 'get_node':
-          result = generator.getNode(nid)
-          return result
-
-        case 'query':
-          result = generator.queryNode(pred || {})
-          return result.slice(0, lim || 100)
-
-        default:
-          return { error: `未知操作: ${act}` }
-      }
-    }, [action, nodeId || null, predicate || null, limit])
-
-    return this.ok(r)
+      console.log('[A11yTreeTool] execInTab 返回, r=', r)
+      return this.ok(r)
+    } catch (e) {
+      console.error('[A11yTreeTool] 执行失败:', e.message, e.stack)
+      return this.err('执行失败: ' + e.message)
+    }
   }
 }
-
 // ========== 无障碍树工具 End ====================
 class InjectScriptTool extends BaseTool {
   constructor() { super('inject_script') }
@@ -1282,10 +1347,14 @@ class NeuroneWSClient {
   }
 
   _scheduleReconnect() {
-    if (!this.shouldReconnect || !this.currentUrl) return
+    console.log('[Neurone] _scheduleReconnect 检查: shouldReconnect=', this.shouldReconnect, 'currentUrl=', this.currentUrl)
+    if (!this.shouldReconnect || !this.currentUrl) {
+      console.log('[Neurone] 跳过自动重连: shouldReconnect=', this.shouldReconnect, 'currentUrl=', this.currentUrl)
+      return
+    }
     this.clearReconnectTimer()
     this.reconnectTimer = setTimeout(() => {
-      console.log('[Neurone] 自动重连...')
+      console.log('[Neurone] 自动重连触发...')
       updateBadge('connecting')
       void this.connect(this.currentUrl)
     }, 5000)

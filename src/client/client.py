@@ -138,8 +138,11 @@ class SilentAgentClient:
         self._default_timeout = 60.0
         # 密钥：用于多插件路由，指定目标插件
         self._secret_key = secret_key
-        # 网站域名到标签页 ID 的映射表
-        self._site_tab_map: Dict[str, int] = {}
+        # 网站域名到标签页 ID 的映射表（按密钥分开存储）
+        # 结构: {secret_key: {domain: tab_id}}
+        self._site_tab_maps: Dict[str, Dict[str, int]] = {}
+        # 记录哪些密钥已经初始化过网站映射
+        self._site_tab_map_initialized: Dict[str, bool] = {}
 
         # 注册扩展连接事件
         self._connection.on_event("extension_connected", self._on_extension_connected)
@@ -177,6 +180,12 @@ class SilentAgentClient:
 
         # 确定使用的密钥
         used_key = secret_key or self._secret_key
+        if not used_key:
+            return
+
+        # 确保该密钥的映射表存在
+        if used_key not in self._site_tab_maps:
+            self._site_tab_maps[used_key] = {}
 
         try:
             # 调用 browser_control 的 query_tabs 获取所有标签页（传入密钥）
@@ -204,13 +213,15 @@ class SilentAgentClient:
                         # 忽略空白域名
                         if not domain:
                             continue
-                        # 存储域名到 tabId 的映射
-                        self._site_tab_map[domain] = tab_id
-                        logger.info(f"[_init_site_tab_map] 映射域名 '{domain}' -> tabId {tab_id}")
+                        # 存储域名到 tabId 的映射（追加而非清理）
+                        self._site_tab_maps[used_key][domain] = tab_id
+                        logger.debug(f"[_init_site_tab_map] 密钥 {used_key[:8]}... 映射域名 '{domain}' -> tabId {tab_id}")
                     except Exception as e:
                         logger.warning(f"[_init_site_tab_map] 解析域名失败: {url}, {e}")
 
-                logger.info(f"[_init_site_tab_map] 初始化完成，共 {len(self._site_tab_map)} 个映射")
+                logger.info(f"[_init_site_tab_map] 密钥 {used_key[:8]}... 初始化完成，共 {len(self._site_tab_maps[used_key])} 个映射")
+                # 标记该密钥已初始化
+                self._site_tab_map_initialized[used_key] = True
             else:
                 logger.warning(f"[_init_site_tab_map] 获取标签页失败: {result}")
 
@@ -242,17 +253,21 @@ class SilentAgentClient:
 
     # ========== 网站 Tab 映射管理 ==========
 
-    def set_site_tab(self, site_domain: str, tab_id: int) -> None:
+    def set_site_tab(self, site_domain: str, tab_id: int, secret_key: str = None) -> None:
         """
         设置网站域名对应的标签页
 
         Args:
             site_domain: 网站域名（如 xiaohongshu.com）
             tab_id: 标签页 ID
+            secret_key: 插件密钥（可选，不传则使用默认密钥）
         """
-        self._site_tab_map[site_domain] = tab_id
+        used_key = secret_key or self._secret_key
+        if used_key not in self._site_tab_maps:
+            self._site_tab_maps[used_key] = {}
+        self._site_tab_maps[used_key][site_domain] = tab_id
 
-    def get_site_tab(self, site_domain: str) -> Optional[int]:
+    def get_site_tab(self, site_domain: str, secret_key: str = None) -> Optional[int]:
         """
         获取网站域名对应的标签页
 
@@ -262,13 +277,17 @@ class SilentAgentClient:
 
         Args:
             site_domain: 网站域名（如 xiaohongshu.com 或 www.xiaohongshu.com）
+            secret_key: 插件密钥（可选，不传则使用默认密钥）
 
         Returns:
             标签页 ID，如果没有返回 None
         """
+        used_key = secret_key or self._secret_key
+        site_map = self._site_tab_maps.get(used_key, {})
+
         # 精确匹配
-        if site_domain in self._site_tab_map:
-            return self._site_tab_map[site_domain]
+        if site_domain in site_map:
+            return site_map[site_domain]
 
         # 模糊匹配：移除前缀后匹配（如 www.xiaohongshu.com -> xiaohongshu.com）
         domain = site_domain.lower()
@@ -276,41 +295,49 @@ class SilentAgentClient:
         for prefix in ("www.", "m.", "mobile.", "shop.", "creator.", "creatorcenter.", "work."):
             if domain.startswith(prefix):
                 base_domain = domain[len(prefix):]
-                if base_domain in self._site_tab_map:
-                    return self._site_tab_map[base_domain]
+                if base_domain in site_map:
+                    return site_map[base_domain]
                 # 继续尝试多级前缀
                 for prefix2 in ("www.", "m.", "mobile.", "shop."):
                     if base_domain.startswith(prefix2):
                         base_domain2 = base_domain[len(prefix2):]
-                        if base_domain2 in self._site_tab_map:
-                            return self._site_tab_map[base_domain2]
+                        if base_domain2 in site_map:
+                            return site_map[base_domain2]
 
         return None
 
-    def clear_site_tab(self, site_domain: str) -> None:
+    def clear_site_tab(self, site_domain: str, secret_key: str = None) -> None:
         """清除网站域名对应的标签页"""
-        if site_domain in self._site_tab_map:
-            del self._site_tab_map[site_domain]
+        used_key = secret_key or self._secret_key
+        site_map = self._site_tab_maps.get(used_key, {})
+        if site_domain in site_map:
+            del site_map[site_domain]
 
     async def refresh_site_tabs(self, secret_key: str = None) -> Dict[str, int]:
         """
         刷新网站域名到标签页的映射
 
-        重新从浏览器获取所有标签页并更新映射表
+        重新从浏览器获取所有标签页并更新映射表（追加模式，不会清理已有映射）
 
         Args:
             secret_key: 插件密钥，用于指定目标插件
 
         Returns:
-            新的域名到 tabId 的映射字典
+            域名到 tabId 的映射字典
         """
-        self._site_tab_map.clear()
-        await self._init_site_tab_map(secret_key)
-        return self._site_tab_map
+        used_key = secret_key or self._secret_key
+        await self._init_site_tab_map(used_key)
+        return self._site_tab_maps.get(used_key, {})
+
+    def is_site_tab_initialized(self, secret_key: str = None) -> bool:
+        """检查指定密钥的网站映射是否已初始化"""
+        used_key = secret_key or self._secret_key
+        return self._site_tab_map_initialized.get(used_key, False)
 
     @property
     def site_tab_map(self) -> Dict[str, int]:
-        """获取当前网站域名到标签页的映射（只读副本）"""
+        """获取当前密钥的网站域名到标签页的映射（只读副本）"""
+        return dict(self._site_tab_maps.get(self._secret_key, {}))
         return dict(self._site_tab_map)
 
     @property
@@ -505,6 +532,11 @@ class SilentAgentClient:
 
         # 确定使用的密钥：优先使用传入的参数，否则使用默认密钥
         used_key = secret_key or self._secret_key
+
+        # 按需初始化网站标签页映射（仅对未初始化过的密钥进行初始化）
+        if used_key and not self.is_site_tab_initialized(used_key):
+            logger.info(f"[execute_tool] 密钥 {used_key[:8]}... 的网站映射未初始化，进行首次初始化")
+            await self._init_site_tab_map(used_key)
 
         # 发送执行请求 (使用 relay_server 期望的格式)
         timeout = timeout or self._default_timeout

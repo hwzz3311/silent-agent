@@ -87,6 +87,9 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         # 小红书域名
         site_domain = "xiaohongshu.com"
 
+        # 获取密钥用于 site_tab 操作
+        secret_key = getattr(context, 'secret_key', None)
+
         # ========== tab_id 管理 ==========
         # 优先级：参数 > context > site_tab_map > 获取活动标签页 > 创建新标签页
         tab_id = params.tab_id
@@ -98,19 +101,15 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             logger.debug(f"从 context 获取 tab_id: {tab_id}")
 
         if not tab_id and hasattr(client, 'get_site_tab'):
-            # 从全局 site tab 映射获取（需要先通过 refresh_site_tabs 初始化）
-            secret_key = getattr(context, 'secret_key', None)
-            if secret_key:
-                # 按需初始化对应插件的 tab 映射
-                await client.refresh_site_tabs(secret_key)
-            tab_id = client.get_site_tab(site_domain)
+            # 从全局 site tab 映射获取（execute_tool 已自动初始化不需要再调refresh_site_tabs）
+            tab_id = client.get_site_tab(site_domain, secret_key)
             logger.debug(f"从 site_tab_map 获取 tab_id: {tab_id}")
 
             # 检测 tab 是否还可用
             if tab_id and not await self._is_tab_valid(client, tab_id):
                 logger.warning(f"site_tab_map 中的 tab_id={tab_id} 已失效，将重新获取")
                 if hasattr(client, 'clear_site_tab'):
-                    client.clear_site_tab(site_domain)
+                    client.clear_site_tab(site_domain, secret_key)
                 tab_id = None
 
         if not tab_id:
@@ -146,7 +145,7 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
 
         # 保存 tab_id 到全局映射
         if tab_id and hasattr(client, 'set_site_tab'):
-            client.set_site_tab(site_domain, tab_id)
+            client.set_site_tab(site_domain, tab_id, secret_key)
             logger.debug(f"保存 tab_id 到 site_tab_map: {site_domain} -> {tab_id}")
 
         # 如果还是没有 tab_id，抛出错误
