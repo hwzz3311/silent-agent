@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Puppeteer 混合模式支持（开发中）
+- **浏览器客户端模块** (`src/browser/`)
+  - `BrowserClient`: 抽象基类定义统一接口
+  - `BrowserMode`: 枚举支持 extension/puppeteer/hybrid 三种模式
+  - `BrowserClientFactory`: 工厂类根据配置创建对应客户端
+  - `ExtensionClient`: 封装现有 relay_client
+  - `PuppeteerClient`: Puppeteer 控制，支持 stealth
+  - `HybridClient`: 混合模式，结合两者优势
 
 ### Changed
 - 无障碍树获取支持真实树（通过 Puppeteer CDP）
