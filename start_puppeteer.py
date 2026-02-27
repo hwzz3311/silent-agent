@@ -26,6 +26,9 @@ RELAY_PORT = 18792
 API_PORT = 8080
 KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
 
+# 浏览器数据目录（用于保存登录状态）
+USER_DATA_DIR = os.path.join(PROJECT_ROOT, ".puppeteer-data")
+
 DEFAULT_AUTHORIZED_URLS = ["*://*/*"]
 
 
@@ -57,16 +60,21 @@ async def main():
     stealth = {{STEALTH}}
 
     try:
-        from puppeteer import launch
-        from puppeteer_extra import launch as puppeteer_extra_launch
-        from puppeteer_extra_plugin_stealth import stealth
+        from pyppeteer import launch
     except ImportError as e:
         print("错误: 依赖未安装: " + str(e))
+        print("请运行: pip install pyppeteer")
         return
 
     ext_path = EXTENSION_PATH
+    user_data_dir = r"{{USER_DATA_DIR}}"
+
+    # 确保 userDataDir 存在
+    os.makedirs(user_data_dir, exist_ok=True)
+
     launch_args = {
         "headless": headless,
+        "userDataDir": user_data_dir,  # 保持登录状态
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",
@@ -83,7 +91,15 @@ async def main():
     try:
         if stealth:
             print("启用 stealth 模式...")
-            browser = await puppeteer_extra_launch(**launch_args, plugin=[stealth()])
+            # stealth 模式：隐藏自动化特征
+            browser = await launch(**launch_args)
+            # 注入 stealth 脚本
+            await browser.evaluate("""
+                () => {
+                    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                    window.cdc_adoQpoasn = undefined;
+                }
+            """)
         else:
             print("普通模式...")
             browser = await launch(**launch_args)
@@ -154,7 +170,8 @@ def write_launch_script(headless: bool, stealth: bool) -> str:
                       .replace("{{KEY_FILE}}", KEY_FILE) \
                       .replace("{{RELAY_PORT}}", str(RELAY_PORT)) \
                       .replace("{{HEADLESS}}", str(headless)) \
-                      .replace("{{STEALTH}}", str(stealth))
+                      .replace("{{STEALTH}}", str(stealth)) \
+                      .replace("{{USER_DATA_DIR}}", USER_DATA_DIR)
 
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -183,8 +200,8 @@ class PuppeteerStarter:
         packages = [
             "websockets>=12.0", "aiohttp>=3.9.0", "pydantic>=2.0.0",
             "fastapi>=0.109.0", "uvicorn>=0.27.0",
-            "puppeteer>=7.0.0", "puppeteer-extra>=3.0.0",
-            "puppeteer-extra-plugin-stealth>=2.9.0",
+            # 注意：正确的包名是 pyppeteer，不是 puppeteer
+            "pyppeteer>=2.0.0",
         ]
 
         for pkg in packages:
