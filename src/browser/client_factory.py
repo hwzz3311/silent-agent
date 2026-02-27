@@ -27,6 +27,7 @@ class BrowserConfig:
         # Puppeteer 配置
         puppeteer_headless: bool = True,
         puppeteer_args: list = None,
+        puppeteer_executable_path: str = None,
         stealth_enabled: bool = True,
         # 扩展配置
         extension_path: str = None,
@@ -38,6 +39,7 @@ class BrowserConfig:
         self.mode = mode
         self.puppeteer_headless = puppeteer_headless
         self.puppeteer_args = puppeteer_args or []
+        self.puppeteer_executable_path = puppeteer_executable_path
         self.stealth_enabled = stealth_enabled
         self.extension_path = extension_path
         self.relay_host = relay_host
@@ -55,6 +57,7 @@ class BrowserConfig:
             mode=mode,
             puppeteer_headless=os.getenv("PUPPETEER_HEADLESS", "true").lower() == "true",
             puppeteer_args=[a.strip() for a in puppeteer_args if a.strip()],
+            puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),
             stealth_enabled=os.getenv("STEALTH_ENABLED", "true").lower() == "true",
             extension_path=os.getenv("EXTENSION_PATH"),
             relay_host=os.getenv("RELAY_HOST", "127.0.0.1"),
@@ -113,6 +116,7 @@ class BrowserClientFactory:
                 headless=config.puppeteer_headless,
                 args=config.puppeteer_args,
                 stealth=config.stealth_enabled,
+                executable_path=config.puppeteer_executable_path,
             )
         elif mode == BrowserMode.HYBRID:
             from .hybrid_client import HybridClient
@@ -121,6 +125,7 @@ class BrowserClientFactory:
                     "headless": config.puppeteer_headless,
                     "args": config.puppeteer_args,
                     "stealth": config.stealth_enabled,
+                    "executable_path": config.puppeteer_executable_path,
                 },
                 extension_config={
                     "host": config.relay_host,

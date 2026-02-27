@@ -2,6 +2,7 @@
 Puppeteer 客户端
 
 通过 Puppeteer 控制浏览器，支持 stealth 模式。
+注意：使用 pyppeteer 包（纯 Python 实现）
 """
 
 import asyncio
@@ -11,25 +12,13 @@ from typing import Any, Dict, List, Optional
 
 from .base import BrowserClient, BrowserClientError
 
-# Puppeteer 相关导入
-# 注意：需要安装 puppeteer-extra 和 puppeteer-extra-plugin-stealth
+# Pyppeteer 相关导入
 try:
-    import puppeteer
-    from puppeteer import launch as puppeteer_launch
-    PUPPETEER_AVAILABLE = True
+    from pyppeteer import launch as pyppeteer_launch
+    PYPPETEER_AVAILABLE = True
 except ImportError:
-    PUPPETEER_AVAILABLE = False
-    puppeteer = None
-    puppeteer_launch = None
-
-try:
-    from puppeteer_extra import launch as puppeteer_extra_launch
-    from puppeteer_extra_plugin_stealth import stealth
-    STEALTH_PLUGIN_AVAILABLE = True
-except ImportError:
-    STEALTH_PLUGIN_AVAILABLE = False
-    puppeteer_extra_launch = None
-    stealth = None
+    PYPPETEER_AVAILABLE = False
+    pyppeteer_launch = None
 
 
 class PuppeteerClient(BrowserClient):
@@ -37,6 +26,7 @@ class PuppeteerClient(BrowserClient):
     Puppeteer 客户端
 
     通过 Puppeteer 控制浏览器，支持 stealth 模式。
+    使用 pyppeteer（纯 Python 实现）
     """
 
     def __init__(
@@ -45,11 +35,13 @@ class PuppeteerClient(BrowserClient):
         args: list = None,
         stealth: bool = True,
         user_data_dir: str = None,
+        executable_path: str = None,
     ):
         self.headless = headless
         self.args = args or []
         self.stealth_enabled = stealth
         self.user_data_dir = user_data_dir
+        self.executable_path = executable_path
         self._browser = None
         self._page = None
         self._cdp_session = None
@@ -61,46 +53,65 @@ class PuppeteerClient(BrowserClient):
 
     async def connect(self) -> None:
         """启动浏览器"""
-        if not PUPPETEER_AVAILABLE:
+        if not PYPPETEER_AVAILABLE:
             raise BrowserClientError(
-                "Puppeteer 未安装，请运行: pip install puppeteer-extra puppeteer-extra-plugin-stealth"
+                "Pyppeteer 未安装，请运行: pip install pyppeteer"
             )
 
         # 构建启动参数
-        launch_args = {
+        launch_options = {
             "headless": self.headless,
             "args": self.args.copy() if self.args else [],
             "ignoreDefaultArgs": ["--enable-automation"],  # 隐藏自动化特征
+            "dumpio": False,
         }
 
-        # 添加 stealth 插件
-        if self.stealth_enabled and STEALTH_PLUGIN_AVAILABLE:
-            try:
-                # 使用 puppeteer-extra 加载 stealth 插件
-                self._browser = await puppeteer_extra_launch(
-                    **launch_args,
-                    plugins=[stealth()],
-                )
-            except Exception as e:
-                # 如果 stealth 插件失败，回退到普通模式
-                print(f"[PuppeteerClient] Stealth 插件加载失败，回退到普通模式: {e}")
-                self._browser = await puppeteer_launch(**launch_args)
-        else:
-            self._browser = await puppeteer_launch(**launch_args)
+        # 添加可选参数
+        if self.user_data_dir:
+            launch_option["userDataDir"] = self.user_data_dir
+        if self.executable_path:
+            launch_option["executablePath"] = self.executable_path
 
-        # 创建页面
-        pages = await self._browser.pagesArray()
-        if pages:
-            self._page = pages[0]
+        # 启动浏览器
+        self._browser = await pyppeteer_launch(**launch_option)
+
+        # 如果启用 stealth，注入 stealth 脚本
+        if self.stealth_enabled:
+            try:
+                # 获取所有页面
+                pages = await self._browser.pages()
+                if pages:
+                    self._page = pages[0]
+                else:
+                    self._page = await self._browser.newPage()
+
+                # 注入 stealth 脚本
+                await self._page.evaluate("""
+                    () => {
+                        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                        window.cdc_adoQpoasn = undefined;
+                        window.chrome = { runtime: {} };
+                    }
+                """)
+            except Exception as e:
+                print(f"[PuppeteerClient] Stealth 注入失败: {e}")
         else:
-            self._page = await self._browser.newPage()
+            # 创建页面
+            pages = await self._browser.pages()
+            if pages:
+                self._page = pages[0]
+            else:
+                self._page = await self._browser.newPage()
 
         self._connected = True
 
     async def close(self) -> None:
         """关闭浏览器"""
         if self._browser:
-            await self._browser.close()
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
             self._browser = None
         self._page = None
         self._cdp_session = None
@@ -163,7 +174,7 @@ class PuppeteerClient(BrowserClient):
                 await self._page.evaluate(
                     f"""(selector, value) => {{
                         const el = document.querySelector(selector);
-                        if (el) {{ el.value = value; el.dispatchEvent(new Event('input', {{ bubbles: true }})); }}
+                        if (el) {{ el.value = value; el.dispatchEvent(new Event('input', {{ bubble: true }})); }}
                     }}""",
                     selector, value,
                 )
@@ -322,7 +333,7 @@ class PuppeteerClient(BrowserClient):
 
         try:
             if action == "get_tree":
-                # 方法1: 使用 Puppeteer 内置的 accessibility API
+                # 方法1: 使用 Pyppeteer 内置的 accessibility API
                 snapshot = await self._page.accessibility.snapshot()
 
                 # 简化结构以匹配现有格式
@@ -330,7 +341,7 @@ class PuppeteerClient(BrowserClient):
                 root_ids = []
 
                 def process_node(node, parent_id=None):
-                    node_id = str(node.get("nodeId", id(nodes)))
+                    node_id = str(node.get("nodeId", id(node)))
                     role = node.get("role", "unknown")
                     name = node.get("name", "")
                     value = node.get("value", "")
@@ -381,7 +392,7 @@ class PuppeteerClient(BrowserClient):
         """
         通过 CDP 获取完整的无障碍树
 
-        这将获取比 Puppeteer accessibility.snapshot() 更详细的树。
+        这将获取比 Pyppeteer accessibility.snapshot() 更详细的树。
         """
         await self._ensure_connected()
 
@@ -413,7 +424,7 @@ class PuppeteerClient(BrowserClient):
 
     async def list_tabs(self) -> List[Dict[str, Any]]:
         await self._ensure_connected()
-        pages = await self._browser.pageArray()
+        pages = await self._browser.pages()
         return [
             {"url": p.url, "title": p.title}
             for p in pages if p.url

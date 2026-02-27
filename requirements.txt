@@ -8,9 +8,8 @@ fastapi>=0.109.0
 uvicorn>=0.27.0
 
 # Puppeteer 支持（可选，用于真实无障碍树）
-puppeteer>=7.0.0
-puppeteer-extra>=3.0.0
-puppeteer-extra-plugin-stealth>=2.9.0
+# 使用 pyppeteer（纯 Python 实现）
+pyppeteer>=2.0.0
 
 # 开发依赖
 pillow>=10.0
