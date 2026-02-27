@@ -78,7 +78,7 @@ class AppConfig:
         browser = BrowserSettings(
             mode=BrowserMode(os.getenv("BROWSER_MODE", "extension")),
             puppeteer_headless=os.getenv("PUPPETEER_HEADLESS", "true").lower() == "true",
-            puppeteer_arg=os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else [],
+            puppeteer_args=os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else [],
             puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),
             stealth_enabled=os.getenv("STEALTH_ENABLED", "true").lower() == "true",
             extension_path=os.getenv("EXTENSION_PATH"),
