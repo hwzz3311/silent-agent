@@ -6,9 +6,8 @@ Puppeteer 启动脚本（自动连接版）
 1. 安装依赖
 2. 启动 Relay 服务器
 3. 启动 Puppeteer + 加载扩展
-4. 自动触发扩展连接
-5. 预设网站授权
-6. 启动 API 服务器
+4. 获取扩展密钥并传递到后端
+5. 启动 API 服务器
 
 使用方式:
     python start_puppeteer.py
@@ -17,12 +16,12 @@ Puppeteer 启动脚本（自动连接版）
 import argparse
 import json
 import os
-import signal
 import subprocess
 import sys
 import time
 import asyncio
 import threading
+import tempfile
 from typing import Optional
 
 
@@ -31,15 +30,10 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 EXTENSION_PATH = os.path.join(PROJECT_ROOT, "extension")
 RELAY_PORT = 18792
 API_PORT = 8080
+KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
 
 # 要自动授权的网站
 DEFAULT_AUTHORIZED_URLS = [
-    "*://*.xiaohongshu.com/*",
-    "*://*.zhihu.com/*",
-    "*://*.douyin.com/*",
-    "*://*.baidu.com/*",
-    "*://*.taobao.com/*",
-    "*://*.jd.com/*",
     "*://*/*",  # 授权所有网站
 ]
 
@@ -47,7 +41,7 @@ DEFAULT_AUTHORIZED_URLS = [
 class PuppeteerStarter:
     """Puppeteer 启动器"""
 
-    def __init__(self, headless: bool = True, stealth: bool = True,
+    def __init__(self, headless: bool = False, stealth: bool = True,
                  authorized_urls: list = None):
         self.headless = headless
         self.stealth = stealth
@@ -55,6 +49,7 @@ class PuppeteerStarter:
         self.relay_process: Optional[subprocess.Popen] = None
         self.puppeteer_process: Optional[subprocess.Popen] = None
         self.api_process: Optional[subprocess.Popen] = None
+        self.extension_key: Optional[str] = None
 
     def install_dependencies(self):
         """安装依赖"""
@@ -100,14 +95,12 @@ class PuppeteerStarter:
             stderr=subprocess.PIPE,
         )
 
-        # 等待服务器启动
         time.sleep(2)
         print(f"Relay 服务器已启动 (PID: {self.relay_process.pid})\n")
 
     def create_launch_script(self) -> str:
         """创建 Puppeteer 启动脚本"""
 
-        # 预设的授权网站
         authorized_urls_json = json.dumps(self.authorized_urls)
 
         script = f'''
@@ -115,69 +108,34 @@ import asyncio
 import json
 import os
 import sys
+import time
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 EXTENSION_PATH = os.path.join(PROJECT_ROOT, "extension")
+KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
 RELAY_PORT = {RELAY_PORT}
 
-async def inject_extension_settings(page):
-    """注入扩展设置和自动连接脚本"""
+async def wait_for_extension_key(max_wait=30):
+    """等待扩展生成并保存密钥"""
+    print("  等待扩展生成密钥...")
 
-    # 预设网站授权的脚本
-    authorized_urls = {authorized_urls_json}
+    start_time = time.time()
+    while time.time() - start_time < max_wait:
+        try:
+            # 检查密钥文件是否生成
+            if os.path.exists(KEY_FILE):
+                with open(KEY_FILE, 'r') as f:
+                    key = f.read().strip()
+                if key and len(key) > 8:
+                    print(f"  获取到扩展密钥: {{key[:8]}...{{key[-4:]}}")
+                    return key
+        except:
+            pass
 
-    # 注入自动连接和授权脚本
-    await page.evaluateOnNewDocument(f"""
-        // 等待扩展加载后自动连接
-        window.addEventListener('load', async () => {{
-            // 延迟一点确保扩展已初始化
-            setTimeout(async () => {{
-                try {{
-                    // 尝试通过 storage 事件触发连接
-                    // 扩展会在初始化时检查 storage 并自动连接
-                    console.log('[AutoConnect] 尝试自动连接...');
+        await asyncio.sleep(1)
 
-                    // 模拟触发扩展的连接逻辑
-                    if (typeof window._triggerExtensionConnect === 'function') {{
-                        window._triggerExtensionConnect();
-                    }}
-                }} catch (e) {{
-                    console.log('[AutoConnect] 错误:', e.message);
-                }}
-            }}, 2000);
-        }});
-
-        // 授权网站的脚本
-        const authorizedUrls = {authorized_urls_json};
-        console.log('[Auth] 预设授权网站:', authorizedUrls);
-    """)
-
-    # 导航到空白页并等待扩展加载
-    await page.goto('about:blank')
-    await asyncio.sleep(1)
-
-    print(f"  扩展路径: {{EXTENSION_PATH}}")
-    print("  页面已导航到 about:blank")
-    print("  等待扩展初始化...")
-
-    # 等待扩展完全加载
-    await asyncio.sleep(3)
-
-    # 尝试触发扩展连接
-    try:
-        await page.evaluate("""
-            () => {
-                // 尝试查找并点击扩展图标
-                const toolbar = document.querySelector('[role="toolbar"]');
-                if (toolbar) {
-                    console.log('[AutoConnect] 找到工具栏');
-                }
-            }
-        """)
-    except:
-        pass
-
-    print("  扩展应已加载")
+    print("  警告: 未能获取扩展密钥（扩展可能未连接）")
+    return None
 
 
 async def main():
@@ -193,21 +151,22 @@ async def main():
         from puppeteer_extra import launch as puppeteer_extra_launch
         from puppeteer_extra_plugin_stealth import stealth
     except ImportError as e:
-        print(f"错误: 依赖未安装，请先运行安装")
+        print(f"错误: 依赖未安装，请先运行 pip install puppeteer-extra puppeteer-extra-plugin-stealth")
         print(f"ImportError: {{e}}")
         return
 
     # 构建启动参数
-    # 注意：扩展需要非无头模式才能正常工作
+    # 注意：扩展需要非无头模式
     launch_args = {{
         "headless": HEADLESS,
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",
             "--no-sandbox",
-            f"--disable-extensions-background=true",
             f"--load-extension={{EXTENSION_PATH}}",
             f"--remote-debugging-port=9222",
+            # 禁用自动化 banner
+            "--disable-infobars",
         ],
         "ignoreDefaultArgs": ["--enable-automation"],
         "dumpio": False,
@@ -226,19 +185,54 @@ async def main():
             print("普通模式...")
             browser = await launch(**launch_args)
 
-        # 获取页面
-        pages = await browser.newPage()
+        # 创建新页面
+        page = await browser.newPage()
 
-        # 注入扩展设置
-        await inject_extension_settings(page)
+        # 导航到空白页（扩展会加载）
+        await page.goto('about:blank')
+        print(f"  扩展路径: {{EXTENSION_PATH}}")
+        print("  页面已打开，等待扩展初始化...")
+
+        # 等待扩展加载
+        await asyncio.sleep(5)
+
+        # 尝试通过 CDP 获取扩展存储的密钥
+        print("  尝试获取扩展密钥...")
+
+        try:
+            # 通过 CDP 获取扩展的 localStorage
+            targets = await browser.targets()
+            for target in targets:
+                if target.type == 'background_worker':
+                    try:
+                        cdp = await target.createCDPSession()
+                        # 获取 storage 的密钥
+                        result = await cdp.send('Runtime.evaluate', {{
+                            "expression": "chrome.storage.local.get(['secret_key']).then(r => JSON.stringify(r))",
+                            "awaitPromise": True
+                        }})
+
+                        if result.get('result') and result['result'].get('result'):
+                            storage_data = result['result']['result'].get('value', '')
+                            if storage_data:
+                                data = json.loads(storage_data)
+                                if data.get('secret_key'):
+                                    key = data['secret_key']
+                                    print(f"  从 CDP 获取密钥: {{key[:8]}...{{key[-4:]}}")
+                                    # 保存密钥到文件
+                                    with open(KEY_FILE, 'w') as f:
+                                        f.write(key)
+                    except Exception as e:
+                        pass  # 可能有些 target 不可访问
+        except Exception as e:
+            print(f"  CDP 获取密钥失败: {{e}}")
+
+        print("=" * 50)
+        print("Puppeteer 已启动")
+        print("  扩展已加载（请点击图标连接，或等待自动连接）")
+        print("=" * 50)
 
         # 保持运行
-        print("=" * 50)
-        print("Puppeteer 已启动，扩展已加载")
-        print("按 Ctrl+C 关闭...")
-        print("=" * 50)
-
-        # 永久等待
         while True:
             await asyncio.sleep(10)
 
@@ -261,6 +255,7 @@ if __name__ == "__main__":
         script_path = os.path.join(PROJECT_ROOT, "_launch_browser.py")
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(self.create_launch_script())
+        print(f"启动脚本已写入: {script_path}")
         return script_path
 
     def start_puppeteer(self):
@@ -274,11 +269,21 @@ if __name__ == "__main__":
         self.puppeteer_process = subprocess.Popen(
             [sys.executable, script_path],
             cwd=PROJECT_ROOT,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
         )
 
         print(f"Puppeteer 已启动 (PID: {self.puppeteer_process.pid})\n")
+
+    def get_extension_key(self) -> Optional[str]:
+        """从文件读取扩展密钥"""
+        if os.path.exists(KEY_FILE):
+            try:
+                with open(KEY_FILE, 'r') as f:
+                    key = f.read().strip()
+                if key:
+                    return key
+            except:
+                pass
+        return None
 
     def start_api_server(self, port: int):
         """启动 API 服务器"""
@@ -289,8 +294,14 @@ if __name__ == "__main__":
         env = os.environ.copy()
         env["BROWSER_MODE"] = "puppeteer"
         env["PUPPETEER_HEADLESS"] = "false"
-        env["RELAY_HOST"] = "127.0.0.1"
-        env["RELAY_PORT"] = str(RELAY_PORT)
+
+        # 传递扩展密钥
+        extension_key = self.get_extension_key()
+        if extension_key:
+            env["SECRET_KEY"] = extension_key
+            print(f"  使用扩展密钥: {extension_key[:8]}...")
+        else:
+            print("  警告: 未获取到扩展密钥，API 可能无法控制")
 
         cmd = [
             sys.executable, "-m", "uvicorn",
@@ -333,7 +344,6 @@ if __name__ == "__main__":
         print("Puppeteer 自动启动脚本")
         print(f"  headless: {self.headless}")
         print(f"  stealth: {self.stealth}")
-        print(f"  authorized URLs: {len(self.authorized_urls)} 个")
         print(f"  relay port: {RELAY_PORT}")
         print(f"  api port: {api_port}")
 
@@ -346,11 +356,20 @@ if __name__ == "__main__":
         # 3. 启动 Puppeteer
         self.start_puppeteer()
 
-        # 等待浏览器启动
-        print("等待浏览器启动...")
-        await asyncio.sleep(5)
+        # 4. 等待扩展启动并获取密钥
+        print("等待扩展生成密钥...")
+        for i in range(30):
+            await asyncio.sleep(1)
+            key = self.get_extension_key()
+            if key:
+                self.extension_key = key
+                print(f"  已获取密钥: {key[:8]}...")
+                break
+            print(f"  等待中... ({i+1}/30)")
+        else:
+            print("  警告: 30秒内未获取到密钥，请手动点击扩展图标")
 
-        # 4. 启动 API
+        # 5. 启动 API
         self.start_api_server(api_port)
 
         print("=" * 50)
@@ -358,11 +377,13 @@ if __name__ == "__main__":
         print("=" * 50)
         print(f"  Relay: ws://127.0.0.1:{RELAY_PORT}")
         print(f"  API: http://localhost:{api_port}")
+        if self.extension_key:
+            print(f"  密钥: {self.extension_key}")
         print(f"  扩展: {EXTENSION_PATH}")
-        print("\n扩展使用说明:")
-        print("  1. 点击浏览器右上角扩展图标")
-        print("  2. 扩展会自动连接 Relay 服务器")
-        print("  3. 如需授权网站，在扩展设置中添加")
+        print("\n使用说明:")
+        print("  1. 如果扩展未自动连接，点击浏览器右上角扩展图标")
+        print("  2. 扩展连接后会生成密钥文件: .extension_key")
+        print("  3. API 使用环境变量 SECRET_KEY 控制扩展")
         print("\n按 Ctrl+C 停止所有服务...")
 
         try:
@@ -382,21 +403,15 @@ def main():
                         help="API 端口 (默认: 8080)")
     parser.add_argument("--no-install", action="store_true",
                         help="跳过依赖安装")
-    parser.add_argument("--auth-urls", nargs="*",
-                        help="授权的网站URL (可选)")
 
     args = parser.parse_args()
-
-    # 要授权的网站
-    auth_urls = args.auth_urls or DEFAULT_AUTHORIZED_URLS
 
     starter = PuppeteerStarter(
         headless=args.headless,
         stealth=args.stealth,
-        authorized_urls=auth_urls,
+        authorized_urls=DEFAULT_AUTHORIZED_URLS,
     )
 
-    # 如果需要跳过安装，直接启动
     if args.no_install:
         starter.relay_process = subprocess.Popen(
             [sys.executable, "src/relay_server.py", "--port", str(RELAY_PORT)],

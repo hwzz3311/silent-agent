@@ -19,6 +19,10 @@ wheels/
 /xiaohongshu-mcp/
 /xiaohongshu-mcp-extension-latest/
 
+# 扩展密钥（运行时生成）
+.extension_key
+_launch_browser.py
+
 # 环境变量
 .env
 .env.local
