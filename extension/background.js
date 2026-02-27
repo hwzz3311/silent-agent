@@ -659,12 +659,12 @@ class A11yTreeGenerator {
 class A11yTreeTool extends BaseTool {
   constructor() { super('a11y_tree') }
 
-  async execute({ action = 'get_tree', nodeId, predicate, limit = 100, tabId }) {
-    console.log('[A11yTreeTool] ===== 开始执行 ===== action=', action, 'limit=', limit, 'tabId=', tabId)
+  async execute({ action = 'get_tree', nodeId, predicate, limit = 100, tabId, filterEmptyValue = true }) {
+    console.log('[A11yTreeTool] ===== 开始执行 ===== action=', action, 'limit=', limit, 'filterEmptyValue=', filterEmptyValue, 'tabId=', tabId)
     const tid = await this.resolveTabId(tabId)
     await this.waitForTabLoad(tid).catch(() => {})
 
-    const paramsJson = JSON.stringify({ action, nodeId, predicate, limit })
+    const paramsJson = JSON.stringify({ action, nodeId, predicate, limit, filterEmptyValue })
     console.log('[A11yTreeTool] paramsJson=', paramsJson)
 
     // 直接在函数内部定义（不使用 eval/字符串）
@@ -676,65 +676,239 @@ class A11yTreeTool extends BaseTool {
         const p = JSON.parse(params)
         const act = p.action
         const lim = p.limit
+        const filterEmpty = p.filterEmptyValue !== false
 
-        // 常量定义
+        // 完整的标签到 role 映射
         const SEMANTIC_TAG_ROLES = {
+          // 基本交互元素
           'A': 'link', 'BUTTON': 'button', 'INPUT': 'textbox', 'SELECT': 'combobox',
-          'TEXTAREA': 'textbox', 'H1': 'heading', 'H2': 'heading', 'H3': 'heading',
-          'H4': 'heading', 'H5': 'heading', 'H6': 'heading', 'NAV': 'navigation',
-          'MAIN': 'main', 'HEADER': 'banner', 'FOOTER': 'contentinfo', 'FORM': 'form',
-          'ARTICLE': 'article', 'ASIDE': 'complementary', 'SECTION': 'region',
-          'TABLE': 'table', 'TH': 'columnheader', 'TD': 'cell', 'UL': 'list',
-          'OL': 'list', 'LI': 'listitem', 'IMG': 'image', 'SVG': 'image', 'CANVAS': 'img',
+          'TEXTAREA': 'textbox',
+          // 标题
+          'H1': 'heading', 'H2': 'heading', 'H3': 'heading', 'H4': 'heading', 'H5': 'heading', 'H6': 'heading',
+          // 结构元素
+          'NAV': 'navigation', 'MAIN': 'main', 'HEADER': 'banner', 'FOOTER': 'contentinfo',
+          'FORM': 'form', 'ARTICLE': 'article', 'ASIDE': 'complementary', 'SECTION': 'region',
+          'DIV': 'group', 'SPAN': 'group', 'LABEL': 'label',
+          // 列表
+          'UL': 'list', 'OL': 'list', 'LI': 'listitem', 'DL': 'list', 'DT': 'term', 'DD': 'definition',
+          // 表格
+          'TABLE': 'table', 'THEAD': 'rowgroup', 'TBODY': 'rowgroup', 'TR': 'row',
+          'TH': 'columnheader', 'TD': 'cell', 'CAPTION': 'caption',
+          // 媒体
+          'IMG': 'image', 'SVG': 'image', 'CANVAS': 'img', 'VIDEO': 'img', 'AUDIO': 'img',
+          'FIGURE': 'figure', 'FIGCAPTION': 'figure',
+          // 文本
+          'P': 'paragraph', 'BLOCKQUOTE': 'blockquote', 'PRE': 'code', 'CODE': 'code',
+          'BR': 'linebreak', 'HR': 'separator', 'STRONG': 'strong', 'EM': 'emphasis',
+          // 其他
+          'TIME': 'time', 'ADDRESS': 'note', 'DETAILS': 'details', 'SUMMARY': 'summary',
+          'DIALOG': 'dialog', 'FIELDSET': 'group', 'LEGEND': 'legend', 'OPTGROUP': 'group',
+          'OPTION': 'option', 'MENU': 'menu', 'MENUITEM': 'menuitem', 'PROGRESS': 'progressbar',
+          'METER': 'meter', 'OUTPUT': 'status', 'DATA': 'data',
         }
-        const INTERACTIVE_SELECTORS = [
-          'a[href]', 'button', 'input:not([type=hidden])', 'select', 'textarea',
-          '[role=button]', '[role=link]', '[role=checkbox]', '[role=radio]',
-          '[role=textbox]', '[role=combobox]', '[role=menuitem]',
-          '[tabindex]:not([tabindex=-1])', '[contenteditable=true]',
-        ].join(', ')
 
-        // 辅助函数
-        const getElementId = function(el) { return el.id || 'el_' + Math.random().toString(36).slice(2, 9) }
-        const buildNode = function(el) {
-          const role = el.getAttribute('role') || SEMANTIC_TAG_ROLES[el.tagName] || 'unknown'
-          const name = el.getAttribute('aria-label') || el.getAttribute('title') || (el.innerText && el.innerText.trim().slice(0, 100)) || el.id || el.tagName
-          // 保存 element 引用，用于后续建立父子关系
-          return { id: getElementId(el), role: role, name: name, value: el.value || '', children: [], element: el }
-        }
-        const serializeNode = function(n) { return { id: n.id, role: n.role, name: n.name, value: n.value, children: n.children } }
+        // 有 value 的元素类型
+        const HAS_VALUE_TAGS = ['INPUT', 'SELECT', 'TEXTAREA', 'PROGRESS', 'METER']
+        // 需要过滤的无效 tagName（无实际内容）
+        const INVALID_TAGS = ['DIV', 'SPAN', 'SECTION', 'FIGURE', 'MAIN', 'HEADER', 'FOOTER', 'NAV', 'ASIDE', 'ARTICLE']
 
-        // 构建树
-        const buildFullTree = function(limit) {
-          const elements = document.querySelectorAll(INTERACTIVE_SELECTORS)
-          const nodes = []
-          elements.forEach(function(el) {
-            const node = buildNode(el)
-            if (node) nodes.push(node)
-          })
-          // 建立父子关系
-          const rootNodes = []
-          nodes.forEach(function(node) {
-            let parent = node.element?.parentElement
-            while (parent && parent !== document.body) {
-              const parentNode = nodes.find(function(n) { return n.element === parent })
-              if (parentNode) { parentNode.children.push(node.id); break }
-              parent = parent.parentElement
+        // 递归收集所有元素（包括 shadow DOM）
+        function collectAllElements(root) {
+          const elements = []
+          try {
+            if (root.getAttribute) elements.push(root)
+            const children = root.children
+            for (let i = 0; i < children.length; i++) {
+              elements.push(...collectAllElements(children[i]))
             }
-            if (!parent || parent === document.body) rootNodes.push(node.id)
-          })
-          const maxLim = limit || 100
-          const nodeIds = rootNodes.slice(0, maxLim)
-          const nodeMap = {}
-          nodes.forEach(function(n) { if (nodeIds.indexOf(n.id) >= 0) nodeMap[n.id] = serializeNode(n) })
-          return { rootIds: nodeIds, nodes: nodeMap, totalNode: nodes.length, timestamp: Date.now() }
+            if (root.shadowRoot) {
+              elements.push(...collectAllElements(root.shadowRoot))
+            }
+          } catch (e) {}
+          return elements
         }
+
+        // 预生成稳定 ID
+        let idCounter = 0
+        const elToIdMap = new Map()
+
+        function getStableId(el) {
+          if (elToIdMap.has(el)) return elToIdMap.get(el)
+          const id = el.id || 'el_' + (idCounter++)
+          elToIdMap.set(el, id)
+          return id
+        }
+
+        // 获取第一个直接文本节点
+        function getFirstDirectText(el) {
+          for (let i = 0; i < el.childNodes.length; i++) {
+            const node = el.childNodes[i]
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+              return node.textContent.trim()
+            }
+          }
+          return ''
+        }
+
+        // 判断是否噪音元素
+        function isNoisyElement(text) {
+          const newlineCount = (text.match(/\n/g) || []).length
+          return text.length > 30 && newlineCount >= 2
+        }
+
+        // 过滤无意义元素
+        function isMeaningful(el) {
+          if (el.offsetParent === null && el.tagName !== 'BODY') return false
+          if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'META' || el.tagName === 'LINK') return false
+          return true
+        }
+
+        const allElements = collectAllElements(document.documentElement)
+        console.log('[A11yTree] 页面总元素数:', allElements.length)
+
+        const nodeList = []
+        const idToNodeMap = new Map()
+
+        // 构建节点
+        allElements.forEach(function(el) {
+          if (isMeaningful(el)) {
+            const id = getStableId(el)
+            const role = el.getAttribute('role') || SEMANTIC_TAG_ROLES[el.tagName] || 'unknown'
+
+            // name 获取：优先属性，第一个直接文本，最后 tagName
+            let name = el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('aria-labelledby')
+            if (!name || name.length === 0) {
+              name = getFirstDirectText(el)
+            }
+            if (!name || name.length === 0 || isNoisyElement(name)) {
+              name = el.id || el.tagName
+            }
+
+            // value 只对特定元素有效
+            let value = ''
+            if (HAS_VALUE_TAGS.includes(el.tagName)) {
+              value = el.value !== undefined ? el.value : (el.getAttribute('aria-value') || '')
+            }
+
+            // 完整文本内容
+            const fullText = el.innerText ? el.innerText.trim() : ''
+
+            // 过滤条件：text 为空且是无效标签
+            const isInvalidTag = INVALID_TAGS.includes(el.tagName)
+            const shouldFilter = filterEmpty && !fullText && isInvalidTag
+
+            if (!shouldFilter) {
+              const nodeObj = {
+                id: id,
+                role: role,
+                name: name.slice(0, 60),
+                value: value,
+                text: fullText.slice(0, 300),
+                childrenArr: [],
+                element: el,
+                _isValid: fullText.length > 0 || !isInvalidTag
+              }
+
+              if (name && name.trim().length > 0) {
+                nodeList.push(nodeObj)
+                idToNodeMap.set(id, nodeObj)
+              }
+            }
+          }
+        })
+
+        console.log('[A11yTree] 有效节点数:', nodeList.length)
+
+        // 建立父子关系
+        const rootNodeList = []
+
+        nodeList.forEach(function(n) {
+          const el = n.element
+          const parent = el.parentElement
+          if (!parent || parent === document.body) {
+            rootNodeList.push(n.id)
+          } else {
+            const parentId = getStableId(parent)
+            const parentNode = idToNodeMap.get(parentId)
+            if (parentNode) {
+              parentNode.childrenArr.push(n.id)
+            } else {
+              rootNodeList.push(n.id)
+            }
+          }
+        })
+
+        // name 去重
+        nodeList.forEach(function(n) {
+          const el = n.element
+          const parent = el.parentElement
+          if (parent) {
+            const parentId = getStableId(parent)
+            const parentNode = idToNodeMap.get(parentId)
+            if (parentNode && parentNode.name === n.name && parentNode.name.length > 3 && n.name !== n.element.tagName) {
+              n.name = '[' + n.role + '] ' + n.name
+            }
+          }
+        })
+
+        console.log('[A11yTree] 根节点数:', rootNodeList.length)
+
+        // 限制返回数量
+        const maxLim = lim || 100
+        const finalRootIds = rootNodeList.slice(0, maxLim)
+
+        if (finalRootIds.length < maxLim) {
+          nodeList.forEach(function(n) {
+            if (n.childrenArr.length > 0 && !finalRootIds.includes(n.id)) {
+              finalRootIds.push(n.id)
+            }
+            if (finalRootIds.length >= maxLim) return
+          })
+        }
+
+        // 构建嵌套树
+        function buildNestedTree(ids, mapObj) {
+          return ids.map(function(sid) {
+            const node = mapObj.get(sid)
+            if (!node) return null
+
+            const children = node.childrenArr.map(function(cid) {
+              return buildNestedTree([cid], mapObj)[0]
+            }).filter(function(c) { return c !== null })
+
+            const result = {
+              id: node.id,
+              role: node.role,
+              name: node.name,
+              children: children
+            }
+
+            // 根据 filterEmptyValue 决定是否包含 value 和 text
+            if (filterEmpty) {
+              if (node.value && node.value.length > 0) result.value = node.value
+              if (node.text && node.text.length > 0) result.text = node.text
+            } else {
+              result.value = node.value
+              result.text = node.text
+            }
+
+            return result
+          }).filter(function(n) { return n !== null })
+        }
+
+        const nestedTree = buildNestedTree(finalRootIds, idToNodeMap)
+        console.log('[A11yTree] 嵌套树节点数:', nestedTree.length)
 
         // 执行
-        console.log('[A11yTree] act=', act, 'lim=', lim)
+        console.log('[A11yTree] act=', act, 'lim=', lim, 'filterEmpty=', filterEmpty)
         let result = null
         if (act === 'get_tree') {
-          result = buildFullTree(lim)
+          result = {
+            tree: nestedTree,
+            totalNodes: nodeList.length,
+            filterEmptyValue: filterEmpty,
+            timestamp: Date.now()
+          }
         } else {
           result = { error: '未知操作: ' + act }
         }
