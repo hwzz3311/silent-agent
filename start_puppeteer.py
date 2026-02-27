@@ -31,7 +31,8 @@ DEFAULT_AUTHORIZED_URLS = ["*://*/*"]
 
 def get_launch_script_template(python_path: str):
     """获取 Puppeteer 启动脚本模板"""
-    return f'''#!/usr/bin/env python3
+    # 使用普通字符串避免 f-string 嵌套问题
+    template = '''#!/usr/bin/env python3
 """
 Puppeteer 启动脚本 - 由主脚本生成
 """
@@ -42,7 +43,7 @@ import sys
 import time
 
 # 使用虚拟环境的 Python
-sys.path.insert(0, r"{python_path}/lib/python3.10/site-packages")
+sys.path.insert(0, r"{{VENV_PATH}}/lib/python3.10/site-packages")
 
 PROJECT_ROOT = r"{{PROJECT_ROOT}}"
 EXTENSION_PATH = r"{{EXTENSION_PATH}}"
@@ -58,16 +59,17 @@ async def main():
         from puppeteer_extra import launch as puppeteer_extra_launch
         from puppeteer_extra_plugin_stealth import stealth
     except ImportError as e:
-        print(f"错误: 依赖未安装: {e}")
+        print("错误: 依赖未安装: " + str(e))
         return
 
+    ext_path = EXTENSION_PATH
     launch_args = {
         "headless": headless,
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",
             "--no-sandbox",
-            "--load-extension=" + EXTENSION_PATH,
+            "--load-extension=" + ext_path,
             "--remote-debugging-port=9222",
             "--disable-infobars",
         ],
@@ -87,7 +89,7 @@ async def main():
         page = await browser.newPage()
         await page.goto('about:blank')
 
-        print(f"  扩展路径: {EXTENSION_PATH}")
+        print("  扩展路径: " + EXTENSION_PATH)
         print("  页面已打开")
 
         # 尝试获取扩展密钥
@@ -110,13 +112,13 @@ async def main():
                                 data = json.loads(storage_data)
                                 if data.get('secret_key'):
                                     key = data['secret_key']
-                                    print(f"  获取到密钥: {key[:8]}...{key[-4:]}")
+                                    print("  获取到密钥: " + key[:8] + "..." + key[-4:])
                                     with open(KEY_FILE, 'w') as f:
                                         f.write(key)
-                    except Exception as e:
+                    except:
                         pass
-        except Exception as e:
-            print(f"  获取密钥失败: {e}")
+        except:
+            pass
 
         print("=" * 50)
         print("Puppeteer 已启动")
@@ -129,7 +131,7 @@ async def main():
     except KeyboardInterrupt:
         print("\\n正在关闭...")
     except Exception as e:
-        print(f"错误: {e}")
+        print("错误: " + str(e))
     finally:
         if browser:
             await browser.close()
@@ -137,6 +139,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 '''
+    return template.replace("{{VENV_PATH}}", python_path)
 
 
 def write_launch_script(headless: bool, stealth: bool) -> str:
