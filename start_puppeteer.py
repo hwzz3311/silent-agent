@@ -29,7 +29,7 @@ KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
 DEFAULT_AUTHORIZED_URLS = ["*://*/*"]
 
 
-def get_launch_script_template(python_path: str):
+def get_launch_script_template():
     """获取 Puppeteer 启动脚本模板"""
     # 使用普通字符串避免 f-string 嵌套问题
     template = '''#!/usr/bin/env python3
@@ -42,8 +42,10 @@ import os
 import sys
 import time
 
-# 使用虚拟环境的 Python
-sys.path.insert(0, r"{{VENV_PATH}}/lib/python3.10/site-packages")
+# 使用虚拟环境的 site-packages
+venv_lib = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".venv", "lib", "python3.10", "site-packages")
+if os.path.exists(venv_lib):
+    sys.path.insert(0, venv_lib)
 
 PROJECT_ROOT = r"{{PROJECT_ROOT}}"
 EXTENSION_PATH = r"{{EXTENSION_PATH}}"
@@ -146,10 +148,7 @@ def write_launch_script(headless: bool, stealth: bool) -> str:
     """写入启动脚本"""
     script_path = os.path.join(PROJECT_ROOT, "_launch_browser.py")
 
-    # 获取虚拟环境的 site-packages 路径
-    venv_path = os.path.dirname(os.path.dirname(sys.executable))
-
-    template = get_launch_script_template(venv_path)
+    template = get_launch_script_template()
     content = template.replace("{{PROJECT_ROOT}}", PROJECT_ROOT) \
                       .replace("{{EXTENSION_PATH}}", EXTENSION_PATH) \
                       .replace("{{KEY_FILE}}", KEY_FILE) \

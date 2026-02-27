@@ -110,7 +110,7 @@ class AppConfig:
                 "mode": self.browser.mode.value,
                 "puppeteer": {
                     "headless": self.browser.puppeteer_headless,
-                    "args": self.browser.puppeteer_arg,
+                    "args": self.browser.puppeteer_args,
                     "executable_path": self.browser.puppeteer_executable_path,
                     "stealth_enabled": self.browser.stealth_enabled,
                 },
