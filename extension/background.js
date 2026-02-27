@@ -1381,6 +1381,7 @@ async function getConnectionConfig() {
   return {
     serverUrl: `ws://127.0.0.1:${port}/extension`,
     autoReconnect: true,
+    autoConnectOnLoad: true,  // 加载时自动连接（支持 Puppeteer 模式）
     secretKey: keyStored[STORAGE_SECRET_KEY] || null,  // 添加密钥到配置
     ...stored[STORAGE_CONFIG],
   }
@@ -1478,13 +1479,21 @@ async function main() {
   console.log(`[Neurone] 上次状态: pendingReconnect=${status.pendingReconnect}, connected=${status.connected}`)
 
   // 如果之前有连接或待重连，尝试恢复连接
-  if (config.autoReconnect && (status.pendingReconnect || status.connected)) {
+  // 或者：如果配置了自动连接（支持 puppeteer 模式自动连接）
+  if (config.autoReconnect && (status.pendingReconnect || status.connected || config.autoConnectOnLoad)) {
     // 清除待重连标记（即将重连）
     if (status.pendingReconnect) {
       await updateServerStatus({ pendingReconnect: false })
     }
     updateBadge('connecting')
     // 传入密钥参数用于多插件识别
+    console.log('[Neurone] 自动连接中...')
+    await wsClient.connect(config.serverUrl, config.secretKey)
+  } else if (config.autoConnectOnLoad) {
+    // 强制自动连接（用于 Puppeteer 模式）
+    console.log('[Neurone] 强制自动连接...')
+    await updateServerStatus({ pendingReconnect: true })
+    updateBadge('connecting')
     await wsClient.connect(config.serverUrl, config.secretKey)
   }
 }
