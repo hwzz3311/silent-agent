@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-Puppeteer 启动脚本（自动连接版）
+Puppeteer 启动脚本（Node.js 版）
 
 自动完成：
-1. 安装依赖
+1. 安装 Node.js 依赖
 2. 启动 Relay 服务器
-3. 启动 Puppeteer + 加载扩展
+3. 启动 Node.js Puppeteer + stealth 插件 + 扩展
 4. 获取扩展密钥并传递到后端
 5. 启动 API 服务器
 """
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -21,175 +20,18 @@ from typing import Optional
 
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-EXTENSION_PATH = os.path.join(PROJECT_ROOT, "extension")
 RELAY_PORT = 18792
 API_PORT = 8080
 KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
-
-# 浏览器数据目录（用于保存登录状态）
-USER_DATA_DIR = os.path.join(PROJECT_ROOT, ".puppeteer-data")
-
-DEFAULT_AUTHORIZED_URLS = ["*://*/*"]
-
-
-def get_launch_script_template():
-    """获取 Puppeteer 启动脚本模板"""
-    # 使用普通字符串避免 f-string 嵌套问题
-    template = '''#!/usr/bin/env python3
-"""
-Puppeteer 启动脚本 - 由主脚本生成
-"""
-import asyncio
-import json
-import os
-import sys
-import time
-
-# 使用虚拟环境的 site-packages
-venv_lib = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".venv", "lib", "python3.10", "site-packages")
-if os.path.exists(venv_lib):
-    sys.path.insert(0, venv_lib)
-
-PROJECT_ROOT = r"{{PROJECT_ROOT}}"
-EXTENSION_PATH = r"{{EXTENSION_PATH}}"
-KEY_FILE = r"{{KEY_FILE}}"
-RELAY_PORT = {{RELAY_PORT}}
-
-async def main():
-    headless = {{HEADLESS}}
-    stealth = {{STEALTH}}
-
-    try:
-        from pyppeteer import launch
-    except ImportError as e:
-        print("错误: 依赖未安装: " + str(e))
-        print("请运行: pip install pyppeteer")
-        return
-
-    ext_path = EXTENSION_PATH
-    user_data_dir = r"{{USER_DATA_DIR}}"
-
-    # 确保 userDataDir 存在
-    os.makedirs(user_data_dir, exist_ok=True)
-
-    # 使用系统 Chrome（macOS 上更稳定）
-    executable_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-
-    launch_args = {
-        "headless": headless,
-        "userDataDir": user_data_dir,  # 保持登录状态
-        "executablePath": executable_path,  # 使用系统 Chrome
-        "args": [
-            "--disable-blink-features=AutomationControlled",
-            "--disable-dev-shm-usage",
-            "--load-extension=" + ext_path,
-            "--remote-debugging-port=9222",
-            "--disable-infobars",
-        ],
-        "ignoreDefaultArgs": ["--enable-automation"],
-        "dumpio": False,
-    }
-
-    browser = None
-    try:
-        if stealth:
-            print("启用 stealth 模式...")
-            # stealth 模式：隐藏自动化特征
-            browser = await launch(**launch_args)
-            # 注入 stealth 脚本
-            await browser.evaluate("""
-                () => {
-                    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                    window.cdc_adoQpoasn = undefined;
-                }
-            """)
-        else:
-            print("普通模式...")
-            browser = await launch(**launch_args)
-
-        page = await browser.newPage()
-        await page.goto('about:blank')
-
-        print("  扩展路径: " + EXTENSION_PATH)
-        print("  页面已打开")
-
-        # 尝试获取扩展密钥
-        await asyncio.sleep(3)
-        print("  尝试获取扩展密钥...")
-
-        try:
-            targets = await browser.targets()
-            for target in targets:
-                if target.type == 'background_worker':
-                    try:
-                        cdp = await target.createCDPSession()
-                        result = await cdp.send('Runtime.evaluate', {
-                            "expression": "chrome.storage.local.get(['secret_key']).then(r => JSON.stringify(r))",
-                            "awaitPromise": True
-                        })
-                        if result.get('result') and result['result'].get('result'):
-                            storage_data = result['result']['result'].get('value', '')
-                            if storage_data:
-                                data = json.loads(storage_data)
-                                if data.get('secret_key'):
-                                    key = data['secret_key']
-                                    print("  获取到密钥: " + key[:8] + "..." + key[-4:])
-                                    with open(KEY_FILE, 'w') as f:
-                                        f.write(key)
-                    except:
-                        pass
-        except:
-            pass
-
-        print("=" * 50)
-        print("Puppeteer 已启动")
-        print("  扩展已加载")
-        print("=" * 50)
-
-        while True:
-            await asyncio.sleep(10)
-
-    except KeyboardInterrupt:
-        print("\\n正在关闭...")
-    except Exception as e:
-        print("错误: " + str(e))
-    finally:
-        if browser:
-            await browser.close()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-'''
-    return template
-
-
-def write_launch_script(headless: bool, stealth: bool) -> str:
-    """写入启动脚本"""
-    script_path = os.path.join(PROJECT_ROOT, "_launch_browser.py")
-
-    template = get_launch_script_template()
-    content = template.replace("{{PROJECT_ROOT}}", PROJECT_ROOT) \
-                      .replace("{{EXTENSION_PATH}}", EXTENSION_PATH) \
-                      .replace("{{KEY_FILE}}", KEY_FILE) \
-                      .replace("{{RELAY_PORT}}", str(RELAY_PORT)) \
-                      .replace("{{HEADLESS}}", str(headless)) \
-                      .replace("{{STEALTH}}", str(stealth)) \
-                      .replace("{{USER_DATA_DIR}}", USER_DATA_DIR)
-
-    with open(script_path, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    return script_path
+NODE_BROWSER_SCRIPT = os.path.join(PROJECT_ROOT, "start_browser.js")
 
 
 class PuppeteerStarter:
     """Puppeteer 启动器"""
 
-    def __init__(self, headless: bool = False, stealth: bool = True,
-                 authorized_urls: list = None):
+    def __init__(self, headless: bool = False, stealth: bool = True):
         self.headless = headless
         self.stealth = stealth
-        self.authorized_urls = authorized_urls or DEFAULT_AUTHORIZED_URLS
         self.relay_process = None
         self.puppeteer_process = None
         self.api_process = None
@@ -197,22 +39,26 @@ class PuppeteerStarter:
 
     def install_dependencies(self):
         print("=" * 50)
-        print("安装 Python 依赖...")
+        print("安装 Node.js 依赖...")
         print("=" * 50)
 
-        packages = [
-            "websockets>=12.0", "aiohttp>=3.9.0", "pydantic>=2.0.0",
-            "fastapi>=0.109.0", "uvicorn>=0.27.0",
-            # 注意：正确的包名是 pyppeteer，不是 puppeteer
-            "pyppeteer>=2.0.0",
-        ]
+        # 检查是否有 npm
+        npm_check = subprocess.run(["which", "npm"], capture_output=True)
+        if npm_check.returncode != 0:
+            print("错误: 未找到 npm，请先安装 Node.js")
+            print("  macOS: brew install node")
+            sys.exit(1)
 
-        for pkg in packages:
-            print(f"  安装: {pkg}")
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", pkg, "-q"],
-                capture_output=True, text=True
-            )
+        # 安装依赖
+        result = subprocess.run(
+            ["npm", "install"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            print(f"npm install 失败: {result.stderr}")
+            sys.exit(1)
 
         print("依赖安装完成\n")
 
@@ -234,11 +80,15 @@ class PuppeteerStarter:
         print("启动 Puppeteer 浏览器...")
         print("=" * 50)
 
-        script_path = write_launch_script(self.headless, self.stealth)
-        print(f"启动脚本已写入: {script_path}")
+        # 构建 node 命令参数 - 暂时禁用 stealth 以排查扩展加载问题
+        node_argv = [NODE_BROWSER_SCRIPT]
+        if self.headless:
+            node_argv.append("--headless")
+        # 暂时禁用 stealth
+        node_argv.append("--no-stealth")
 
         self.puppeteer_process = subprocess.Popen(
-            [sys.executable, script_path],
+            ["node"] + node_argv,
             cwd=PROJECT_ROOT,
         )
         print(f"Puppeteer 已启动 (PID: {self.puppeteer_process.pid})\n")
@@ -260,10 +110,10 @@ class PuppeteerStarter:
         print("=" * 50)
 
         env = os.environ.copy()
-        env["BROWSER_MODE"] = "puppeteer"
-        env["PUPPETEER_HEADLESS"] = "false"
-        # 使用系统 Chrome
-        env["PUPPETEER_EXECUTABLE_PATH"] = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        # 使用 extension 模式连接已启动的浏览器
+        env["BROWSER_MODE"] = "extension"
+        env["RELAY_HOST"] = "127.0.0.1"
+        env["RELAY_PORT"] = str(RELAY_PORT)
 
         extension_key = self.get_extension_key()
         if extension_key:
@@ -271,6 +121,7 @@ class PuppeteerStarter:
             print(f"  使用扩展密钥: {extension_key[:8]}...")
         else:
             print("  警告: 未获取到扩展密钥")
+            # 即使没有密钥也尝试启动，扩展连接后会提供密钥
 
         cmd = [sys.executable, "-m", "uvicorn",
                "src.api.app:app", "--host", "0.0.0.0",
@@ -296,7 +147,7 @@ class PuppeteerStarter:
                         pass
 
     async def run(self, api_port: int = API_PORT):
-        print("Puppeteer 自动启动脚本")
+        print("Puppeteer 自动启动脚本 (Node.js 版)")
         print(f"  headless: {self.headless}")
         print(f"  stealth: {self.stealth}")
 
@@ -336,17 +187,15 @@ class PuppeteerStarter:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Puppeteer 自动启动脚本")
-    parser.add_argument("--headless", type=lambda x: x.lower() == "true",
-                        default=False, help="无头模式")
-    parser.add_argument("--stealth", type=lambda x: x.lower() == "true",
-                        default=True, help="启用 stealth")
+    parser = argparse.ArgumentParser(description="Puppeteer 自动启动脚本 (Node.js 版)")
+    parser.add_argument("--headless", action="store_true", help="无头模式")
+    parser.add_argument("--no-stealth", action="store_true", help="禁用 stealth")
     parser.add_argument("--port", type=int, default=8080, help="API 端口")
     parser.add_argument("--no-install", action="store_true", help="跳过依赖安装")
 
     args = parser.parse_args()
 
-    starter = PuppeteerStarter(headless=args.headless, stealth=args.stealth)
+    starter = PuppeteerStarter(headless=args.headless, stealth=not args.no_stealth)
 
     if args.no_install:
         starter.relay_process = subprocess.Popen(
