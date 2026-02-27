@@ -35,6 +35,12 @@ htmlcov/
 .coverage
 .pytest_cache/
 
+# Node.js
+node_modules/
+
+# Chrome profile (运行时生成)
+.chrome-data/
+
 # 其他
 .DS_Store
 /CLAUDE.md

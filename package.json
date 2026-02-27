@@ -1,0 +1,14 @@
+{
+  "name": "network-hook",
+  "version": "1.0.0",
+  "description": "Browser automation with stealth",
+  "scripts": {
+    "start": "node start_browser.js",
+    "start:headless": "node start_browser.js --headless"
+  },
+  "dependencies": {
+    "puppeteer": "*",
+    "puppeteer-extra": "*",
+    "puppeteer-extra-plugin-stealth": "*"
+  }
+}
