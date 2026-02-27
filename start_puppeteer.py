@@ -72,13 +72,16 @@ async def main():
     # 确保 userDataDir 存在
     os.makedirs(user_data_dir, exist_ok=True)
 
+    # 使用系统 Chrome（macOS 上更稳定）
+    executable_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
     launch_args = {
         "headless": headless,
         "userDataDir": user_data_dir,  # 保持登录状态
+        "executablePath": executable_path,  # 使用系统 Chrome
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",
-            "--no-sandbox",
             "--load-extension=" + ext_path,
             "--remote-debugging-port=9222",
             "--disable-infobars",

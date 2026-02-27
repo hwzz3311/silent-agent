@@ -37,7 +37,7 @@ class BrowserConfig:
     ):
         self.mode = mode
         self.puppeteer_headless = puppeteer_headless
-        self.puppeteer_args = puppeteer_arg or []
+        self.puppeteer_args = puppeteer_args or []
         self.stealth_enabled = stealth_enabled
         self.extension_path = extension_path
         self.relay_host = relay_host
