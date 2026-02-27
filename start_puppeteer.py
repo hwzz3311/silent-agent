@@ -262,6 +262,8 @@ class PuppeteerStarter:
         env = os.environ.copy()
         env["BROWSER_MODE"] = "puppeteer"
         env["PUPPETEER_HEADLESS"] = "false"
+        # 使用系统 Chrome
+        env["PUPPETEER_EXECUTABLE_PATH"] = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
         extension_key = self.get_extension_key()
         if extension_key:
