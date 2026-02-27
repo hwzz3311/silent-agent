@@ -141,7 +141,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 '''
-    return template.replace("{{VENV_PATH}}", python_path)
+    return template
 
 
 def write_launch_script(headless: bool, stealth: bool) -> str:
