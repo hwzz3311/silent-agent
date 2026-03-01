@@ -80,12 +80,11 @@ class PuppeteerStarter:
         print("启动 Puppeteer 浏览器...")
         print("=" * 50)
 
-        # 构建 node 命令参数 - 暂时禁用 stealth 以排查扩展加载问题
+        # 构建 node 命令参数
         node_argv = [NODE_BROWSER_SCRIPT]
         if self.headless:
             node_argv.append("--headless")
-        # 暂时禁用 stealth
-        node_argv.append("--no-stealth")
+        # 注意：stealth 现在由 Node.js 端 puppeteer-extra-plugin-stealth 处理
 
         self.puppeteer_process = subprocess.Popen(
             ["node"] + node_argv,

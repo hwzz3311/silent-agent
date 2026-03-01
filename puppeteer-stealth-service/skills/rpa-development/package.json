@@ -1,0 +1,21 @@
+{
+  "name": "rpa-development",
+  "version": "0.2.0",
+  "description": "Puppeteer Stealth RPA Service for browser automation",
+  "main": "scripts/server.js",
+  "scripts": {
+    "start": "node scripts/server.js",
+    "server": "node scripts/server.js",
+    "client": "node scripts/rpa-client.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "express": "^4.21.0",
+    "body-parser": "^1.20.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

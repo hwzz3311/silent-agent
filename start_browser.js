@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /**
- * Puppeteer 启动脚本 - 直接启动 Chrome 加载扩展，然后连接获取密钥
+ * Puppeteer 启动脚本 - 使用 puppeteer-extra-plugin-stealth 启动浏览器
  */
 
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+
+// 启用 stealth 插件
+puppeteer.use(Stealth());
 
 // 配置
 const PROJECT_ROOT = path.join(__dirname);
@@ -23,18 +27,19 @@ if (!fs.existsSync(PROFILE_DIR)) {
 const headless = process.argv.includes('--headless');
 
 console.log('='.repeat(50));
-console.log('Puppeteer 启动脚本 (直接启动 Chrome 版)');
+console.log('Puppeteer 启动脚本 (Stealth 版)');
 console.log('='.repeat(50));
 console.log('  headless:', headless);
 console.log('  extension:', EXTENSION_PATH);
 console.log('  profile:', PROFILE_DIR);
+console.log('  stealth: enabled');
 console.log('='.repeat(50));
 
 async function main() {
     const extPath = path.resolve(EXTENSION_PATH);
     console.log('扩展路径:', extPath);
 
-    // 检查是否有 Chrome 正在运行，先关闭
+    // 检查是否有 Chrome 正在运行先关闭
     console.log('检查已有 Chrome 进程...');
     try {
         const { execSync } = require('child_process');
@@ -49,44 +54,23 @@ async function main() {
         // 没有进程占用，正常
     }
 
-    // 构建 Chrome 参数
-    const args = [
-        '--remote-debugging-port=9222',
-        `--load-extension=${extPath}`,
-        '--disable-extensions-accessible-urls',
-        `--user-data-dir=${PROFILE_DIR}`,
-    ];
-
-    if (headless) {
-        args.push('--headless=new', '--disable-gpu', '--no-sandbox');
-    } else {
-        args.push('--no-sandbox');
-    }
-
-    console.log('启动浏览器...');
-
-    // 直接启动 Chrome
-    const chrome = spawn(CHROME_PATH, args, {
-        detached: true,
-        stdio: 'ignore'
-    });
-
-    chrome.unref();
-
-    console.log('Chrome 已启动 (PID:', chrome.pid + ')');
-
-    // 等待浏览器启动
-    await new Promise(r => setTimeout(r, 5000));
-
-    // 使用 puppeteer 连接已启动的 Chrome
-    console.log('连接 Chrome...');
+    // 使用 puppeteer-extra-plugin-stealth 启动浏览器
+    console.log('启动浏览器 (Stealth 模式)...');
     let browser;
     try {
-        browser = await puppeteer.connect({
-            browserURL: 'http://127.0.0.1:9222',
-            defaultViewport: null
+        browser = await puppeteer.launch({
+            headless: headless,
+            executablePath: CHROME_PATH,
+            userDataDir: PROFILE_DIR,
+            args: [
+                `--load-extension=${extPath}`,
+                '--disable-extensions-accessible-urls',
+                headless ? '--no-sandbox' : '',
+            ].filter(Boolean),
+            defaultViewport: null,
+            ignoreDefaultArgs: ['--enable-automation'],
         });
-        console.log('已连接 Chrome');
+        console.log('浏览器已启动 (Stealth 已启用)');
 
         // 检查所有 target
         const targets = await browser.targets();
@@ -103,8 +87,16 @@ async function main() {
             console.log('\n警告: 未检测到扩展');
         }
 
+        // 验证 stealth 是否生效
+        const pages = await browser.pages();
+        if (pages.length > 0) {
+            const webdriver = await pages[0].evaluate(() => navigator.webdriver);
+            console.log('\nStealth 验证 - navigator.webdriver:', webdriver);
+        }
+
     } catch (e) {
-        console.log('连接失败:', e.message);
+        console.log('启动失败:', e.message);
+        console.error(e);
     }
 
     // 等待扩展密钥文件
