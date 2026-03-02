@@ -49,7 +49,7 @@ class BrowserConfig:
     @classmethod
     def from_env(cls) -> "BrowserConfig":
         """从环境变量创建配置"""
-        mode = BrowserMode(os.getenv("BROWSER_MODE", "extension"))
+        mode = BrowserMode(os.getenv("BROWSER_MODE", "hybrid"))
 
         puppeteer_args = os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else []
 

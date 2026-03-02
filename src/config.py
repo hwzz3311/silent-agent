@@ -23,7 +23,7 @@ class LogLevel(str, Enum):
 @dataclass
 class BrowserSettings:
     """浏览器设置"""
-    mode: BrowserMode = BrowserMode.EXTENSION
+    mode: BrowserMode = BrowserMode.HYBRID
     # Puppeteer 设置
     puppeteer_headless: bool = True
     puppeteer_args: List[str] = field(default_factory=list)
@@ -76,7 +76,7 @@ class AppConfig:
         """从环境变量加载配置"""
         # 浏览器配置
         browser = BrowserSettings(
-            mode=BrowserMode(os.getenv("BROWSER_MODE", "extension")),
+            mode=BrowserMode(os.getenv("BROWSER_MODE", "hybrid")),
             puppeteer_headless=os.getenv("PUPPETEER_HEADLESS", "true").lower() == "true",
             puppeteer_args=os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else [],
             puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),

@@ -109,8 +109,8 @@ class PuppeteerStarter:
         print("=" * 50)
 
         env = os.environ.copy()
-        # 使用 extension 模式连接已启动的浏览器
-        env["BROWSER_MODE"] = "extension"
+        # 使用 hybrid 模式连接已启动的浏览器
+        env["BROWSER_MODE"] = "hybrid"
         env["RELAY_HOST"] = "127.0.0.1"
         env["RELAY_PORT"] = str(RELAY_PORT)
 
