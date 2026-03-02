@@ -14,11 +14,12 @@ from .base import BrowserClient, BrowserClientError
 
 # Pyppeteer 相关导入
 try:
-    from pyppeteer import launch as pyppeteer_launch
+    from pyppeteer import launch as pyppeteer_launch, connect as pyppeteer_connect
     PYPPETEER_AVAILABLE = True
 except ImportError:
     PYPPETEER_AVAILABLE = False
     pyppeteer_launch = None
+    pyppeteer_connect = None
 
 
 class PuppeteerClient(BrowserClient):
@@ -36,12 +37,14 @@ class PuppeteerClient(BrowserClient):
         stealth: bool = True,
         user_data_dir: str = None,
         executable_path: str = None,
+        browser_ws_endpoint: str = None,
     ):
         self.headless = headless
         self.args = args or []
         self.stealth_enabled = stealth
         self.user_data_dir = user_data_dir
         self.executable_path = executable_path
+        self.browser_ws_endpoint = browser_ws_endpoint
         self._browser = None
         self._page = None
         self._cdp_session = None
@@ -52,28 +55,32 @@ class PuppeteerClient(BrowserClient):
         return self._connected and self._browser is not None
 
     async def connect(self) -> None:
-        """启动浏览器"""
+        """启动浏览器或连接到已有浏览器"""
         if not PYPPETEER_AVAILABLE:
             raise BrowserClientError(
                 "Pyppeteer 未安装，请运行: pip install pyppeteer"
             )
 
-        # 构建启动参数
-        launch_options = {
-            "headless": self.headless,
-            "args": self.args.copy() if self.args else [],
-            "ignoreDefaultArgs": ["--enable-automation"],  # 隐藏自动化特征
-            "dumpio": False,
-        }
+        # 如果提供了 browser_ws_endpoint，连接到已有浏览器
+        if self.browser_ws_endpoint:
+            self._browser = await pyppeteer_connect(self.browser_ws_endpoint)
+        else:
+            # 构建启动参数
+            launch_options = {
+                "headless": self.headless,
+                "args": self.args.copy() if self.args else [],
+                "ignoreDefaultArgs": ["--enable-automation"],  # 隐藏自动化特征
+                "dumpio": False,
+            }
 
-        # 添加可选参数
-        if self.user_data_dir:
-            launch_option["userDataDir"] = self.user_data_dir
-        if self.executable_path:
-            launch_option["executablePath"] = self.executable_path
+            # 添加可选参数
+            if self.user_data_dir:
+                launch_options["userDataDir"] = self.user_data_dir
+            if self.executable_path:
+                launch_options["executablePath"] = self.executable_path
 
-        # 启动浏览器
-        self._browser = await pyppeteer_launch(**launch_option)
+            # 启动浏览器
+            self._browser = await pyppeteer_launch(**launch_options)
 
         # 如果启用 stealth，注入 stealth 脚本
         if self.stealth_enabled:

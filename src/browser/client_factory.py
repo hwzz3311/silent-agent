@@ -29,6 +29,7 @@ class BrowserConfig:
         puppeteer_args: list = None,
         puppeteer_executable_path: str = None,
         stealth_enabled: bool = True,
+        browser_ws_endpoint: str = None,
         # 扩展配置
         extension_path: str = None,
         relay_host: str = "127.0.0.1",
@@ -41,6 +42,7 @@ class BrowserConfig:
         self.puppeteer_args = puppeteer_args or []
         self.puppeteer_executable_path = puppeteer_executable_path
         self.stealth_enabled = stealth_enabled
+        self.browser_ws_endpoint = browser_ws_endpoint
         self.extension_path = extension_path
         self.relay_host = relay_host
         self.relay_port = relay_port
@@ -59,6 +61,7 @@ class BrowserConfig:
             puppeteer_args=[a.strip() for a in puppeteer_args if a.strip()],
             puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),
             stealth_enabled=os.getenv("STEALTH_ENABLED", "true").lower() == "true",
+            browser_ws_endpoint=os.getenv("BROWSER_WS_ENDPOINT"),
             extension_path=os.getenv("EXTENSION_PATH"),
             relay_host=os.getenv("RELAY_HOST", "127.0.0.1"),
             relay_port=int(os.getenv("RELAY_PORT", "18792")),
@@ -117,6 +120,7 @@ class BrowserClientFactory:
                 args=config.puppeteer_args,
                 stealth=config.stealth_enabled,
                 executable_path=config.puppeteer_executable_path,
+                browser_ws_endpoint=config.browser_ws_endpoint,
             )
         elif mode == BrowserMode.HYBRID:
             from .hybrid_client import HybridClient
@@ -126,6 +130,7 @@ class BrowserClientFactory:
                     "args": config.puppeteer_args,
                     "stealth": config.stealth_enabled,
                     "executable_path": config.puppeteer_executable_path,
+                    "browser_ws_endpoint": config.browser_ws_endpoint,
                 },
                 extension_config={
                     "host": config.relay_host,

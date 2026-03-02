@@ -44,6 +44,8 @@ class HybridClient(BrowserClient):
             headless=self.puppeteer_config.get("headless", True),
             args=self.puppeteer_config.get("args", []),
             stealth=self.puppeteer_config.get("stealth", True),
+            executable_path=self.puppeteer_config.get("executable_path"),
+            browser_ws_endpoint=self.puppeteer_config.get("browser_ws_endpoint"),
         )
         await self._puppeteer.connect()
 

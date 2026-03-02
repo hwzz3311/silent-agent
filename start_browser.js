@@ -16,6 +16,7 @@ puppeteer.use(Stealth());
 const PROJECT_ROOT = path.join(__dirname);
 const EXTENSION_PATH = path.join(PROJECT_ROOT, 'extension');
 const KEY_FILE = path.join(PROJECT_ROOT, '.extension_key');
+const WS_ENDPOINT_FILE = path.join(PROJECT_ROOT, '.ws_endpoint');
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 // 固定 profile 目录
@@ -71,6 +72,12 @@ async function main() {
             ignoreDefaultArgs: ['--enable-automation'],
         });
         console.log('浏览器已启动 (Stealth 已启用)');
+
+        // 输出 WebSocket 端点供 Hybrid 模式连接
+        console.log('\n[WS_ENDPOINT]', browser.wsEndpoint());
+
+        // 写入 WebSocket 端点到文件供 Hybrid 模式使用
+        fs.writeFileSync(WS_ENDPOINT_FILE, browser.wsEndpoint());
 
         // 检查所有 target
         const targets = await browser.targets();

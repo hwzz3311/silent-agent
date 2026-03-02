@@ -29,6 +29,7 @@ class BrowserSettings:
     puppeteer_args: List[str] = field(default_factory=list)
     puppeteer_executable_path: Optional[str] = None
     stealth_enabled: bool = True
+    browser_ws_endpoint: Optional[str] = None
     # 扩展设置
     extension_path: Optional[str] = None
     # Relay 设置
@@ -81,6 +82,7 @@ class AppConfig:
             puppeteer_args=os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else [],
             puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),
             stealth_enabled=os.getenv("STEALTH_ENABLED", "true").lower() == "true",
+            browser_ws_endpoint=os.getenv("BROWSER_WS_ENDPOINT"),
             extension_path=os.getenv("EXTENSION_PATH"),
             relay_host=os.getenv("RELAY_HOST", "127.0.0.1"),
             relay_port=int(os.getenv("RELAY_PORT", "18792")),

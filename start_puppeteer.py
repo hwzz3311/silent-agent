@@ -23,6 +23,7 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 RELAY_PORT = 18792
 API_PORT = 8080
 KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
+WS_ENDPOINT_FILE = os.path.join(PROJECT_ROOT, ".ws_endpoint")
 NODE_BROWSER_SCRIPT = os.path.join(PROJECT_ROOT, "start_browser.js")
 
 
@@ -103,6 +104,17 @@ class PuppeteerStarter:
                 pass
         return None
 
+    def get_ws_endpoint(self) -> Optional[str]:
+        if os.path.exists(WS_ENDPOINT_FILE):
+            try:
+                with open(WS_ENDPOINT_FILE, 'r') as f:
+                    endpoint = f.read().strip()
+                if endpoint:
+                    return endpoint
+            except:
+                pass
+        return None
+
     def start_api_server(self, port: int):
         print("=" * 50)
         print(f"启动 API 服务器 (端口 {port})...")
@@ -121,6 +133,12 @@ class PuppeteerStarter:
         else:
             print("  警告: 未获取到扩展密钥")
             # 即使没有密钥也尝试启动，扩展连接后会提供密钥
+
+        # 设置 WebSocket 端点供 Hybrid 模式连接已有浏览器
+        ws_endpoint = self.get_ws_endpoint()
+        if ws_endpoint:
+            env["BROWSER_WS_ENDPOINT"] = ws_endpoint
+            print(f"  使用 WebSocket 端点: {ws_endpoint[:50]}...")
 
         cmd = [sys.executable, "-m", "uvicorn",
                "src.api.app:app", "--host", "0.0.0.0",
@@ -154,18 +172,27 @@ class PuppeteerStarter:
         self.start_relay_server()
         self.start_puppeteer()
 
-        # 等待扩展密钥
+        # 等待扩展密钥和 WebSocket 端点
         print("等待扩展生成密钥...")
+        ws_endpoint = None
         for i in range(30):
             await asyncio.sleep(1)
             key = self.get_extension_key()
+            ws_endpoint = self.get_ws_endpoint()
             if key:
                 self.extension_key = key
                 print(f"  已获取密钥: {key[:8]}...")
+            if ws_endpoint:
+                print(f"  已获取 WebSocket 端点")
+            if key and ws_endpoint:
                 break
-            print(f"  等待中... ({i+1}/30)")
+            if i < 29:
+                print(f"  等待中... ({i+1}/30)")
         else:
             print("  警告: 30秒内未获取到密钥")
+
+        if not ws_endpoint:
+            print("  警告: 未获取到 WebSocket 端点，Hybrid 模式可能无法连接")
 
         self.start_api_server(api_port)
 
