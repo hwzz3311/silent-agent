@@ -63,7 +63,9 @@ class PuppeteerClient(BrowserClient):
 
         # 如果提供了 browser_ws_endpoint，连接到已有浏览器
         if self.browser_ws_endpoint:
-            self._browser = await pyppeteer_connect(self.browser_ws_endpoint)
+            self._browser = await pyppeteer_connect({
+                "browserWSEndpoint": self.browser_ws_endpoint
+            })
         else:
             # 构建启动参数
             launch_options = {

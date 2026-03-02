@@ -156,6 +156,108 @@ class HybridClient(BrowserClient):
             return await self._extension.keyboard(keys, selector=selector)
         return await self._puppeteer.keyboard(keys, selector=selector)
 
+    # ========== 工具执行接口（T2.5.3） ==========
+
+    async def execute_tool(
+        self,
+        name: str,
+        params: Dict[str, Any] = None,
+        timeout: float = 60,
+    ) -> Dict[str, Any]:
+        """
+        执行工具（统一接口）
+
+        将工具名称映射到具体方法：
+        - browser.navigate -> navigate
+        - browser.click -> click
+        - browser.fill -> fill
+        - browser.extract -> extract
+        - browser.screenshot -> screenshot
+        - browser.wait -> wait_for
+        - browser.keyboard -> keyboard
+        - browser.inject -> inject
+        - a11y_tree -> get_a11y_tree
+        - chrome_navigate -> navigate
+        - chrome_click -> click
+        - chrome_fill -> fill
+        - read_page_data -> extract
+        - browser_control -> _puppeteer 控制方法
+        - inject_script -> inject
+        """
+        from typing import Dict, Any
+
+        await self._ensure_connected()
+        params = params or {}
+
+        # 映射表
+        tool_mapping = {
+            # 统一命名
+            "browser.navigate": "navigate",
+            "browser.click": "click",
+            "browser.fill": "fill",
+            "browser.extract": "extract",
+            "browser.screenshot": "screenshot",
+            "browser.wait": "wait_for",
+            "browser.keyboard": "keyboard",
+            "browser.inject": "inject",
+            # 无障碍树
+            "a11y_tree": "get_a11y_tree",
+            # 兼容旧命名
+            "chrome_navigate": "navigate",
+            "chrome_click": "click",
+            "chrome_fill": "fill",
+            "read_page_data": "extract",
+            "inject_script": "inject",
+        }
+
+        # 浏览器控制操作
+        if name == "browser_control":
+            action = params.get("action", "")
+            if action == "get_active_tab":
+                return await self._puppeteer.get_active_tab()
+            elif action == "list_tabs":
+                return await self._puppeteer.list_tabs()
+            elif action == "close_tab":
+                tab_id = params.get("tab_id")
+                return await self._puppeteer.close_tab(tab_id)
+            elif action == "new_tab":
+                url = params.get("url", "about:blank")
+                return await self.navigate(url, new_tab=True)
+            return {"success": False, "error": f"未知 action: {action}"}
+
+        # 查找映射方法
+        method_name = tool_mapping.get(name)
+
+        if not method_name:
+            return {"success": False, "error": f"未知工具: {name}"}
+
+        # 获取方法
+        method = getattr(self, method_name, None)
+        if not method:
+            return {"success": False, "error": f"方法不存在: {method_name}"}
+
+        # 提取参数并调用
+        try:
+            # 根据方法签名提取参数
+            import inspect
+
+            sig = inspect.signature(method)
+            call_params = {}
+
+            for param_name, param in sig.parameters.items():
+                if param_name == "self":
+                    continue
+                if param_name in params:
+                    call_params[param_name] = params[param_name]
+                elif param.default == inspect.Parameter.empty:
+                    # 必填参数尝试从 params 获取
+                    pass
+
+            result = await method(**call_params)
+            return {"success": True, "data": result}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     # ========== 无障碍树（核心优势：真实树） ==========
 
     async def get_a11y_tree(

@@ -116,7 +116,7 @@ class XiaohongshuAPIClient:
         """获取登录二维码"""
         return await self.execute_tool("xhs_get_login_qrcode", {})
 
-    async def xhs_wait_login(self, timeout: int = 120000) -> Dict[str, Any]:
+    async def xhs_wait_login(self, timeout: int = 120) -> Dict[str, Any]:
         """等待登录完成"""
         return await self.execute_tool("xhs_wait_login", {"timeout": timeout})
 
@@ -369,7 +369,7 @@ class XiaohongshuTestSuite:
         # 等待登录
         try:
             # 注意：这是一个阻塞调用，超时时间较长
-            result = await self.api.xhs_wait_login(timeout=5000)
+            result = await self.api.xhs_wait_login(timeout=300)
             # print_result("等待登录完成", result.get("success", False))
             print_result("等待登录完成", True, "跳过（需要人工扫码）")
         except Exception as e:

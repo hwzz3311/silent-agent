@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+build/
+dist/
+
+# IDE
+.idea/
+.vscode/
+
+# 依赖和缓存
+node_modules/
+.npm-cache/
+
+# 运行时数据
+.chrome-data/
+.extension_key
+
+# 参考项目（不参与开发）
+xiaohongshu-mcp/
+xiaohongshu-mcp-extension-latest/
+
+# 日志和测试
+*.log
+.pytest_cache/
+htmlcov/
+.coverage
+
+# 其他
+.DS_Store
