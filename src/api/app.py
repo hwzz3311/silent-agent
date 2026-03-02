@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
     try:
         client = await get_client()
         # 检查连接状态
-        is_connected = getattr(client, 'is_connected', lambda: False)()
+        is_connected = client.is_connected
         logger.info(f"客户端状态: {is_connected}")
     except Exception as e:
         logger.warning(f"客户端初始化失败: {e}")

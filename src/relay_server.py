@@ -30,6 +30,7 @@ import logging
 import argparse
 import uuid
 import signal
+import os
 from datetime import datetime
 from typing import Dict, Set, Any, Optional
 from dataclasses import dataclass, field
@@ -238,6 +239,18 @@ class NeuroneRelayServer:
 
                     logger.info(f"✓ 插件已连接: key={secret_key[:8]}... "
                                 f"id={ext_info.extension_id} v={ext_info.version}")
+
+                    # 保存密钥到文件（供 start_puppeteer.py 读取）
+                    try:
+                        key_file = os.path.join(
+                            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            ".extension_key"
+                        )
+                        with open(key_file, "w") as f:
+                            f.write(secret_key)
+                        logger.info(f"✓ 密钥已保存到: {key_file}")
+                    except Exception as e:
+                        logger.warning(f"保存密钥失败: {e}")
 
                     # 广播事件到控制器
                     await self._broadcast_event("extension_connected", {

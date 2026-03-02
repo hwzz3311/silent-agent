@@ -44,3 +44,4 @@ node_modules/
 # 其他
 .DS_Store
 /CLAUDE.md
+/.npm-cache/
