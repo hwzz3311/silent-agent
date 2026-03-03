@@ -244,38 +244,38 @@ def create_common_page_selectors(
 
     if pagination:
         for name, value in CommonPaginationSelectors.model_fields.items():
-            field_definition[name] = value
-            field_definition[name] = value
+            fields_definitions[name] = value
+            fields_definitions[name] = value
 
     if modal:
         for name, value in CommonModalSelectors.model_fields.items():
-            field_definition[name] = value
+            fields_definitions[name] = value
 
     if search:
         for name, value in CommonSearchSelectors.model_fields.items():
-            field_definition[name] = value
+            fields_definitions[name] = value
 
     if feed:
         for name, value in CommonFeedSelectors.model_fields.items():
-            field_definition[name] = value
+            fields_definitions[name] = value
 
     if detail:
         for name, value in CommonDetailSelectors.model_fields.items():
-            field_definition[name] = value
+            fields_definitions[name] = value
 
     if profile:
         for name, value in CommonProfileSelectors.model_fields.items():
-            field_definition[name] = value
+            fields_definitions[name] = value
 
     if publish:
         for name, value in CommonPublishSelectors.model_fields.items():
-            field_definition[name] = value
+            fields_definitions[name] = value
 
     # 创建动态类
     return type(
         "CommonPageSelectors",
         (BasePageSelectors,),
-        field_definition
+        fields_definitions
     )
 
 

@@ -493,7 +493,7 @@ class SelectorManager:
             # 如果测试失败且不是推荐的，尝试备用的
             if not result.is_recommended and info.alternatives:
                 for alt in info.alternatives:
-                    if alt != selector and self._selectors.get(alt):
+                    if alt != name and self._selectors.get(alt):
                         # 标记备用选择器需要测试
                         pass
 
