@@ -77,37 +77,76 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
                 message="无法获取浏览器客户端"
             )
 
-        # 获取或创建标签页
-        tab_id = context.tab_id
-        logger.info(f"context.tab_id: {tab_id}")
+        # 小红书域名
+        site_domain = "xiaohongshu.com"
+        # 获取密钥用于 site_tab 操作
+        secret_key = getattr(context, 'secret_key', None)
+
+        # ========== tab_id 管理（参考 list_feeds.py）==========
+        # 优先级：参数 > context > site_tab_map > 获取活动标签页 > 创建新标签页
+        tab_id = params.tab_id
+        logger.debug(f"初始 tab_id: {tab_id}")
 
         if not tab_id:
+            # 从 context 获取 tab_id
+            tab_id = context.tab_id
+            logger.debug(f"从 context 获取 tab_id: {tab_id}")
+
+        if not tab_id and hasattr(client, 'get_site_tab'):
+            # 从全局 site tab 映射获取
+            tab_id = client.get_site_tab(site_domain, secret_key)
+            logger.debug(f"从 site_tab_map 获取 tab_id: {tab_id}")
+
+            # 检测 tab 是否还可用
+            if tab_id and not await self._is_tab_valid(client, tab_id):
+                logger.warning(f"site_tab_map 中的 tab_id={tab_id} 已失效，将重新获取")
+                if hasattr(client, 'clear_site_tab'):
+                    client.clear_site_tab(site_domain, secret_key)
+                tab_id = None
+
+        if not tab_id:
+            # 获取当前活动标签页
+            logger.info("尝试获取当前活动标签页...")
             tab_result = await client.execute_tool("browser_control", {
                 "action": "get_active_tab"
             }, timeout=10000)
-            logger.info(f"get_active_tab result: {tab_result}")
+            logger.debug(f"get_active_tab 结果: {tab_result}")
+
             if tab_result.get("success") and tab_result.get("data"):
                 tab_id = tab_result.get("data", {}).get("tabId")
-                logger.info(f"从 get_active_tab 获取的 tab_id: {tab_id}")
+                logger.info(f"获取到活动标签页: tabId={tab_id}")
+            else:
+                logger.warning(f"获取活动标签页失败: {tab_result.get('error')}")
 
-        # 如果没有标签页创建新的
+        # 如果仍然没有 tab_id，创建新标签页导航到小红书登录页
         if not tab_id:
+            logger.info("尝试创建新标签页导航到小红书登录页...")
             nav_result = await client.execute_tool("chrome_navigate", {
-                "url": "https://www.xiaohongshu.com/explore",
+                "url": "https://www.xiaohongshu.com/",
                 "newTab": True
             }, timeout=15000)
-            logger.info(f"chrome_navigate result: {nav_result}")
+            logger.debug(f"chrome_navigate 结果: {nav_result}")
+
             if nav_result.get("success") and nav_result.get("data"):
                 tab_id = nav_result.get("data", {}).get("tabId")
-                logger.info(f"从 chrome_navigate 获取的 tab_id: {tab_id}")
+                logger.info(f"创建新标签页成功: tabId={tab_id}")
+            else:
+                logger.warning(f"创建新标签页失败: {nav_result.get('error')}")
 
+        # 保存 tab_id 到全局映射
+        if tab_id and hasattr(client, 'set_site_tab'):
+            client.set_site_tab(site_domain, tab_id, secret_key)
+            logger.debug(f"保存 tab_id 到 site_tab_map: {site_domain} -> {tab_id}")
+
+        # 如果还是没有 tab_id，抛出错误
         if not tab_id:
+            logger.error("无法获取或创建标签页，浏览器可能未打开")
             return XHSGetLoginQrcodeResult(
                 success=False,
-                message="无法获取或创建标签页"
+                message="无法获取或创建标签页，请确保浏览器已打开"
             )
 
-        logger.info(f"获取到的 tab_id: {tab_id}")
+        logger.debug(f"最终使用的 tab_id: {tab_id}")
 
         # 等待页面加载
         await asyncio.sleep(3)
@@ -167,12 +206,39 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
         # 未找到二维码
         logger.warning("未检测到二维码元素")
         return XHSGetLoginQrcodeResult(
-            success=True,
+            success=False,
             qrcode_url=None,
             qrcode_data=None,
             expire_time=int(time_module.time()) + 300,
-            message="请手动扫描页面上的二维码"
+            message="未检测到二维码元素，请确保浏览器已打开小红书登录页面"
         )
+
+    async def _is_tab_valid(self, client, tab_id: int) -> bool:
+        """
+        检测标签页是否还可用
+
+        通过尝试读取页面标题来判断 tab 是否有效
+
+        Args:
+            client: 浏览器客户端
+            tab_id: 标签页 ID
+
+        Returns:
+            bool: tab 是否有效
+        """
+        try:
+            # 尝试读取页面标题，如果 tab 已关闭会失败
+            result = await client.execute_tool("read_page_data", {
+                "path": "document.title",
+                "tabId": tab_id
+            }, timeout=5000)
+
+            is_valid = result.get("success", False)
+            logger.debug(f"检测 tab_id={tab_id} 是否有效: {is_valid}")
+            return is_valid
+        except Exception as e:
+            logger.debug(f"检测 tab_id={tab_id} 有效性失败: {e}")
+            return False
 
     def _get_qrcode_message(self, qrcode_data: dict) -> str:
         """生成二维码状态消息"""
