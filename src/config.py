@@ -40,6 +40,32 @@ class BrowserSettings:
     connection_timeout: int = 30
     retry_count: int = 3
     retry_delay: int = 1000
+    # 运行时设置
+    timeout: int = 30000  # 工具执行超时
+
+
+@dataclass
+class RunnerConfig:
+    """
+    运行时配置 - 注入到工具执行
+
+    用于在工具执行时传递运行时参数。
+    可通过依赖注入方式获取，而非全局单例。
+    """
+    timeout: int = 30000  # 执行超时（毫秒）
+    retry_count: int = 3  # 重试次数
+    retry_delay: int = 1000  # 重试间隔（毫秒）
+    browser_mode: str = "hybrid"  # 浏览器模式
+
+    @classmethod
+    def from_app_config(cls, config: "AppConfig") -> "RunnerConfig":
+        """从应用配置创建运行时配置"""
+        return cls(
+            timeout=config.browser.timeout,
+            retry_count=config.browser.retry_count,
+            retry_delay=config.browser.retry_delay,
+            browser_mode=config.browser.mode.value,
+        )
 
 
 @dataclass
@@ -71,6 +97,10 @@ class AppConfig:
     browser: BrowserSettings = field(default_factory=BrowserSettings)
     server: ServerSettings = field(default_factory=ServerSettings)
     log: LogSettings = field(default_factory=LogSettings)
+
+    def create_runner_config(self) -> RunnerConfig:
+        """创建运行时配置对象"""
+        return RunnerConfig.from_app_config(self)
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -166,6 +196,7 @@ __all__ = [
     "ServerSettings",
     "LogSettings",
     "LogLevel",
+    "RunnerConfig",
     "AppConfig",
     "get_config",
     "set_config",

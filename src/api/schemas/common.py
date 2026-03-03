@@ -46,6 +46,7 @@ class ErrorResponse(BaseModel):
     message: str = Field(..., description="错误信息")
     details: Optional[Dict[str, Any]] = None
     code: Optional[str] = None
+    recoverable: Optional[bool] = Field(None, description="是否可恢复")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 

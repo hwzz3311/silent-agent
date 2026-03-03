@@ -23,13 +23,15 @@ src/
 ├── browser/      # 浏览器客户端（Extension/Puppeteer/Hybrid）
 ├── client/       # Python 客户端
 ├── config.py     # 配置
+├── core/         # 核心类型（Result, Exception, Context）
+├── ports/        # 端口层（BrowserPort 抽象接口）
 ├── flow/         # 工作流引擎
 ├── relay_server.py  # WebSocket 中继服务
 └── tools/        # 工具框架和业务适配器
     ├── business/     # 业务逻辑基类
-    │   └── selectors/ # 选择器版本管理
+    │   └── selector/ # 选择器版本管理
     └── sites/        # 网站适配器
-        └── selectors/ # 通用选择器定义（分页/弹窗/搜索等）
+        └── selector/ # 通用选择器定义（分页/弹窗/搜索等）
 extension/       # Chrome 扩展
 ```
 
@@ -59,6 +61,9 @@ extension/       # Chrome 扩展
 - **通信流程**: Python Client → Relay Server → Chrome Extension
 - **无障碍树**: Puppeteer 模式使用真实 CDP accessibility tree
 - **选择器抽象**: `sites/selectors/common.py` 定义通用选择器（分页/弹窗/搜索等），新网站只需继承并扩展特定字段
+- **端口抽象**: `src/ports/browser_port.py` 定义浏览器操作抽象接口实现依赖倒置
+- **统一异常**: `src/core/exception.py` 定义标准化异常体系（ToolException 及子类）
+- **运行时配置**: `RunnerConfig` 支持依赖注入式配置传递
 
 ## 开发规范
 

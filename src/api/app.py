@@ -5,10 +5,12 @@ FastAPI 应用模块
 支持多种浏览器客户端模式：extension/puppeteer/hybrid
 """
 
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
@@ -21,10 +23,12 @@ from src.api.schemas import (
     ServerInfo,
 )
 from src.api.routes import tools, execute, flows
+from src.ports import BrowserPort
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+logger.info(f"===== API 进程启动 (PID: {os.getpid()}) =====")
 
 # 全局客户端实例（统一浏览器客户端）
 _browser_client = None
@@ -34,6 +38,7 @@ async def get_client():
     """获取全局浏览器客户端实例（统一接口）"""
     global _browser_client
     if _browser_client is None:
+        import asyncio
         from src.browser import BrowserClientFactory, BrowserMode
         from src.config import get_config
 
@@ -47,19 +52,78 @@ async def get_client():
             from src.client.client import SilentAgentClient
             _browser_client = SilentAgentClient()
             try:
-                await _browser_client.connect()
+                await asyncio.wait_for(_browser_client.connect(), timeout=10)
+                logger.info("扩展客户端已连接")
+            except asyncio.TimeoutError:
+                logger.warning("扩展客户端连接超时")
             except Exception as e:
                 logger.warning(f"无法连接到扩展: {e}")
         else:
             # 使用新的统一客户端
             _browser_client = BrowserClientFactory.create_client(mode)
             try:
-                await _browser_client.connect()
+                await asyncio.wait_for(_browser_client.connect(), timeout=15)
                 logger.info(f"浏览器客户端已连接 (模式: {mode.value})")
+            except asyncio.TimeoutError:
+                logger.warning("浏览器客户端连接超时，跳过")
             except Exception as e:
                 logger.warning(f"浏览器客户端连接失败: {e}")
 
     return _browser_client
+
+
+# ========== 依赖注入函数 ==========
+
+async def get_browser_mode() -> str:
+    """获取浏览器模式（用于依赖注入）"""
+    from src.config import get_config
+    config = get_config()
+    return config.browser.mode.value
+
+
+async def get_browser_client(
+    mode: Optional[str] = None
+) -> BrowserPort:
+    """
+    依赖注入获取浏览器客户端（请求级实例）
+
+    使用依赖注入方式获取浏览器客户端，便于测试。
+    每个请求会获得一个新的客户端实例。
+
+    Args:
+        mode: 浏览器模式（可选，从配置读取）
+
+    Returns:
+        BrowserPort: 浏览器端口实例
+    """
+    import asyncio
+    from src.browser import BrowserClientFactory, BrowserMode
+    from src.ports import BrowserPortAdapter
+    from src.config import get_config
+
+    config = get_config()
+    browser_mode = BrowserMode(mode) if mode else config.browser.mode
+
+    logger.info(f"[DI] 创建浏览器客户端，模式: {browser_mode.value}")
+
+    # 创建客户端
+    client = BrowserClientFactory.create_client(browser_mode)
+
+    # 连接
+    try:
+        await asyncio.wait_for(client.connect(), timeout=15)
+        logger.info(f"[DI] 浏览器客户端已连接 (模式: {browser_mode.value})")
+    except asyncio.TimeoutError:
+        logger.warning("[DI] 浏览器客户端连接超时")
+    except Exception as e:
+        logger.warning(f"[DI] 浏览器客户端连接失败: {e}")
+
+    # 适配为 BrowserPort
+    return BrowserPortAdapter(client)
+
+
+# 导出依赖注入函数别名
+get_browser_port = get_browser_client
 
 
 @asynccontextmanager
@@ -67,16 +131,27 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时
     from src.config import get_config
+    import asyncio
+
     config = get_config()
 
-    logger.info(f"Neurone RPA Server 启动中... 浏览器模式: {config.browser.mode.value}")
-    try:
-        client = await get_client()
-        # 检查连接状态
-        is_connected = client.is_connected
-        logger.info(f"客户端状态: {is_connected}")
-    except Exception as e:
-        logger.warning(f"客户端初始化失败: {e}")
+    logger.info(f"===== Neurone RPA Server 启动中 (PID: {os.getpid()}) =====")
+    logger.info(f"  浏览器模式: {config.browser.mode.value}")
+    logger.info(f"  绑定地址: 0.0.0.0:8080")
+
+    # 启动后台连接任务（不阻塞 lifespan 完成）
+    async def init_client():
+        try:
+            client = await get_client()
+            is_connected = client.is_connected
+            logger.info(f"  客户端连接状态: {is_connected}")
+        except Exception as e:
+            logger.warning(f"客户端初始化失败: {e}")
+
+    # 启动后台任务，不阻塞
+    asyncio.create_task(init_client())
+
+    logger.info("===== API 服务已就绪 =====")
 
     yield
 
@@ -401,6 +476,21 @@ async def global_exception_handler(request, exc):
             "message": "服务器内部错误",
             "details": {"type": type(exc).__name__},
         },
+    )
+
+
+# ToolException 异常处理器
+from src.core.exception import ToolException, get_error_response
+
+
+@app.exception_handler(ToolException)
+async def tool_exception_handler(request, exc: ToolException):
+    """工具异常处理器"""
+    logger.warning(f"工具异常: {exc.code} - {exc}")
+    status_code = status.HTTP_400_BAD_REQUEST if exc.recoverable else status.HTTP_500_INTERNAL_SERVER_ERROR
+    return JSONResponse(
+        status_code=status_code,
+        content=get_error_response(exc),
     )
 
 

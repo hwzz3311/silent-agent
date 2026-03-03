@@ -23,6 +23,21 @@ from .context import (
     create_context,
 )
 
+from .exception import (
+    ToolException,
+    LoginRequiredException,
+    ElementNotFoundException,
+    SelectorInvalidException,
+    BrowserConnectionException,
+    ToolNotFoundException,
+    ExecutionTimeoutException,
+    ValidationException,
+    NavigationException,
+    AuthenticationException,
+    is_tool_exception,
+    get_error_response,
+)
+
 __all__ = [
     "Result",
     "ResultMeta",
@@ -37,4 +52,16 @@ __all__ = [
     "VariableScope",
     "FlowContext",
     "create_context",
+    "ToolException",
+    "LoginRequiredException",
+    "ElementNotFoundException",
+    "SelectorInvalidException",
+    "BrowserConnectionException",
+    "ToolNotFoundException",
+    "ExecutionTimeoutException",
+    "ValidationException",
+    "NavigationException",
+    "AuthenticationException",
+    "is_tool_exception",
+    "get_error_response",
 ]
