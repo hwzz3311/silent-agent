@@ -114,7 +114,13 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
 
             if tab_result.get("success") and tab_result.get("data"):
                 tab_id = tab_result.get("data", {}).get("tabId")
-                logger.info(f"获取到活动标签页: tabId={tab_id}")
+                tab_url = tab_result.get("data", {}).get("url", "")
+                logger.info(f"获取到活动标签页: tabId={tab_id}, url={tab_url}")
+
+                # 检查 URL 是否为目标网站
+                if site_domain not in tab_url:
+                    logger.info(f"活动标签页不是目标网站({site_domain})，将创建新标签页")
+                    tab_id = None
             else:
                 logger.warning(f"获取活动标签页失败: {tab_result.get('error')}")
 
