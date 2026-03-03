@@ -142,7 +142,7 @@ class PuppeteerStarter:
 
         cmd = [sys.executable, "-m", "uvicorn",
                "src.api.app:app", "--host", "0.0.0.0",
-               "--port", str(port), "--reload"]
+               "--port", str(port)]
 
         self.api_process = subprocess.Popen(cmd, cwd=PROJECT_ROOT, env=env)
         print(f"API 服务器已启动 (PID: {self.api_process.pid})\n")
@@ -195,6 +195,51 @@ class PuppeteerStarter:
             print("  警告: 未获取到 WebSocket 端点，Hybrid 模式可能无法连接")
 
         self.start_api_server(api_port)
+
+        # 等待 API 服务就绪
+        print("等待 API 服务就绪...")
+        import socket
+        import subprocess
+        for i in range(30):
+            time.sleep(1)
+            # 方法1: socket 检测
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex(('127.0.0.1', api_port))
+                sock.close()
+                if result == 0:
+                    print(f"  [OK] socket 检测成功 ({i+1}秒)")
+                    break
+            except Exception as e:
+                print(f"  [FAIL] socket 检测: {e}")
+
+            # 方法2: 用 lsof 检查端口
+            try:
+                lsof_result = subprocess.run(
+                    ["lsof", "-i", f":{api_port}"],
+                    capture_output=True, text=True, timeout=2
+                )
+                if lsof_result.returncode == 0 and f":{api_port}" in lsof_result.stdout:
+                    print(f"  [OK] lsof 检测到端口 {api_port} 正在监听")
+                    print(f"       {lsof_result.stdout.split(chr(10))[0][:80]}")
+                    break
+            except Exception as e:
+                pass
+
+            print(f"  等待中... ({i+1}/30)")
+        else:
+            print("  警告: 30秒内 API 服务未就绪")
+            # 最后再试一次 lsof 看端口状态
+            try:
+                lsof_result = subprocess.run(
+                    ["lsof", "-i", f":{api_port}"],
+                    capture_output=True, text=True, timeout=2
+                )
+                print(f"  [DEBUG] lsof 结果:\n{lsof_result.stdout}")
+                print(f"  [DEBUG] lsof stderr:\n{lsof_result.stderr}")
+            except Exception as e:
+                print(f"  [DEBUG] lsof 异常: {e}")
 
         print("=" * 50)
         print("启动完成！")
