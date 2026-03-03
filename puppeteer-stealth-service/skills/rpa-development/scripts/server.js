@@ -49,11 +49,11 @@ app.post('/browser/launch', async (req, res) => {
     };
 
     // 使用默认用户数据目录（保留cookies和session）
-    launchOptions.userDir = DEFAULT_USER_DATA_DIR;
+    launchOptions.userDataDir = DEFAULT_USER_DATA_DIR;
 
-    // 如果提供了 userDir，使用指定的用户数据目录（覆盖默认）
+    // 如果提供了 userDir 使用指定的用户数据目录（覆盖默认）
     if (userDir) {
-      launchOptions.userDir = userDir;
+      launchOptions.userDataDir = userDir;
     }
 
     // 如果提供了 executablePath 或使用默认
@@ -832,7 +832,7 @@ app.post('/browser/:id/page/:pageIndex/upload', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Page not found' });
     }
 
-    await page.uploadFile(selector, filePath);
+    await page.setInputFiles(selector, filePath);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

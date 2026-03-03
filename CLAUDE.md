@@ -26,6 +26,10 @@ src/
 ├── flow/         # 工作流引擎
 ├── relay_server.py  # WebSocket 中继服务
 └── tools/        # 工具框架和业务适配器
+    ├── business/     # 业务逻辑基类
+    │   └── selectors/ # 选择器版本管理
+    └── sites/        # 网站适配器
+        └── selectors/ # 通用选择器定义（分页/弹窗/搜索等）
 extension/       # Chrome 扩展
 ```
 
@@ -54,9 +58,11 @@ extension/       # Chrome 扩展
 - **多插件系统**: 每个 Chrome 实例有唯一 `secret_key`，支持单客户端控制多浏览器
 - **通信流程**: Python Client → Relay Server → Chrome Extension
 - **无障碍树**: Puppeteer 模式使用真实 CDP accessibility tree
+- **选择器抽象**: `sites/selectors/common.py` 定义通用选择器（分页/弹窗/搜索等），新网站只需继承并扩展特定字段
 
 ## 开发规范
 
 - API 开发见 [.claude/rule/api.md](.claude/rule/api.md)
 - 工具基类: `src/tools/tool.py`
-- 业务适配器: `src/tools/business/sites/`
+- 业务适配器: `src/tools/business/`
+- 网站选择器: `src/tools/sites/`（继承 `sites/selectors/common.py` 通用选择器）
