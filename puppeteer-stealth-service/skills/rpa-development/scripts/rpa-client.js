@@ -129,10 +129,22 @@ class RPAController {
   }
 
   // 截图
-  async screenshot(fullPage = false) {
+  // @param {boolean} fullPage - 是否全页截图
+  // @param {object} clip - 局部截图区域 {x, y, width, height}
+  // @param {string} savePath - 保存路径，如果提供则直接保存文件
+  async screenshot(fullPage = false, clip = null, savePath = null) {
+    this.debug && console.log('[RPA] screenshot:', { fullPage, clip, savePath });
     const result = await this._request('POST', `/browser/${this.browserId}/page/${this.pageIndex}/screenshot`, {
-      fullPage
+      fullPage,
+      clip,
+      savePath
     });
+    this.debug && console.log('[RPA] screenshot result:', result.clip);
+    // 如果服务器已保存文件，直接返回保存信息
+    if (result.saved && result.path) {
+      this.debug && console.log('[RPA] screenshot saved to:', result.path);
+      return result;
+    }
     return result;
   }
 
@@ -729,8 +741,15 @@ class OperationRecorder {
           lines.push(`  await page.waitForSelector("${op.selector}", { timeout: ${op.timeout || 30000} });`);
           break;
         case 'screenshot':
-          lines.push(`  const screenshot = await page.screenshot({ fullPage: ${op.fullPage || false} });`);
-          lines.push(`  require("fs").writeFileSync("output.png", screenshot);`);
+          if (op.savePath) {
+            lines.push(`  await page.screenshot({ fullPage: ${op.fullPage || false}, clip: ${JSON.stringify(op.clip)}, savePath: "${op.savePath}" });`);
+          } else if (op.clip) {
+            lines.push(`  const screenshot = await page.screenshot({ fullPage: ${op.fullPage || false}, clip: ${JSON.stringify(op.clip)} });`);
+            lines.push(`  require("fs").writeFileSync("output.png", screenshot);`);
+          } else {
+            lines.push(`  const screenshot = await page.screenshot({ fullPage: ${op.fullPage || false} });`);
+            lines.push(`  require("fs").writeFileSync("output.png", screenshot);`);
+          }
           break;
         case 'getContent':
           lines.push(`  const content = await page.content();`);
@@ -807,10 +826,23 @@ class OperationRecorder {
           lines.push('');
           break;
         case 'screenshot':
-          lines.push(`  const screenshot = await request("POST", \`/browser/\${BROWSER_ID}/page/0/screenshot\`, {`);
-          lines.push(`    fullPage: ${op.fullPage || false}`);
-          lines.push(`  });`);
-          lines.push(`  require("fs").writeFileSync("output.png", Buffer.from(screenshot.data, "base64"));`);
+          if (op.savePath) {
+            lines.push(`  await request("POST", \`/browser/\${BROWSER_ID}/page/0/screenshot\`, {`);
+            lines.push(`    fullPage: ${op.fullPage || false},`);
+            if (op.clip) {
+              lines.push(`    clip: ${JSON.stringify(op.clip)},`);
+            }
+            lines.push(`    savePath: "${op.savePath}"`);
+            lines.push(`  });`);
+          } else {
+            lines.push(`  const screenshot = await request("POST", \`/browser/\${BROWSER_ID}/page/0/screenshot\`, {`);
+            lines.push(`    fullPage: ${op.fullPage || false}`);
+            if (op.clip) {
+              lines.push(`    clip: ${JSON.stringify(op.clip)}`);
+            }
+            lines.push(`  });`);
+            lines.push(`  require("fs").writeFileSync("output.png", Buffer.from(screenshot.data, "base64"));`);
+          }
           lines.push('');
           break;
         case 'close':

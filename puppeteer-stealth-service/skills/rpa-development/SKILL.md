@@ -1,7 +1,7 @@
 ---
 name: rpa-development
-description: This skill should be used when the user asks to "get QR code from website", "automate login flow", "extract page data", "complete web task", "do browser automation", "scrape website", or needs Puppeteer stealth browser control with accessibility tree support. This skill executes real browser operations first, then generates reusable RPA scripts.
-version: 0.3.1
+description: This skill should be used when the user asks to "get QR code from website", "automate login flow", "extract page data", "complete web task", "do browser automation", "scrape website", "capture partial screenshot", "monitor network requests", "intercept response", "get element position", or needs Puppeteer stealth browser control with accessibility tree support. This skill executes real browser operations first, then generates reusable RPA scripts.
+version: 0.7.0
 ---
 
 # RPA Development Skill
@@ -59,12 +59,13 @@ recorder.record({ type: 'goto', url: 'https://tongyi.aliyun.com/' });
 
 await new Promise(r => setTimeout(r, 2000));
 
-const screenshot = await controller.screenshot(false);
-recorder.record({ type: 'screenshot', fullPage: false });
+// screenshot(fullPage, clip, savePath) - 支持局部截图和直接保存
+const screenshot = await controller.screenshot(false, null, 'qrcode.png');
+recorder.record({ type: 'screenshot', fullPage: false, savePath: 'qrcode.png' });
 
-// Save screenshot
-const buffer = Buffer.from(screenshot.data, 'base64');
-require('fs').writeFileSync('qrcode.png', buffer);
+// 或者返回base64自行保存
+// const screenshot = await controller.screenshot(false);
+// require('fs').writeFileSync('qrcode.png', Buffer.from(screenshot.data, 'base64'));
 
 // Generate reusable script AFTER task completion
 const script = recorder.generateScript('puppeteer');
@@ -201,7 +202,10 @@ loginAndCapture('myuser', 'mypass');
 | `getA11yTree()` | Get accessibility tree |
 | `getTitle()` | Get page title |
 | `getContent()` | Get HTML content |
-| `screenshot(fullPage)` | Take screenshot |
+| `screenshot(fullPage, clip, savePath)` | Take screenshot (supports partial capture and direct save) |
+| `getElementBox(selector)` | Get element bounding box |
+| `getElementModel(selector)` | Get element box model |
+| `getElementVisibility(selector)` | Get element visibility state |
 | `getCookies()` | Get cookies |
 | `setCookie(cookie)` | Set cookie |
 | `getStorage()` | Get localStorage/sessionStorage |
@@ -237,6 +241,7 @@ loginAndCapture('myuser', 'mypass');
 - **`examples/qrcode-grab.js`** - QR code capture
 - **`examples/login-flow.js`** - Login automation
 - **`examples/data-extract.js`** - Data extraction
+- **`examples/doubao-qrcode-login.js`** - 豆包二维码登录完整示例
 
 ### Script Files
 - **`scripts/server.js`** - Puppeteer stealth service
@@ -253,20 +258,40 @@ For debugging or manual intervention, use HTTP API directly:
 PORT=18765
 BROWSER_ID=my-browser
 
-# Launch browser
+# Launch browser (default - new profile each time)
 curl -X POST http://localhost:$PORT/browser/launch \
   -H "Content-Type: application/json" \
   -d '{"id": "'$BROWSER_ID'", "headless": false}'
+
+# Launch browser with user data directory (keep cookies and session)
+curl -X POST http://localhost:$PORT/browser/launch \
+  -H "Content-Type: application/json" \
+  -d '{"id": "'$BROWSER_ID'", "headless": false, "userDir": "/path/to/user-data-dir"}'
 
 # Navigate to URL
 curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/goto \
   -H "Content-Type: application/json" \
   -d '{"url": "https://tongyi.aliyun.com/", "waitUntil": "networkidle2"}'
 
-# Get screenshot
+# Get screenshot (full page)
 curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/screenshot \
   -H "Content-Type: application/json" \
   -d '{"fullPage": false}' -o screenshot.png
+
+# Get partial screenshot (clip region)
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"clip": {"x": 100, "y": 50, "width": 400, "height": 300}}' -o partial.png
+
+# Get partial screenshot and save directly to file (server saves the file)
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"clip": {"x": 300, "y": 150, "width": 600, "height": 400}, "savePath": "/path/to/screenshot.png"}'
+
+# Full screenshot saved directly to file
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"fullPage": false, "savePath": "/path/to/screenshot.png"}'
 
 # Get accessibility tree
 curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/a11y
@@ -278,6 +303,42 @@ curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/content
 curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/click \
   -H "Content-Type: application/json" \
   -d '{"selector": "#login-btn"}'
+
+# Get element bounding box (position and size)
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/element/bounding-box \
+  -H "Content-Type: application/json" \
+  -d '{"selector": ".target-element"}'
+
+# Get element box model (content/padding/border/margin)
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/element/box-model \
+  -H "Content-Type: application/json" \
+  -d '{"selector": ".card"}'
+
+# Get element visibility (display/opacity/viewport)
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/element/visibility \
+  -H "Content-Type: application/json" \
+  -d '{"selector": ".modal"}'
+
+# Find element in list (by index)
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/element/find \
+  -H "Content-Type: application/json" \
+  -d '{"selector": ".item", "index": 2}'
+
+# Enable network request listening
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/network/listen \
+  -H "Content-Type: application/json" \
+  -d '{"includeUrl": "api"}'
+
+# Get captured network requests/responses
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/network/captured
+
+# Intercept and mock response
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/network/intercept \
+  -H "Content-Type: application/json" \
+  -d '{"urlPattern": "api/data", "responseStatus": 200, "responseBody": "{\"mock\": true}"}'
+
+# Disable network interception
+curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/page/0/network/disable
 
 # Close browser
 curl -X POST http://localhost:$PORT/browser/$BROWSER_ID/close
@@ -354,6 +415,144 @@ async function qrCodeLogin() {
   // Continue with remaining tasks...
   await controller.close();
 }
+```
+
+### Example: Doubao QR Code Login with Partial Screenshot
+
+Complete example for 豆包 (doubao.com) QR code login with:
+- Get QR code container position using execute script
+- Partial screenshot with clip parameter
+- Auto-refresh when QR code expires
+- Get username and avatar after login
+
+```javascript
+const { RPAController, OperationRecorder } = require('./skill/rpa-development/scripts/rpa-client.js');
+
+async function doubaoQRCodeLogin() {
+  const controller = new RPAController({
+    host: 'localhost',
+    port: 18765,
+    browserId: 'doubao-login',
+    debug: true
+  });
+  const recorder = new OperationRecorder();
+
+  console.log('[1] 启动浏览器...');
+  await controller.launch('doubao-login');
+  recorder.record({ type: 'launch', browserId: 'doubao-login' });
+
+  console.log('[2] 访问豆包首页...');
+  await controller.goto('https://www.doubao.com/');
+  recorder.record({ type: 'goto', url: 'https://www.doubao.com/' });
+
+  await controller.waitIdle(3000);
+
+  console.log('[3] 点击登录按钮...');
+  await controller.click('text=登录');
+  recorder.record({ type: 'click', selector: 'text=登录' });
+
+  await controller.waitIdle(3000);
+
+  console.log('[4] 获取二维码位置并截图...');
+  // 使用 #semi-modal-body > div > div 选择器获取二维码容器位置
+  let qrcodeBox = null;
+  const getBoxScript = `() => {
+    const el = document.querySelector("#semi-modal-body > div > div");
+    if (el) {
+      const b = el.getBoundingClientRect();
+      return { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) };
+    }
+    return null;
+  }`;
+
+  const result = await controller.execute(getBoxScript, 'function');
+  if (result && result.result) {
+    qrcodeBox = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+    console.log('[INFO] 找到二维码区域:', qrcodeBox);
+  }
+
+  // 计算截图区域
+  const clip = qrcodeBox ? {
+    x: qrcodeBox.x,
+    y: qrcodeBox.y,
+    width: qrcodeBox.width,
+    height: qrcodeBox.height
+  } : null;
+
+  // 直接保存截图到文件 (server侧保存)
+  await controller.screenshot(false, clip, 'doubao_qrcode.png');
+  console.log('[OK] 二维码已保存到 doubao_qrcode.png');
+
+  console.log('\n请使用豆包APP扫码登录...\n');
+
+  // 轮询检测登录状态
+  let loginSuccess = false;
+  let checkCount = 0;
+  const maxChecks = 60;
+
+  while (!loginSuccess && checkCount < maxChecks) {
+    checkCount++;
+    await controller.waitIdle(2000);
+
+    const contentResult = await controller.getContent();
+    const content = contentResult.html || '';
+
+    // 检测二维码失效
+    if (content.includes('二维码失效')) {
+      console.log('[INFO] 检测到二维码失效，刷新...');
+      await controller.click('text=点击刷新');
+      await controller.waitIdle(2000);
+      await controller.screenshot(false, clip, 'doubao_qrcode_refresh.png');
+      continue;
+    }
+
+    // 检测登录成功标志
+    if (content.includes('from_login=1') || content.includes('历史对话') || content.includes('云盘')) {
+      loginSuccess = true;
+      console.log('[成功] 检测到登录成功！');
+
+      // 获取用户名: [id^="radix-"] > div > div
+      const userResult = await controller.execute(
+        'document.querySelector("[id^=\\"radix-\\"] > div > div")?.textContent',
+        'function'
+      );
+      const username = userResult.result || '未知';
+
+      // 获取头像: [id^="radix-"] > div > img
+      const avatarResult = await controller.execute(
+        'document.querySelector("[id^=\\"radix-\\"] > div > img")?.src',
+        'function'
+      );
+      const avatarUrl = avatarResult.result || '';
+
+      console.log('[INFO] 用户名:', username);
+      console.log('[INFO] 头像:', avatarUrl);
+
+      await controller.screenshot(false, null, 'doubao_logged_in.png');
+      break;
+    }
+
+    console.log(`[等待] 等待扫码中... (${checkCount}/${maxChecks})`);
+  }
+
+  await controller.close();
+  recorder.record({ type: 'close' });
+
+  const script = recorder.generateScript('puppeteer');
+  require('fs').writeFileSync('auto_doubao_login.js', script);
+
+  return loginSuccess;
+}
+
+doubaoQRCodeLogin()
+  .then(success => {
+    console.log('\n任务完成:', success ? '登录成功' : '登录失败');
+    process.exit(success ? 0 : 1);
+  })
+  .catch(err => {
+    console.error('[错误]', err.message);
+    process.exit(1);
+  });
 ```
 
 ## Authentication State Detection
