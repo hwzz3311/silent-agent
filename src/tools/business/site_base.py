@@ -211,10 +211,10 @@ class Site(ABC):
         Returns:
             Result[PageInfo]: 页面信息
         """
-        from src.tools.xhs import XHSReadPageDataTool
+        from src.tools.sites.xiaohongshu.utils.page_data import ReadPageDataTool
 
         try:
-            tool = XHSReadPageDataTool()
+            tool = ReadPageDataTool()
 
             # 获取 URL
             url_result = await tool.execute(
