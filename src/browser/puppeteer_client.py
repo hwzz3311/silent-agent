@@ -424,7 +424,15 @@ class PuppeteerClient(BrowserClient):
 
     async def get_active_tab(self) -> Dict[str, Any]:
         await self._ensure_connected()
-        return {"success": True, "data": {"url": self._page.url}}
+        # 返回包含 tabId 的结果（用于兼容业务工具）
+        return {
+            "success": True,
+            "data": {
+                "tabId": "active",
+                "url": self._page.url,
+                "title": self._page.title
+            }
+        }
 
     async def close_tab(self, tab_id: int) -> Dict[str, Any]:
         await self._ensure_connected()
