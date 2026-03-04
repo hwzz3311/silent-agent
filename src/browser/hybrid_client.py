@@ -44,14 +44,17 @@ class HybridClient(BrowserClient):
     async def connect(self, timeout: float = 10) -> None:
         """启动两个客户端（带超时）"""
         logger.info("[HybridClient] 开始连接...")
+        logger.info(f"[HybridClient] puppeteer_config: {self.puppeteer_config}")
 
         # 启动 Puppeteer
+        browser_ws_endpoint = self.puppeteer_config.get("browser_ws_endpoint")
+        logger.info(f"[HybridClient] browser_ws_endpoint: {browser_ws_endpoint}")
         self._puppeteer = PuppeteerClient(
             headless=self.puppeteer_config.get("headless", True),
             args=self.puppeteer_config.get("args", []),
             stealth=self.puppeteer_config.get("stealth", True),
             executable_path=self.puppeteer_config.get("executable_path"),
-            browser_ws_endpoint=self.puppeteer_config.get("browser_ws_endpoint"),
+            browser_ws_endpoint=browser_ws_endpoint,
         )
         try:
             await asyncio.wait_for(self._puppeteer.connect(), timeout=timeout)
