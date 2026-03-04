@@ -349,6 +349,222 @@ class XianyuSite(Site):
         """
         return Result.ok(True)
 
+    # ========== 发布相关方法 ==========
+
+    async def publish_item(
+        self,
+        context: 'ExecutionContext' = None,
+        price: str = None,
+        description: str = None,
+        images: list = None,
+        category_index: int = 3
+    ) -> Result[Dict[str, Any]]:
+        """
+        发布闲鱼商品
+
+        Args:
+            context: 执行上下文
+            price: 商品价格
+            description: 商品描述
+            images: 图片路径列表
+            category_index: 分类索引（默认3=其他技能服务）
+
+        Returns:
+            Result[Dict[str, Any]]: 发布结果，包含 item_id 和 url
+        """
+        from src.tools.browser.fill import FillTool
+        from src.tools.browser.click import ClickTool
+        from src.tools.browser.evaluate import EvaluateTool
+        import asyncio
+        import os
+
+        try:
+            # 确保 context 存在
+            ctx = context or self._create_default_context()
+            client = getattr(ctx, 'client', None)
+
+            if not client:
+                return Result.fail(Error.new("未连接到浏览器，请先启动浏览器"))
+
+            # 1. 导航到发布页面
+            await self.navigate("publish", context=ctx)
+            await asyncio.sleep(2)
+
+            # 2. 填写价格
+            fill_tool = FillTool()
+            await fill_tool.execute(
+                params=fill_tool._get_params_type()(
+                    selector=".ant-input",
+                    value=price
+                ),
+                context=ctx
+            )
+            print(f"[xianyu_publish] 价格: {price}")
+
+            # 3. 填写描述
+            await fill_tool.execute(
+                params=fill_tool._get_params_type()(
+                    selector="div[class^='editor--']",
+                    value=description
+                ),
+                context=ctx
+            )
+            print(f"[xianyu_publish] 描述: {description}")
+
+            # 4. 上传图片
+            if images:
+                for idx, image_path in enumerate(images[:9]):  # 最多9张
+                    if os.path.exists(image_path):
+                        # 使用 DataTransfer 方式上传文件
+                        # 读取文件内容并转换为 base64
+                        with open(image_path, 'rb') as f:
+                            image_data = f.read()
+                        import base64
+                        img_data_b64 = base64.b64encode(image_data).decode('utf-8')
+                        file_name = os.path.basename(image_path)
+                        # 根据文件扩展名判断 mime 类型
+                        ext = os.path.splitext(file_name)[1].lower()
+                        mime_type = {
+                            '.jpg': 'image/jpeg',
+                            '.jpeg': 'image/jpeg',
+                            '.png': 'image/png',
+                            '.gif': 'image/gif',
+                            '.webp': 'image/webp'
+                        }.get(ext, 'image/jpeg')
+
+                        # 执行 JS 上传
+                        eval_tool = EvaluateTool()
+                        upload_script = f"""
+                        (function() {{
+                            const input = document.querySelector('input[name="file"]');
+                            if (!input) return {{ success: false, error: 'input not found' }};
+
+                            const blob = new Blob([new Uint8Array(atob("{img_data_b64}").split('').map(c => c.charCodeAt(0)))], {{ type: "{mime_type}" }});
+                            const file = new File([blob], "{file_name}", {{ type: "{mime_type}" }});
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            input.files = dt.files;
+                            input.dispatchEvent(new Event('change', {{ bubble: true }}));
+                            return {{ success: true }};
+                        }})()
+                        """
+                        await eval_tool.execute(
+                            params=EvaluateParams(code=upload_script, args=[]),
+                            context=ctx
+                        )
+                        print(f"[xianyu_publish] 图片 {idx + 1} 已上传: {file_name}")
+                        await asyncio.sleep(1)
+
+            # 5. 选择分类
+            await asyncio.sleep(1.5)
+
+            # 检查是否出现"网页版暂不支持发布此分类"的警告
+            check_unsupported_script = """
+            (function() {
+                return document.body.innerHTML.includes('网页版暂不支持发布此分类');
+            })()
+            """
+            eval_tool = EvaluateTool()
+
+            # 遍历分类直到找到支持的
+            for i in range(category_index, 10):
+                # 点击分类下拉框
+                click_tool = ClickTool()
+                await click_tool.execute(
+                    params=click_tool._get_params_type()(
+                        selector="div.ant-select-selector",
+                        timeout=5000
+                    ),
+                    context=ctx
+                )
+                await asyncio.sleep(0.5)
+
+                # 点击第 i 个分类选项
+                select_script = f"""
+                (function() {{
+                    const options = document.querySelectorAll('div[class*="ant-select-item-option"]');
+                    if (options[{i}]) {{
+                        options[{i}].click();
+                        return {{ success: true, index: {i} }};
+                    }}
+                    return {{ success: false, error: 'option not found' }};
+                }})()
+                """
+                await eval_tool.execute(
+                    params=EvaluateParams(code=select_script, args=[]),
+                    context=ctx
+                )
+                await asyncio.sleep(0.5)
+
+                # 检查是否还有不支持的警告
+                result = await eval_tool.execute(
+                    params=EvaluateParams(code=check_unsupported_script, args=[]),
+                    context=ctx
+                )
+                if not result.data:
+                    print(f"[xianyu_publish] 已选择分类 index: {i}")
+                    break
+                else:
+                    print(f"[xianyu_publish] 分类 {i} 不支持网页发布，重新选择...")
+            else:
+                print("[xianyu_publish] 警告: 所有分类都不支持网页发布")
+
+            await asyncio.sleep(0.5)
+
+            # 6. 点击发布按钮
+            publish_script = """
+            (function() {
+                const buttons = Array.from(document.querySelectorAll('button'));
+                const publishBtn = buttons.find(b => b.textContent.includes('发布'));
+                if (publishBtn) {
+                    publishBtn.click();
+                    return { success: true };
+                }
+                return { success: false, error: 'publish button not found' };
+            })()
+            """
+            await eval_tool.execute(
+                params=EvaluateParams(code=publish_script, args=[]),
+                context=ctx
+            )
+            print("[xianyu_publish] 已点击发布按钮")
+
+            # 等待发布完成
+            await asyncio.sleep(3)
+
+            # 7. 验证发布成功
+            # 获取当前 URL 检查是否跳转到商品详情页
+            from src.tools.browser.navigate import GetUrlTool
+            get_url_tool = GetUrlTool()
+            url_result = await get_url_tool.execute(
+                params=get_url_tool._get_params_type()(),
+                context=ctx
+            )
+            current_url = url_result.data.get("url", "") if isinstance(url_result.data, dict) else ""
+
+            print(f"[xianyu_publish] 当前 URL: {current_url}")
+
+            # 检查 URL 是否包含 /item?id= (发布成功标志)
+            if "/item?id=" in current_url:
+                import re
+                match = re.search(r'id=(\d+)', current_url)
+                item_id = match.group(1) if match else None
+                print(f"[xianyu_publish] 发布成功！商品ID: {item_id}")
+                return Result.ok({
+                    "item_id": item_id,
+                    "url": current_url,
+                })
+            else:
+                print("[xianyu_publish] 发布结果未明，请检查截图")
+                return Result.ok({
+                    "item_id": None,
+                    "url": current_url,
+                })
+
+        except Exception as e:
+            print(f"[xianyu_publish] 发布失败: {e}")
+            return Result.fail(Error.from_exception(e))
+
 
 __all__ = [
     "XianyuSite",

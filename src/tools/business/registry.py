@@ -561,6 +561,16 @@ class BusinessToolRegistry:
             for name in cls._tools.keys()
         ]
 
+    @classmethod
+    def get_all(cls) -> List[BusinessTool]:
+        """
+        获取所有已注册的业务工具
+
+        Returns:
+            List[BusinessTool]: 工具实例列表
+        """
+        return list(cls._tools.values())
+
     # ========== 自动发现 ==========
 
     @classmethod
