@@ -181,10 +181,10 @@ class SilentAgentClient:
             # 指定目标插件
             result = await client.call_tool("chrome_navigate", url="https://example.com", secret_key="TARGET_KEY")
         """
-        # 记录调用日志
-        print(f"[SilentAgentClient.call_tool] 开始调用工具: name={name}, args.keys={list(args.keys())}")
+        # 记录调用日志（debug 级别）
+        logger.debug(f"[SilentAgentClient.call_tool] 开始调用工具: name={name}, args.keys={list(args.keys())}")
         if name == "inject_script":
-            print(f"[SilentAgentClient.call_tool] inject_script code 长度: {len(args.get('code', ''))}")
+            logger.debug(f"[SilentAgentClient.call_tool] inject_script code 长度: {len(args.get('code', ''))}")
 
         # 确定使用的密钥
         used_key = secret_key or self._secret_key
@@ -197,10 +197,10 @@ class SilentAgentClient:
                 "secretKey": used_key,  # 传递密钥用于多插件路由
             }, timeout=timeout + 5)
 
-            print(f"[SilentAgentClient.call_tool] 工具调用成功: name={name}")
+            logger.debug(f"[SilentAgentClient.call_tool] 工具调用成功: name={name}")
             return result
         except Exception as e:
-            print(f"[SilentAgentClient.call_tool] 工具调用失败: name={name}, error={e}")
+            logger.debug(f"[SilentAgentClient.call_tool] 工具调用失败: name={name}, error={e}")
             raise
 
     async def list_tools(self) -> dict:
