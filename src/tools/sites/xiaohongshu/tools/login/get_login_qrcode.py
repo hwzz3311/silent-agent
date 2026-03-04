@@ -133,9 +133,14 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
             }, timeout=15000)
             logger.debug(f"chrome_navigate 结果: {nav_result}")
 
+            # chrome_navigate 返回嵌套结构: {success, data: {success, data: {tabId}, error}}
             if nav_result.get("success") and nav_result.get("data"):
-                tab_id = nav_result.get("data", {}).get("tabId")
-                logger.info(f"创建新标签页成功: tabId={tab_id}")
+                inner_data = nav_result.get("data", {})
+                if inner_data.get("success") and inner_data.get("data"):
+                    tab_id = inner_data.get("data", {}).get("tabId")
+                    logger.info(f"创建新标签页成功: tabId={tab_id}")
+                else:
+                    logger.warning(f"创建新标签页失败: {inner_data.get('error')}")
             else:
                 logger.warning(f"创建新标签页失败: {nav_result.get('error')}")
 
