@@ -102,9 +102,13 @@ class HybridClient(BrowserClient):
     # ========== 页面操作（优先使用扩展） ==========
 
     async def navigate(self, url: str, new_tab: bool = True) -> Dict[str, Any]:
-        """导航：优先使用 Puppeteer（更可靠）"""
+        """导航：优先使用 Puppeteer（更可靠），不可用时使用 Extension"""
         await self._ensure_connected()
-        return await self._puppeteer.navigate(url, new_tab=new_tab)
+        if self._puppeteer:
+            return await self._puppeteer.navigate(url, new_tab=new_tab)
+        elif self._extension:
+            return await self._extension.navigate(url, new_tab=new_tab)
+        return {"success": False, "error": "无可用的浏览器客户端"}
 
     async def click(self, selector: str, text: str = None, timeout: float = 5) -> Dict[str, Any]:
         """点击：优先使用扩展（Puppeteer 点击有时不触发事件）"""
