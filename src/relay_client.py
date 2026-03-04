@@ -27,7 +27,10 @@ Neurone Relay Client v2 — 通过工具调用控制浏览器
 
 import asyncio
 import json
+import logging
 from typing import Any, Dict, Optional, List, Callable
+
+logger = logging.getLogger("relay_client")
 
 try:
     import websockets
