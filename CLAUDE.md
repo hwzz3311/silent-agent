@@ -64,6 +64,29 @@ extension/       # Chrome 扩展
 - **端口抽象**: `src/ports/browser_port.py` 定义浏览器操作抽象接口实现依赖倒置
 - **统一异常**: `src/core/exception.py` 定义标准化异常体系（ToolException 及子类）
 - **运行时配置**: `RunnerConfig` 支持依赖注入式配置传递
+- **依赖注入**: 工具通过 `ExecutionContext.client` 获取浏览器客户端
+
+## 依赖注入模式
+
+工具通过 `ExecutionContext.client` 获取浏览器客户端：
+
+```python
+async def execute(self, params, context: ExecutionContext) -> Result:
+    # 优先使用 context.client（依赖注入）
+    client = context.client
+    if client is None:
+        from src.relay_client import SilentAgentClient
+        client = SilentAgentClient()  # 降级兼容
+```
+
+API 层使用 FastAPI 依赖注入：
+
+```python
+async def get_browser_client() -> BrowserPort:
+    client = BrowserClientFactory.create_client(mode)
+    await client.connect()
+    return BrowserPortAdapter(client)
+```
 
 ## 开发规范
 

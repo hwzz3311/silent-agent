@@ -33,9 +33,11 @@ class ClickTool(Tool[ClickParams, dict]):
         context: ExecutionContext
     ) -> Result[dict]:
         """执行点击"""
-        from src.relay_client import SilentAgentClient
-
-        client = SilentAgentClient()
+        # 优先使用 context 中的 client（依赖注入），降级使用全局客户端
+        client = context.client
+        if client is None:
+            from src.relay_client import SilentAgentClient
+            client = SilentAgentClient()
 
         try:
             # 调用扩展的 click 工具
