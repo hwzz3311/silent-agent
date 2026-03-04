@@ -24,6 +24,7 @@ RELAY_PORT = 18792
 API_PORT = 8080
 KEY_FILE = os.path.join(PROJECT_ROOT, ".extension_key")
 WS_ENDPOINT_FILE = os.path.join(PROJECT_ROOT, ".ws_endpoint")
+BROWSER_ID_FILE = os.path.join(PROJECT_ROOT, ".browser_id")
 NODE_BROWSER_SCRIPT = os.path.join(PROJECT_ROOT, "start_browser.js")
 
 
@@ -241,6 +242,49 @@ class PuppeteerStarter:
             except Exception as e:
                 print(f"  [DEBUG] lsof 异常: {e}")
 
+        # 注册浏览器实例到 API 服务
+        print("注册浏览器实例...")
+        try:
+            import urllib.request
+            import json
+
+            register_data = {
+                "mode": "hybrid",
+                "secret_key": self.extension_key,
+                "ws_endpoint": ws_endpoint,
+                "relay_host": "127.0.0.1",
+                "relay_port": RELAY_PORT,
+            }
+
+            req = urllib.request.Request(
+                f"http://localhost:{api_port}/api/v1/browser/register",
+                data=json.dumps(register_data).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+
+            with urllib.request.urlopen(req, timeout=10) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                instance_id = result.get("instance_id")
+                if instance_id:
+                    # 写入 .browser_id 文件
+                    with open(BROWSER_ID_FILE, "w") as f:
+                        f.write(instance_id)
+                    print(f"  已注册浏览器实例: {instance_id}")
+                else:
+                    print("  警告: 未获取到实例 ID")
+        except Exception as e:
+            print(f"  注册浏览器实例失败: {e}")
+
+        # 读取 browser_id
+        browser_id = None
+        if os.path.exists(BROWSER_ID_FILE):
+            try:
+                with open(BROWSER_ID_FILE, 'r') as f:
+                    browser_id = f.read().strip()
+            except:
+                pass
+
         print("=" * 50)
         print("启动完成！")
         print("=" * 50)
@@ -248,6 +292,8 @@ class PuppeteerStarter:
         print(f"  API: http://localhost:{api_port}")
         if self.extension_key:
             print(f"  密钥: {self.extension_key}")
+        if browser_id:
+            print(f"  Browser ID: {browser_id}")
         print("\n按 Ctrl+C 停止所有服务...")
 
         try:

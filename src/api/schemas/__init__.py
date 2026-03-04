@@ -53,6 +53,14 @@ from .record import (
     ReplayResponse,
 )
 
+from .browser import (
+    RegisterBrowserRequest,
+    RegisterBrowserResponse,
+    BrowserInstanceInfo,
+    BrowserListResponse,
+    BrowserHealthResponse,
+)
+
 __all__ = [
     # Common
     "ToolCall",
@@ -93,4 +101,10 @@ __all__ = [
     "RecordingAction",
     "ReplayRequest",
     "ReplayResponse",
+    # Browser
+    "RegisterBrowserRequest",
+    "RegisterBrowserResponse",
+    "BrowserInstanceInfo",
+    "BrowserListResponse",
+    "BrowserHealthResponse",
 ]

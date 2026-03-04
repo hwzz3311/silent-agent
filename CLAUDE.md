@@ -8,10 +8,14 @@
 # 安装依赖
 pip install -r requirements.txt
 
-# 启动 Relay 服务（扩展模式必须）
+# 启动 Puppeteer（推荐：自动启动 Relay + Puppeteer + API）
+python start_puppeteer.py
+
+# 或手动启动
+# 1. 启动 Relay 服务（扩展模式必须）
 python src/relay_server.py
 
-# 启动 API 服务
+# 2. 启动 API 服务
 uvicorn src.api.app:app --host 0.0.0.0 --port 8080 --reload
 ```
 
@@ -58,6 +62,7 @@ extension/       # Chrome 扩展
 ## 架构要点
 
 - **多插件系统**: 每个 Chrome 实例有唯一 `secret_key`，支持单客户端控制多浏览器
+- **多浏览器实例**: `BrowserManager` 管理多浏览器实例，支持通过 `browser_id` 指定使用哪个浏览器
 - **通信流程**: Python Client → Relay Server → Chrome Extension
 - **无障碍树**: Puppeteer 模式使用真实 CDP accessibility tree
 - **选择器抽象**: `sites/selectors/common.py` 定义通用选择器（分页/弹窗/搜索等），新网站只需继承并扩展特定字段

@@ -161,6 +161,54 @@ class BrowserClientFactory:
             await cls._instance.close()
             cls._instance = None
 
+    @classmethod
+    def create_client_for_instance(cls, instance: "BrowserInstance") -> BrowserClient:
+        """
+        根据浏览器实例创建客户端
+
+        Args:
+            instance: 浏览器实例
+
+        Returns:
+            浏览器客户端实例
+        """
+        from .instance import BrowserInstance
+
+        mode = instance.mode
+
+        if mode == BrowserMode.EXTENSION:
+            from .extension_client import ExtensionClient
+            return ExtensionClient(
+                host=instance.relay_host,
+                port=instance.relay_port,
+                secret_key=instance.secret_key,
+            )
+        elif mode == BrowserMode.PUPPETEER:
+            from .puppeteer_client import PuppeteerClient
+            return PuppeteerClient(
+                headless=True,
+                args=[],
+                stealth=True,
+                browser_ws_endpoint=instance.ws_endpoint,
+            )
+        elif mode == BrowserMode.HYBRID:
+            from .hybrid_client import HybridClient
+            return HybridClient(
+                puppeteer_config={
+                    "headless": True,
+                    "args": [],
+                    "stealth": True,
+                    "browser_ws_endpoint": instance.ws_endpoint,
+                },
+                extension_config={
+                    "host": instance.relay_host,
+                    "port": instance.relay_port,
+                    "secret_key": instance.secret_key,
+                },
+            )
+        else:
+            raise BrowserClientError(f"Unknown browser mode: {mode}")
+
 
 # 便捷函数
 def get_browser_client(mode: BrowserMode = None) -> BrowserClient:

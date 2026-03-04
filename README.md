@@ -77,7 +77,13 @@ SilentAgent 是一个 **Chrome 扩展 + Python 控制器** 系统，通过 `chro
 - 控制端可通过密钥参数指定目标插件
 - 支持单一控制端同时管理多个浏览器实例
 
-### 6. 业务抽象层
+### 6. 多浏览器实例管理
+- 通过 `BrowserManager` 管理多个浏览器实例
+- 支持 Puppeteer / Extension / Hybrid 三种模式
+- 通过 `browser_id` 参数指定使用哪个实例
+- 启动脚本自动注册实例并生成 `.browser_id` 文件
+
+### 7. 业务抽象层
 - **业务工具框架**: 基于 `Tool` 抽象基类的工具开发框架
 - **站点适配器**: 支持多站点适配 (`Site` 抽象基类)
 - **流程引擎**: 支持流程定义和执行
@@ -304,24 +310,37 @@ pip install -r requirements.txt
 - `pydantic` - 数据验证
 - `pyyaml` - YAML 解析
 
-### 1. 启动 Relay 服务器
+### 1. 一键启动 Puppeteer（推荐）
 
 ```bash
-# 基础启动
-python src/relay_server.py
+# 自动启动 Relay + Puppeteer + API
+python start_puppeteer.py
 
-# 指定端口
-python src/relay_server.py --port 18792
-
-# 详细日志
-python src/relay_server.py --port 18792 --log-level DEBUG
+# 后台运行
+python start_puppeteer.py --headless --no-install
 ```
 
-### 2. 启动 API 服务（可选）
+启动后会：
+1. 安装 Node.js 依赖
+2. 启动 Relay 服务器
+3. 启动 Puppeteer 浏览器
+4. 启动 API 服务
+5. **自动注册浏览器实例**到 API 服务
+6. 将 `browser_id` 写入 `.browser_id` 文件
+
+### 2. 手动启动（分步）
 
 ```bash
-# 启动 REST API 服务
+# 启动 Relay 服务器
+python src/relay_server.py
+
+# 启动 API 服务
 uvicorn src.api.app:app --host 0.0.0.0 --port 8080 --reload
+
+# 手动注册浏览器实例
+curl -X POST http://localhost:8080/api/v1/browser/register \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "hybrid", "secret_key": "xxx", "ws_endpoint": "ws://..."}'
 ```
 
 API 端点：
@@ -330,6 +349,9 @@ API 端点：
 - `POST /api/v1/execute` - 执行工具
 - `GET /api/v1/flows` - 流程列表
 - `POST /api/v1/record/start` - 开始录制
+- `POST /api/v1/browser/register` - 注册浏览器实例
+- `GET /api/v1/browser/list` - 列出浏览器实例
+- `DELETE /api/v1/browser/{id}` - 注销浏览器实例
 
 ### 3. 加载 Chrome 扩展
 
@@ -411,6 +433,39 @@ curl -X POST http://127.0.0.1:8080/api/v1/execute \
     "params": {"url": "https://example.com"},
     "secret_key": "KEY_A"
   }'
+```
+
+#### 多浏览器实例
+
+支持通过 `browser_id` 指定使用哪个浏览器实例：
+
+```bash
+# 方式一：从 .browser_id 文件读取
+BROWSER_ID=$(cat .browser_id)
+
+# 方式二：列出所有实例
+curl http://localhost:8080/api/v1/browser/list
+
+# 使用指定浏览器实例执行
+curl -X POST http://localhost:8080/api/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "xhs_list_feeds",
+    "params": {},
+    "browser_id": "'$BROWSER_ID'"
+  }'
+```
+
+Python 中使用：
+
+```python
+from src.browser import BrowserManager
+
+# 使用指定实例
+client = await BrowserManager.get_client(instance_id)
+
+# 使用默认实例
+client = await BrowserManager.get_client()
 ```
 
 #### 方式二：使用业务工具

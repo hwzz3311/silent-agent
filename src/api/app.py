@@ -22,7 +22,7 @@ from src.api.schemas import (
     HealthResponse,
     ServerInfo,
 )
-from src.api.routes import tools, execute, flows
+from src.api.routes import tools, execute, flows, browser
 from src.ports import BrowserPort
 
 # 配置日志
@@ -187,6 +187,7 @@ app.add_middleware(
 app.include_router(tools.router, prefix="/api/v1/tools", tags=["Tools"])
 app.include_router(execute.router, prefix="/api/v1/execute", tags=["Execute"])
 app.include_router(flows.router, prefix="/api/v1/flows", tags=["Flows"])
+app.include_router(browser.router, prefix="/api/v1/browser", tags=["Browser"])
 
 
 # ==================== 根路径 ====================

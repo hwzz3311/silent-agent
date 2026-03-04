@@ -46,15 +46,26 @@ async def execute_tool(request: ExecuteRequest):
     - **params**: 工具参数
     - **timeout**: 可选的超时时间（毫秒）
     - **tab_id**: 可选的标签页 ID
+    - **secret_key**: 插件密钥（用于多插件路由）
+    - **browser_id**: 浏览器实例 ID（指定使用哪个浏览器）
+    - **browser_mode**: 浏览器模式（强制指定模式，覆盖实例配置）
     """
-    # 获取客户端
-    from src.api.app import get_client
-
     # 记录请求日志
     logger.info(f"[API] 收到工具执行请求: tool={request.tool}")
     logger.debug(f"[API] 请求参数: {json.dumps(request.params or {}, ensure_ascii=False, indent=2)}")
 
-    client = await get_client()
+    # 获取客户端：优先使用 BrowserManager（多实例模式）
+    from src.browser import BrowserManager
+
+    # 检查是否指定了 browser_id
+    if request.browser_id:
+        # 使用指定的浏览器实例
+        client = await BrowserManager.get_client(request.browser_id)
+        logger.info(f"[API] 使用指定浏览器实例: {request.browser_id}")
+    else:
+        # 降级使用全局单例客户端
+        from src.api.app import get_client
+        client = await get_client()
 
     if not client.is_connected:
         logger.warning("[API] 浏览器扩展未连接")
@@ -70,11 +81,13 @@ async def execute_tool(request: ExecuteRequest):
         from src.browser.client_factory import BrowserMode
 
         config = get_config()
+        # 使用请求中的 browser_mode（如果提供），否则使用配置中的模式
+        browser_mode_value = request.browser_mode or config.browser.mode.value
         context = ExecutionContext(
             tab_id=request.tab_id,
             client=client,
             secret_key=request.secret_key,  # 传递密钥用于多插件路由
-            browser_mode=config.browser.mode.value  # 浏览器客户端模式
+            browser_mode=browser_mode_value  # 浏览器客户端模式
         )
 
         # 执行工具调用

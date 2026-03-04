@@ -18,6 +18,8 @@ class ExecuteRequest(BaseModel):
     timeout: Optional[int] = Field(None, ge=1000, le=300000, description="超时时间（毫秒）")
     tab_id: Optional[int] = Field(None, description="标签页 ID")
     secret_key: Optional[str] = Field(None, description="插件密钥，用于多插件路由")
+    browser_id: Optional[str] = Field(None, description="浏览器实例 ID")
+    browser_mode: Optional[str] = Field(None, description="浏览器模式（extension/puppeteer/hybrid）")
 
 
 class ExecuteResponse(BaseModel):
