@@ -1,7 +1,7 @@
 # 架构分析报告：SilentAgent 浏览器自动化系统
 
 > 生成日期：2026-03-05
-> 更新时间：2026-03-05（已解决 8 个问题，待解决 3 个问题）
+> 更新时间：2026-03-06（已解决 10 个问题，待解决 2 个问题）
 
 ## 项目概述
 
@@ -50,6 +50,17 @@
 - 迁移 16 个小红书工具、4 个闲鱼工具、12 个浏览器工具
 - 统一工具类声明语法，简化继承关系
 
+### 问题 5：全局状态管理
+
+**状态：已解决**（提交 00252e4）
+
+- 为 `config.py` 添加 `set_config()` / `reset_config()` 注入函数
+- 为 `browser/manager.py` 添加 `set_manager()` / `reset_manager()` 注入函数
+- 为 `tools/registry.py` 添加 `set_registry()` / `reset_registry()` 注入函数
+- 为 `tools/domain/registry.py` 添加 `set_registry()` / `reset_registry()` 注入函数
+- 为 `selector/*/manager.py` 添加 `set_selector_manager()` / `reset_selector_manager()` 注入函数
+- 所有全局状态现在支持测试时注入 mock 对象
+
 ### 问题 8：HybridClient 职责不清晰
 
 **状态：已解决**（提交 52004f8）
@@ -62,6 +73,15 @@
 - `HybridClient` 使用路由策略简化 12 个方法
 - 代码净减少约 150 行，职责更清晰
 
+### 问题 9：BusinessToolExecutor 硬编码工具映射
+
+**状态：已解决**（提交 875cd51）
+
+- 移除 `src/tools/executor.py` 中的 `BUSINESS_TOOLS` 硬编码字典
+- 改用 `BusinessToolRegistry` 作为单一真相来源
+- 自动利用 `@business_tool` 装饰器的自动注册功能
+- 代码净减少约 90 行
+
 ---
 
 ## 🔵 待解决的问题
@@ -72,7 +92,7 @@
 |------|------|------|
 | `client/` vs `browser/` | 职责重叠 | 🔵 待解决 |
 | `tools/browser/` vs `tools/business/` | 基础工具和业务工具混在一起 | 🔵 待解决 |
-| 选择器管理 | 两处重复定义 | 🔵 重构中（阶段 1） |
+| 选择器管理 | 两处重复定义 | ✅ 已解决 |
 
 **重构方案**: 见 `docs/REFACTORING_MODULE_BOUNDARY.md`
 
@@ -80,32 +100,47 @@
 
 API → ToolExecutor → BusinessTool → Site Adapter → BrowserPort → 客户端，调用链过长。
 
-### 问题 5：全局状态管理
+### 问题 5：全局状态管理 ✅ 已解决
 
-`config.py`、`browser/manager.py`、`tools/base.py` 都使用全局单例/类变量，测试困难。
+**问题**：`config.py`、`browser/manager.py`、`tools/base.py` 都使用全局单例/类变量，测试困难。
+
+**涉及位置**：
+- `src/config.py`：全局 `_config` 变量
+- `src/browser/manager.py`：类变量 `_instances`、`_default_instance_id`
+- `src/tools/registry.py`：`default_registry` 单例
+- `src/tools/domain/registry.py`：`BusinessToolRegistry` 单例模式
+- `src/tools/selector/*/manager.py`：`GlobalSelectorManager` 单例模式
+
+**解决方案**：添加依赖注入支持，为每个全局状态添加：
+
+| 模块 | 注入函数 | 重置函数 |
+|------|----------|----------|
+| `config.py` | `set_config()` | `reset_config()` |
+| `browser/manager.py` | `set_manager()` | `reset_manager()` |
+| `tools/registry.py` | `set_registry()` | `reset_registry()` |
+| `tools/domain/registry.py` | `set_registry()` | `reset_registry()` |
+| `selector/*/manager.py` | `set_selector_manager()` | `reset_selector_manager()` |
+
+**使用示例**：
+
+```python
+# 测试时注入 mock
+from src.config import set_config, reset_config
+from src.tools.domain.registry import set_registry, reset_registry
+
+mock_config = AppConfig()
+set_config(mock_config)
+# ... 测试代码
+reset_config()
+
+# 测试 BrowserManager
+from src.browser.manager import BrowserManager
+BrowserManager.reset_manager()
+```
 
 ---
 
 ## 🔵 新发现的问题
-
-### 问题 9：BusinessToolExecutor 硬编码工具映射
-
-**位置**: `src/tools/executor.py:15-80`
-
-```python
-BUSINESS_TOOLS = {
-    "xhs_check_login_status": (
-        "src.tool.sites.xiaohongshu.tools.login",
-        "check_login_status",
-    ),
-    # ... 手动维护 20+ 个映射
-}
-```
-
-**问题**:
-- 硬编码字典需要手动维护，与 `@business_tool` 装饰器的自动注册功能重复
-- 新增工具需要同时修改装饰器和这个字典
-- 没有利用已有的 `BusinessToolRegistry`
 
 ### 问题 10：Site 单例缓存可能导致状态问题 ✅ 已解决
 

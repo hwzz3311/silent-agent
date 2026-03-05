@@ -354,40 +354,58 @@ class ToolRegistry:
         self._tags_index.clear()
 
 
-# ========== 全局注册表 ==========
+# ========== 全局注册表（支持依赖注入） ==========
 
-# 默认全局注册表实例
+# 全局注册表实例
 default_registry = ToolRegistry()
+# 注入的注册表（测试用）
+_injected_registry: Optional[ToolRegistry] = None
 
 
 def get_registry() -> ToolRegistry:
-    """获取默认注册表"""
+    """获取注册表（优先使用注入的，否则使用默认）"""
+    global _injected_registry
+    if _injected_registry is not None:
+        return _injected_registry
     return default_registry
+
+
+def set_registry(registry: ToolRegistry) -> None:
+    """设置注册表（用于测试注入 mock）"""
+    global _injected_registry
+    _injected_registry = registry
+
+
+def reset_registry() -> None:
+    """重置注册表（用于测试清理）"""
+    global _injected_registry
+    _injected_registry = None
+    default_registry.clear()
 
 
 def register_tool(tool: Tool, metadata: ToolMetadata = None) -> None:
     """注册工具到默认注册表"""
-    default_registry.register(tool, metadata)
+    get_registry().register(tool, metadata)
 
 
 def unregister_tool(name: str) -> Tool:
     """从默认注册表注销工具"""
-    return default_registry.unregister(name)
+    return get_registry().unregister(name)
 
 
 def get_tool(name: str) -> Optional[Tool]:
     """从默认注册表获取工具"""
-    return default_registry.get(name)
+    return get_registry().get(name)
 
 
 def list_tools() -> List[str]:
     """列出默认注册表中的所有工具"""
-    return default_registry.list_all()
+    return get_registry().list_all()
 
 
 def search_tools(query: str) -> List[str]:
     """在默认注册表中搜索工具"""
-    return default_registry.search(query)
+    return get_registry().search(query)
 
 
 # ========== 便捷类装饰器 ==========
@@ -430,6 +448,8 @@ __all__ = [
     "ToolCategory",
     "default_registry",
     "get_registry",
+    "set_registry",
+    "reset_registry",
     "register_tool",
     "unregister_tool",
     "get_tool",

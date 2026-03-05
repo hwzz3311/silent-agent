@@ -2,10 +2,11 @@
 浏览器实例管理器
 
 提供多浏览器实例的注册、获取、注销等功能。
+支持依赖注入以便测试。
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, ClassVar
 
 from .client_factory import BrowserClientFactory, BrowserMode
 from .instance import BrowserInstance
@@ -16,8 +17,23 @@ logger = logging.getLogger(__name__)
 class BrowserManager:
     """多浏览器实例管理器"""
 
-    _instances: Dict[str, BrowserInstance] = {}
-    _default_instance_id: Optional[str] = None
+    # 类变量用于向后兼容（存储实际实例的容器）
+    _instances: ClassVar[Dict[str, BrowserInstance]] = {}
+    _default_instance_id: ClassVar[Optional[str]] = None
+    # 注入的模拟管理器（测试用）
+    _injected_manager: ClassVar[Optional['BrowserManager']] = None
+
+    @classmethod
+    def set_manager(cls, manager: 'BrowserManager') -> None:
+        """注入管理器（用于测试）"""
+        cls._injected_manager = manager
+
+    @classmethod
+    def reset_manager(cls) -> None:
+        """重置管理器（用于测试清理）"""
+        cls._injected_manager = None
+        cls._instances = {}
+        cls._default_instance_id = None
 
     @classmethod
     def register_instance(cls, instance: BrowserInstance) -> str:

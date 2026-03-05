@@ -182,12 +182,12 @@ class AppConfig:
         }
 
 
-# 全局配置实例
+# 配置实例（支持依赖注入）
 _config: Optional[AppConfig] = None
 
 
 def get_config() -> AppConfig:
-    """获取全局配置"""
+    """获取配置（优先使用注入的配置，否则从环境创建）"""
     global _config
     if _config is None:
         _config = AppConfig.from_env()
@@ -195,13 +195,13 @@ def get_config() -> AppConfig:
 
 
 def set_config(config: AppConfig) -> None:
-    """设置全局配置"""
+    """设置配置（用于测试注入 mock 配置）"""
     global _config
     _config = config
 
 
 def reset_config() -> None:
-    """重置配置"""
+    """重置配置（用于测试清理）"""
     global _config
     _config = None
 
