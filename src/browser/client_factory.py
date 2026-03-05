@@ -23,55 +23,11 @@ class BrowserMode(str, Enum):
     HYBRID = "hybrid"  # 混合模式（Puppeteer + 扩展）
 
 
-class BrowserConfig:
-    """浏览器配置"""
+# 从 config.py 导入 BrowserSettings 作为权威配置
+from src.config import BrowserSettings
 
-    def __init__(
-        self,
-        mode: BrowserMode = BrowserMode.EXTENSION,
-        # Puppeteer 配置
-        puppeteer_headless: bool = True,
-        puppeteer_args: list = None,
-        puppeteer_executable_path: str = None,
-        stealth_enabled: bool = True,
-        browser_ws_endpoint: str = None,
-        # 扩展配置
-        extension_path: str = None,
-        relay_host: str = "127.0.0.1",
-        relay_port: int = 18792,
-        # 全局配置
-        secret_key: str = None,
-    ):
-        self.mode = mode
-        self.puppeteer_headless = puppeteer_headless
-        self.puppeteer_args = puppeteer_args or []
-        self.puppeteer_executable_path = puppeteer_executable_path
-        self.stealth_enabled = stealth_enabled
-        self.browser_ws_endpoint = browser_ws_endpoint
-        self.extension_path = extension_path
-        self.relay_host = relay_host
-        self.relay_port = relay_port
-        self.secret_key = secret_key
-
-    @classmethod
-    def from_env(cls) -> "BrowserConfig":
-        """从环境变量创建配置"""
-        mode = BrowserMode(os.getenv("BROWSER_MODE", "hybrid"))
-
-        puppeteer_args = os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else []
-
-        return cls(
-            mode=mode,
-            puppeteer_headless=os.getenv("PUPPETEER_HEADLESS", "true").lower() == "true",
-            puppeteer_args=[a.strip() for a in puppeteer_args if a.strip()],
-            puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),
-            stealth_enabled=os.getenv("STEALTH_ENABLED", "true").lower() == "true",
-            browser_ws_endpoint=os.getenv("BROWSER_WS_ENDPOINT"),
-            extension_path=os.getenv("EXTENSION_PATH"),
-            relay_host=os.getenv("RELAY_HOST", "127.0.0.1"),
-            relay_port=int(os.getenv("RELAY_PORT", "18792")),
-            secret_key=os.getenv("SECRET_KEY"),
-        )
+# 保持 BrowserConfig 别名以兼容旧代码
+BrowserConfig = BrowserSettings
 
 
 class BrowserClientFactory:
@@ -223,6 +179,7 @@ def get_browser_client(mode: BrowserMode = None) -> BrowserPort:
 
 __all__ = [
     "BrowserMode",
+    "BrowserSettings",
     "BrowserConfig",
     "BrowserClientFactory",
     "get_browser_client",

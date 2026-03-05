@@ -43,6 +43,22 @@ class BrowserSettings:
     # 运行时设置
     timeout: int = 30000  # 工具执行超时
 
+    @classmethod
+    def from_env(cls) -> "BrowserSettings":
+        """从环境变量创建配置"""
+        return cls(
+            mode=BrowserMode(os.getenv("BROWSER_MODE", "hybrid")),
+            puppeteer_headless=os.getenv("PUPPETEER_HEADLESS", "true").lower() == "true",
+            puppeteer_args=os.getenv("PUPPETEER_ARGS", "").split(",") if os.getenv("PUPPETEER_ARGS") else [],
+            puppeteer_executable_path=os.getenv("PUPPETEER_EXECUTABLE_PATH"),
+            stealth_enabled=os.getenv("STEALTH_ENABLED", "true").lower() == "true",
+            browser_ws_endpoint=os.getenv("BROWSER_WS_ENDPOINT"),
+            extension_path=os.getenv("EXTENSION_PATH"),
+            relay_host=os.getenv("RELAY_HOST", "127.0.0.1"),
+            relay_port=int(os.getenv("RELAY_PORT", "18792")),
+            secret_key=os.getenv("SECRET_KEY"),
+        )
+
 
 @dataclass
 class RunnerConfig:
