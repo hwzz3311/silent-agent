@@ -20,74 +20,9 @@ from .exceptions import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 业务工具映射：API 工具名 -> (Python 模块路径, 函数名)
+# 业务工具映射：统一从 executor.py 导入
 # 这些工具在 Python 端实现，直接调用不经过 extension
-BUSINESS_TOOLS = {
-    # 登录相关
-    "xhs_check_login_status": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "check_login_status",
-    ),
-    "xhs_get_login_qrcode": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "get_login_qrcode",
-    ),
-    "xhs_wait_login": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "wait_login",
-    ),
-    "xhs_delete_cookies": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "delete_cookies",
-    ),
-    # 浏览相关
-    "xhs_list_feeds": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "list_feeds",
-    ),
-    "xhs_search_feeds": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "search_feeds",
-    ),
-    "xhs_get_feed_detail": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "get_feed_detail",
-    ),
-    "xhs_user_profile": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "user_profile",
-    ),
-    # 互动相关
-    "xhs_like_feed": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "like_feed",
-    ),
-    "xhs_favorite_feed": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "favorite_feed",
-    ),
-    "xhs_post_comment": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "post_comment",
-    ),
-    "xhs_reply_comment": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "reply_comment",
-    ),
-    # 发布相关
-    "xhs_publish": (
-        "src.tools.sites.xiaohongshu.publishers",
-        "publish_note",
-    ),
-    "xhs_publish_content": (
-        "src.tools.sites.xiaohongshu.publishers",
-        "publish_note",
-    ),
-    "xhs_publish_video": (
-        "src.tools.sites.xiaohongshu.publishers",
-        "publish_video",
-    ),
-}
+from src.tools.executor import BUSINESS_TOOLS
 
 
 class SilentAgentClient:
@@ -389,90 +324,22 @@ class SilentAgentClient:
 
         Returns:
             工具执行结果
-
-        Note:
-            统一从 context 获取 secret_key，业务工具可通过 context.secret_key 访问
-            无需每个业务工具单独实现获取逻辑
         """
-        if name not in BUSINESS_TOOLS:
-            raise ValueError(f"未知业务工具: {name}")
-
-        # 统一获取 secret_key：优先使用 context 中的，否则使用默认的
-        secret_key = getattr(context, 'secret_key', None) if context else None
-        if not secret_key:
-            secret_key = self._secret_key
+        from src.tools.executor import BusinessToolExecutor
 
         # 确保 context 有 secret_key 属性（供业务工具使用）
         if context and not hasattr(context, 'secret_key'):
-            context.secret_key = secret_key
+            context.secret_key = self._secret_key
 
-        module_path, func_name = BUSINESS_TOOLS[name]
-
-        # 动态导入模块和函数
-        import importlib
-        module = importlib.import_module(module_path)
-        func = getattr(module, func_name)
-
-        # 调用函数 - 如果函数签名包含 context，则传递
-        try:
-            import inspect
-            sig = inspect.signature(func)
-            if 'context' in sig.parameters:
-                # 函数支持 context 参数
-                result = func(**(params or {}), context=context)
-            elif 'tab_id' in sig.parameters or 'params' in sig.parameters:
-                # 对于 BusinessTool 类型，传递 params 和 context
-                # 检查是否是 Tool 类（有 execute 方法）
-                if hasattr(func, 'execute') or hasattr(func, '_execute_core'):
-                    # 这是一个 Tool 类实例或类方法，需要通过 execute 调用
-                    # 使用便捷函数方式
-                    tool_func = getattr(module, func_name, None)
-                    if tool_func and callable(tool_func):
-                        # 检查是否是便捷函数（直接返回结果）
-                        result = tool_func(**(params or {}))
-                    else:
-                        result = func(**(params or {}))
-                else:
-                    result = func(**(params or {}))
-            else:
-                result = func(**(params or {}))
-            # 自动转换 Result 对象为标准格式
-            return self._convert_result(result)
-        except Exception as e:
-            raise ConnectionError(f"业务工具执行失败: {e}")
+        return BusinessToolExecutor.execute(name, params, context)
 
     def _convert_result(self, result: Any) -> Dict[str, Any]:
         """
         将 Result 对象转换为标准 API 格式
         """
-        from src.core.result import Result, Error
+        from src.tools.executor import BusinessToolExecutor
 
-        # 如果不是 Result 对象，直接返回
-        if not isinstance(result, Result):
-            return result
-
-        # Result 已经是标准格式
-        if result.success:
-            return {
-                "success": True,
-                "data": result.data,
-                "error": None,
-            }
-        else:
-            # 处理错误情况
-            error_msg = None
-            if result.error:
-                if isinstance(result.error, Error):
-                    error_msg = result.error.message
-                elif isinstance(result.error, dict):
-                    error_msg = result.error.get("message", str(result.error))
-                else:
-                    error_msg = str(result.error)
-            return {
-                "success": False,
-                "data": None,
-                "error": error_msg or "执行失败",
-            }
+        return BusinessToolExecutor._convert_result(result)
 
     async def execute_tool(
         self,
@@ -849,26 +716,9 @@ def execute_business_tool(name: str, params: Dict[str, Any] = None) -> Any:
     Example:
         result = execute_business_tool("xhs_check_login_status", {})
     """
-    import importlib
+    from src.tools.executor import BusinessToolExecutor
 
-    if name not in BUSINESS_TOOLS:
-        raise ValueError(f"未知业务工具: {name}")
-
-    module_path, func_name = BUSINESS_TOOLS[name]
-    module = importlib.import_module(module_path)
-    func = getattr(module, func_name)
-
-    # 调用函数
-    try:
-        if asyncio.iscoroutinefunction(func):
-            result = asyncio.run(func(**(params or {})))
-        else:
-            result = func(**(params or {}))
-
-        # 自动转换 Result 对象为标准格式
-        return _convert_result(result)
-    except Exception as e:
-        raise ConnectionError(f"业务工具执行失败: {e}")
+    return BusinessToolExecutor.execute(name, params)
 
 
 def _convert_result(result: Any) -> Dict[str, Any]:
@@ -881,34 +731,9 @@ def _convert_result(result: Any) -> Dict[str, Any]:
     Returns:
         标准格式字典 {success, data, error}
     """
-    from src.core.result import Result, Error
+    from src.tools.executor import BusinessToolExecutor
 
-    # 如果不是 Result 对象，直接返回
-    if not isinstance(result, Result):
-        return result
-
-    # Result 已经是标准格式
-    if result.success:
-        return {
-            "success": True,
-            "data": result.data,
-            "error": None,
-        }
-    else:
-        # 处理错误情况
-        error_msg = None
-        if result.error:
-            if isinstance(result.error, Error):
-                error_msg = result.error.message
-            elif isinstance(result.error, dict):
-                error_msg = result.error.get("message", str(result.error))
-            else:
-                error_msg = str(result.error)
-        return {
-            "success": False,
-            "data": None,
-            "error": error_msg or "执行失败",
-        }
+    return BusinessToolExecutor._convert_result(result)
 
 
 __all__ = [

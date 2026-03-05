@@ -12,6 +12,7 @@ from src.ports.browser_port import BrowserPort
 from src.core.result import Result
 from .puppeteer_client import PuppeteerClient
 from .extension_client import ExtensionClient
+from .router import DefaultRoutingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,13 @@ class HybridClient(BrowserPort):
         self._puppeteer: Optional[PuppeteerClient] = None
         self._extension: Optional[ExtensionClient] = None
         self._connected = False
+        self._strategy = DefaultRoutingStrategy()
+
+    def _select_client(self, operation: str):
+        """根据操作类型选择客户端"""
+        return self._strategy.select_client(
+            operation, self._puppeteer, self._extension
+        )
 
     @property
     def is_connected(self) -> bool:
@@ -106,36 +114,30 @@ class HybridClient(BrowserPort):
     # ========== 页面操作（优先使用扩展） ==========
 
     async def navigate(self, url: str, **kwargs) -> Result[dict]:
-        """导航：优先使用 Puppeteer（更可靠），不可用时使用 Extension"""
+        """导航：使用 Puppeteer"""
         await self._ensure_connected()
         new_tab = kwargs.get("new_tab", True)
-        if self._puppeteer:
-            result = await self._puppeteer.navigate(url, new_tab=new_tab)
-            return Result.ok(result)
-        elif self._extension:
-            result = await self._extension.navigate(url, new_tab=new_tab)
+        client = self._select_client("navigate")
+        if client:
+            result = await client.navigate(url, new_tab=new_tab)
             return Result.ok(result)
         return Result.ok({"success": False, "error": "无可用的浏览器客户端"})
 
     async def click(self, selector: str, **kwargs) -> Result[dict]:
-        """点击：优先使用扩展（Puppeteer 点击有时不触发事件）"""
+        """点击：优先使用扩展"""
         await self._ensure_connected()
+        client = self._select_client("click")
         text = kwargs.get("text")
         timeout = kwargs.get("timeout", 5)
-        if self._extension:
-            result = await self._extension.click(selector, text=text, timeout=timeout)
-            return Result.ok(result)
-        result = await self._puppeteer.click(selector, text=text, timeout=timeout)
+        result = await client.click(selector, text=text, timeout=timeout)
         return Result.ok(result)
 
     async def fill(self, selector: str, value: str, **kwargs) -> Result[dict]:
         """填充：优先使用扩展"""
         await self._ensure_connected()
+        client = self._select_client("fill")
         method = kwargs.get("method", "set")
-        if self._extension:
-            result = await self._extension.fill(selector, value, method=method)
-            return Result.ok(result)
-        result = await self._puppeteer.fill(selector, value, method=method)
+        result = await client.fill(selector, value, method=method)
         return Result.ok(result)
 
     async def extract(
@@ -147,27 +149,24 @@ class HybridClient(BrowserPort):
     ) -> Result[dict]:
         """提取：优先使用扩展"""
         await self._ensure_connected()
-        if self._extension:
-            result = await self._extension.extract(selector, attribute=attribute, all=all)
-            return Result.ok(result)
-        result = await self._puppeteer.extract(selector, attribute=attribute, all=all)
+        client = self._select_client("extract")
+        result = await client.extract(selector, attribute=attribute, all=all)
         return Result.ok(result)
 
     async def evaluate(self, script: str, **kwargs) -> Result[dict]:
-        """注入脚本：两者都可以"""
+        """注入脚本：灵活选择"""
         await self._ensure_connected()
+        client = self._select_client("evaluate")
         world = kwargs.get("world", "MAIN")
-        if self._extension:
-            result = await self._extension.inject(script, world=world)
-            return Result.ok(result)
-        result = await self._puppeteer.inject(script, world=world)
+        result = await client.inject(script, world=world)
         return Result.ok(result)
 
     async def screenshot(self, **kwargs) -> Result[dict]:
-        """截图：优先使用 Puppeteer（更稳定）"""
+        """截图：使用 Puppeteer"""
         await self._ensure_connected()
+        client = self._select_client("screenshot")
         format = kwargs.get("format", "png")
-        result = await self._puppeteer.screenshot(format=format)
+        result = await client.screenshot(format=format)
         return Result.ok(result)
 
     async def scroll(
@@ -179,10 +178,8 @@ class HybridClient(BrowserPort):
     ) -> Result[dict]:
         """滚动：优先使用扩展"""
         await self._ensure_connected()
-        if self._extension:
-            result = await self._extension.scroll(direction=direction, amount=amount, selector=selector)
-            return Result.ok(result)
-        result = await self._puppeteer.scroll(direction=direction, amount=amount, selector=selector)
+        client = self._select_client("scroll")
+        result = await client.scroll(direction=direction, amount=amount, selector=selector)
         return Result.ok(result)
 
     async def wait_for(
@@ -191,22 +188,18 @@ class HybridClient(BrowserPort):
         timeout: int = 30000,
         **kwargs
     ) -> Result[dict]:
-        """等待：两者都可以"""
+        """等待：灵活选择"""
         await self._ensure_connected()
+        client = self._select_client("wait_for")
         count = kwargs.get("count", 1)
-        if self._extension:
-            result = await self._extension.wait_for(selector, count=count, timeout=timeout)
-            return Result.ok(result)
-        result = await self._puppeteer.wait_for(selector, count=count, timeout=timeout)
+        result = await client.wait_for(selector, count=count, timeout=timeout)
         return Result.ok(result)
 
     async def keyboard(self, keys: str, selector: str = None, **kwargs) -> Result[dict]:
         """键盘：优先使用扩展"""
         await self._ensure_connected()
-        if self._extension:
-            result = await self._extension.keyboard(keys, selector=selector)
-            return Result.ok(result)
-        result = await self._puppeteer.keyboard(keys, selector=selector)
+        client = self._select_client("keyboard")
+        result = await client.keyboard(keys, selector=selector)
         return Result.ok(result)
 
     # ========== 工具执行接口（T2.5.3） ==========
@@ -436,7 +429,9 @@ class HybridClient(BrowserPort):
         limit = kwargs.get("limit", 100)
         tab_id = kwargs.get("tab_id")
 
-        if self._puppeteer:
+        client = self._select_client("get_a11y_tree")
+
+        if client == self._puppeteer and self._puppeteer:
             # 优先使用 Puppeteer 获取真实无障碍树
             result = await self._puppeteer.get_a11y_tree(action=action, limit=limit)
 
@@ -460,11 +455,9 @@ class HybridClient(BrowserPort):
 
     async def get_active_tab(self) -> Result[dict]:
         await self._ensure_connected()
-        if self._puppeteer:
-            result = await self._puppeteer.get_active_tab()
-            return Result.ok(result)
-        if self._extension:
-            result = await self._extension.get_active_tab()
+        client = self._select_client("get_active_tab")
+        if client:
+            result = await client.get_active_tab()
             return Result.ok(result)
         return Result.ok({"success": False, "error": "未连接"})
 
@@ -477,11 +470,9 @@ class HybridClient(BrowserPort):
 
     async def list_tabs(self) -> Result[list]:
         await self._ensure_connected()
-        if self._puppeteer:
-            result = await self._puppeteer.list_tabs()
-            return Result.ok(result)
-        if self._extension:
-            result = await self._extension.list_tabs()
+        client = self._select_client("list_tabs")
+        if client:
+            result = await client.list_tabs()
             return Result.ok(result)
         return Result.ok([])
 
