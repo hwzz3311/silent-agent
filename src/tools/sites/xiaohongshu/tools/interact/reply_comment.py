@@ -15,8 +15,8 @@ from .params import XHSReplyCommentParams
 from .result import XHSReplyCommentResult
 
 
-@business_tool(name="xhs_reply_comment", site_type=XiaohongshuSite, operation_category="interact")
-class ReplyCommentTool(BusinessTool[XHSReplyCommentParams]):
+@business_tool(name="xhs_reply_comment", site_type=XiaohongshuSite, param_type=XHSReplyCommentParams, operation_category="interact")
+class ReplyCommentTool(BusinessTool):
     """
     小红书回复评论工具
 

@@ -111,7 +111,7 @@ class PublishVideoResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "publish", "workflow"]
 )
-class XiaohongshuPublisher(Tool[ToolParameters, Any]):
+class XiaohongshuPublisher(Tool):
     """小红书发布流程编排器"""
 
     # 小红书相关选择器

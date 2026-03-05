@@ -20,8 +20,8 @@ from .result import XHSPublishContentResult
 logger = logging.getLogger("xhs_publish_content")
 
 
-@business_tool(name="xhs_publish_content", site_type=XiaohongshuSite, operation_category="publish")
-class PublishContentTool(BusinessTool[XHSPublishContentParams]):
+@business_tool(name="xhs_publish_content", site_type=XiaohongshuSite, param_type=XHSPublishContentParams, operation_category="publish")
+class PublishContentTool(BusinessTool):
     """
     发布小红书图文笔记
 

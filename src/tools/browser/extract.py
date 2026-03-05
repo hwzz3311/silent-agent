@@ -4,7 +4,7 @@
 提供从页面提取数据的功能。
 """
 
-from typing import Optional, Literal
+from typing import Optional, Literal, Any
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
@@ -23,14 +23,14 @@ class ExtractParams(ToolParameters):
 
 
 @tool(name="browser.extract", description="从页面提取数据")
-class ExtractTool(Tool[ExtractParams, any]):
+class ExtractTool(Tool):
     """提取工具"""
 
     async def execute(
         self,
         params: ExtractParams,
         context: ExecutionContext
-    ) -> Result[any]:
+    ) -> Result[Any]:
         """执行提取"""
         # 优先使用 context 中的 client（依赖注入），降级使用全局客户端
         client = context.client
@@ -80,7 +80,7 @@ async def extract(
     source: str = "element",
     all: bool = False,
     context: ExecutionContext = None
-) -> Result[any]:
+) -> Result[Any]:
     """从页面提取数据"""
     params = ExtractParams(
         selector=selector,
@@ -94,7 +94,7 @@ async def extract(
 
 
 # 便捷函数：读取 window 属性
-async def read_window(path: str, context: ExecutionContext = None) -> Result[any]:
+async def read_window(path: str, context: ExecutionContext = None) -> Result[Any]:
     """读取 window 对象属性"""
     return await extract(selector=None, path=path, source="window")
 

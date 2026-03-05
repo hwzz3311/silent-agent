@@ -21,8 +21,8 @@ from .result import XHSSearchFeedsResult
 logger = logging.getLogger("xhs_search_feeds")
 
 
-@business_tool(name="xhs_search_feeds", site_type=XiaohongshuSite, operation_category="browse")
-class SearchFeedsTool(BusinessTool[XHSSearchFeedsParams]):
+@business_tool(name="xhs_search_feeds", site_type=XiaohongshuSite, param_type=XHSSearchFeedsParams, operation_category="browse")
+class SearchFeedsTool(BusinessTool):
     """
     搜索小红书内容
 

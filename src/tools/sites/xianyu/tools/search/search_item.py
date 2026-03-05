@@ -16,8 +16,8 @@ from .params import XYSearchItemParams
 from .result import XYSearchItemResult, XYSearchItem
 
 
-@business_tool(name="xianyu_search_item", site_type=XianyuSite, operation_category="browse")
-class SearchItemTool(BusinessTool[XYSearchItemParams]):
+@business_tool(name="xianyu_search_item", site_type=XianyuSite, param_type=XYSearchItemParams, operation_category="browse")
+class SearchItemTool(BusinessTool):
     """
     闲鱼搜索商品
 

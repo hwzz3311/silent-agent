@@ -4,7 +4,7 @@
 提供在页面中执行 JavaScript 的功能。
 """
 
-from typing import Literal
+from typing import Literal, Any
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
@@ -20,14 +20,14 @@ class InjectParams(ToolParameters):
 
 
 @tool(name="browser.inject", description="在页面中执行 JavaScript")
-class InjectTool(Tool[InjectParams, any]):
+class InjectTool(Tool):
     """注入工具"""
 
     async def execute(
         self,
         params: InjectParams,
         context: ExecutionContext
-    ) -> Result[any]:
+    ) -> Result[Any]:
         """执行注入"""
         # 优先使用 context 中的 client（依赖注入），降级使用全局客户端
         client = context.client
@@ -73,7 +73,7 @@ async def inject(
     code: str,
     world: str = "MAIN",
     context: ExecutionContext = None
-) -> Result[any]:
+) -> Result[Any]:
     """在页面中执行 JavaScript"""
     params = InjectParams(code=code, world=world)  # type: ignore
     tool = InjectTool()

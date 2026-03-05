@@ -21,8 +21,8 @@ from .result import XHSListFeedsResult, XHSFeedItem
 logger = logging.getLogger("xhs_list_feeds")
 
 
-@business_tool(name="xhs_list_feeds", site_type=XiaohongshuSite, operation_category="browse")
-class ListFeedsTool(BusinessTool[XHSListFeedsParams]):
+@business_tool(name="xhs_list_feeds", site_type=XiaohongshuSite, param_type=XHSListFeedsParams, operation_category="browse")
+class ListFeedsTool(BusinessTool):
     """
     获取小红书笔记列表
 

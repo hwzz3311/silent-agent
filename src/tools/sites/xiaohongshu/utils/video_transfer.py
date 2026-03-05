@@ -308,7 +308,7 @@ class VideoChunkTransferResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "video", "upload", "chunk"]
 )
-class VideoChunkTransferTool(Tool[VideoChunkTransferParams, VideoChunkTransferResult]):
+class VideoChunkTransferTool(Tool):
     """视频分块传输工具"""
 
     CHUNK_SIZE = 20 * 1024 * 1024  # 20MB

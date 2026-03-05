@@ -25,8 +25,8 @@ from .result import PasswordLoginResult
 logger = logging.getLogger("xianyu_password_login")
 
 
-@business_tool(name="xianyu_password_login", site_type=XianyuSite, operation_category="login")
-class PasswordLoginTool(BusinessTool[PasswordLoginParams]):
+@business_tool(name="xianyu_password_login", site_type=XianyuSite, param_type=PasswordLoginParams, operation_category="login")
+class PasswordLoginTool(BusinessTool):
     """
     闲鱼密码登录工具
 

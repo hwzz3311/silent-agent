@@ -16,8 +16,8 @@ from .params import XHSWaitLoginParams
 from .result import XHSWaitLoginResult
 
 
-@business_tool(name="xhs_wait_login", site_type=XiaohongshuSite, operation_category="login")
-class WaitLoginTool(BusinessTool[XHSWaitLoginParams]):
+@business_tool(name="xhs_wait_login", site_type=XiaohongshuSite, param_type=XHSWaitLoginParams, operation_category="login")
+class WaitLoginTool(BusinessTool):
     """
     等待小红书登录完成
 

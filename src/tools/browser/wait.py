@@ -20,7 +20,7 @@ class WaitParams(ToolParameters):
 
 
 @tool(name="browser.wait", description="等待元素出现或条件满足")
-class WaitTool(Tool[WaitParams, dict]):
+class WaitTool(Tool):
     """等待工具"""
 
     async def execute(

@@ -51,7 +51,7 @@ class ReadPageDataResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "page", "data", "read"]
 )
-class ReadPageDataTool(Tool[ReadPageDataParams, ReadPageDataResult]):
+class ReadPageDataTool(Tool):
     """页面数据读取工具"""
 
     async def execute(

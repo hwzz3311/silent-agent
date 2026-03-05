@@ -23,7 +23,7 @@ class FillParams(ToolParameters):
 
 
 @tool(name="browser.fill", description="填充表单输入框")
-class FillTool(Tool[FillParams, dict]):
+class FillTool(Tool):
     """填充工具"""
 
     async def execute(

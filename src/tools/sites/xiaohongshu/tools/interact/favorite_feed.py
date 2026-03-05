@@ -15,8 +15,8 @@ from .params import XHSFavoriteFeedParams
 from .result import XHSFavoriteFeedResult
 
 
-@business_tool(name="xhs_favorite_feed", site_type=XiaohongshuSite, operation_category="interact")
-class FavoriteFeedTool(BusinessTool[XHSFavoriteFeedParams]):
+@business_tool(name="xhs_favorite_feed", site_type=XiaohongshuSite, param_type=XHSFavoriteFeedParams, operation_category="interact")
+class FavoriteFeedTool(BusinessTool):
     """
     小红书收藏/取消收藏工具
 

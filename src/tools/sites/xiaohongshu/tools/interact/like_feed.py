@@ -15,8 +15,8 @@ from .params import XHSLikeFeedParams
 from .result import XHSLikeFeedResult
 
 
-@business_tool(name="xhs_like_feed", site_type=XiaohongshuSite, operation_category="interact")
-class LikeFeedTool(BusinessTool[XHSLikeFeedParams]):
+@business_tool(name="xhs_like_feed", site_type=XiaohongshuSite, param_type=XHSLikeFeedParams, operation_category="interact")
+class LikeFeedTool(BusinessTool):
     """
     小红书点赞/取消点赞工具
 

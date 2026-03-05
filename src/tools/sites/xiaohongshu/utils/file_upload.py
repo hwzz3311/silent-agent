@@ -85,7 +85,7 @@ class UploadFileResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "upload", "file", "base64"]
 )
-class UploadFileTool(Tool[UploadFileParams, UploadFileResult]):
+class UploadFileTool(Tool):
     """单文件上传工具"""
 
     async def execute(
@@ -237,7 +237,7 @@ class SetFilesResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "upload", "files", "multiple"]
 )
-class SetFilesTool(Tool[SetFilesParams, SetFilesResult]):
+class SetFilesTool(Tool):
     """多文件设置工具"""
 
     async def execute(

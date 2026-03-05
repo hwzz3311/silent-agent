@@ -21,8 +21,8 @@ from .result import GetCookiesResult
 logger = logging.getLogger("xianyu_get_cookies")
 
 
-@business_tool(name="xianyu_get_cookies", site_type=XianyuSite, operation_category="login")
-class GetCookiesTool(BusinessTool[GetCookiesParams]):
+@business_tool(name="xianyu_get_cookies", site_type=XianyuSite, param_type=GetCookiesParams, operation_category="login")
+class GetCookiesTool(BusinessTool):
     """
     获取闲鱼 Cookie
 

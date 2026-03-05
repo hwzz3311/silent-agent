@@ -18,8 +18,8 @@ from .params import XYPublishItemParams
 from .result import XYPublishItemResult
 
 
-@business_tool(name="xianyu_publish_item", site_type=XianyuSite, operation_category="publish")
-class PublishItemTool(BusinessTool[XYPublishItemParams]):
+@business_tool(name="xianyu_publish_item", site_type=XianyuSite, param_type=XYPublishItemParams, operation_category="publish")
+class PublishItemTool(BusinessTool):
     """
     发布闲鱼商品
 

@@ -19,8 +19,8 @@ from .result import XHSCheckPublishStatusResult
 logger = logging.getLogger("xhs_check_publish_status")
 
 
-@business_tool(name="xhs_check_publish_status", site_type=XiaohongshuSite, operation_category="publish")
-class CheckPublishStatusTool(BusinessTool[XHSCheckPublishStatusParams]):
+@business_tool(name="xhs_check_publish_status", site_type=XiaohongshuSite, param_type=XHSCheckPublishStatusParams, operation_category="publish")
+class CheckPublishStatusTool(BusinessTool):
     """
     小红书检查发布状态工具
 

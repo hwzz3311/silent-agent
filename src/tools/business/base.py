@@ -9,19 +9,13 @@
 """
 
 from abc import ABC
-from typing import (
-    TYPE_CHECKING, TypeVar, Optional, Dict, Any, Type, List
-)
+from typing import TYPE_CHECKING, Optional, Dict, Any, List
 
 from src.tools.base import Tool, ToolParameters
 from src.core.result import Result, ResultMeta, Error
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
-
-# 类型变量
-ParamsT = TypeVar('ParamsT', bound=ToolParameters)
-ResultT = TypeVar('ResultT')
 
 
 class BusinessToolMeta(type):
@@ -41,12 +35,12 @@ class BusinessToolMeta(type):
         return cls
 
 
-class BusinessTool(Tool[ParamsT, Any], ABC):
+class BusinessTool(Tool, ABC):
     """
     业务级 RPA 工具的抽象基类
 
     特点:
-    1. 装饰器驱动：通过 @business_tool 装饰器传入 site_type
+    1. 装饰器驱动：通过 @business_tool 装饰器传入 site_type 和 param_type
     2. 统一错误处理：继承统一错误处理机制
     3. 日志增强：自动记录操作步骤和耗时
     4. 选择器管理：使用网站选择器集合
@@ -61,8 +55,13 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
         required_login: bool = True           # 是否需要登录
 
     Usage:
-        @business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
-        class CheckLoginStatusTool(BusinessTool[CheckLoginStatusParams]):
+        @business_tool(
+            name="xhs_check_login_status",
+            site_type=XiaohongshuSite,
+            param_type=CheckLoginStatusParams,  # 装饰器传入参数类型
+            operation_category="login"
+        )
+        class CheckLoginStatusTool(BusinessTool):
             async def execute(self, params, context) -> Result:
                 # 实现业务逻辑
                 pass
@@ -92,9 +91,9 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
 
     async def execute_with_validation(
         self,
-        params: ParamsT,
+        params: ToolParameters,
         context: 'ExecutionContext'
-    ) -> Result[Any]:
+    ) -> Result:
         """
         带验证的执行（覆盖父类方法添加业务逻辑）
 
@@ -142,9 +141,9 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
 
     async def execute_with_retry(
         self,
-        params: ParamsT,
+        params: ToolParameters,
         context: 'ExecutionContext'
-    ) -> Result[Any]:
+    ) -> Result:
         """
         带重试的执行（覆盖父类方法）
 
@@ -203,7 +202,7 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
 
     async def _pre_execute(
         self,
-        params: ParamsT,
+        params: ToolParameters,
         context: 'ExecutionContext'
     ) -> Result[bool]:
         """
@@ -269,8 +268,9 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
 
     async def _execute_core(
         self,
-        params: ParamsT,
+        params: Any,
         context: 'ExecutionContext',
+        site: Optional[Any] = None,
     ) -> Result[Any]:
         """
         核心执行逻辑
@@ -289,9 +289,9 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
     async def _post_execute(
         self,
         result: Result,
-        params: ParamsT,
+        params: ToolParameters,
         context: 'ExecutionContext'
-    ) -> Result[Any]:
+    ) -> Result:
         """
         后置处理
 
@@ -382,36 +382,32 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
 
         return None
 
-    def get_params_type(self) -> Type[ParamsT]:
+    def get_params_type(self) -> Any:
         """
         获取参数类型（用于动态创建参数）
 
         Returns:
-            Type[ParamsT]: 参数类型
+            Any: 参数类型
         """
-        # 通过泛型获取参数类型
-        for base in self.__class__.__mro__:
-            if hasattr(base, '__orig_bases__'):
-                for orig in base.__orig_bases__:
-                    if hasattr(orig, '__args__') and len(orig.__args__) >= 1:
-                        args = orig.__args__
-                        return args[0]
+        # 通过装饰器或属性获取参数类型
+        if hasattr(self, 'param_type') and self.param_type is not None:
+            return self.param_type
         return ToolParameters
 
-    def get_result_type(self) -> Type[ResultT]:
+    def get_result_type(self) -> type:
         """
         获取结果类型
 
         Returns:
-            Type[ResultT]: 结果类型
+            type: 结果类型
         """
-        return Any
+        return type
 
     async def execute(
         self,
-        params: ParamsT,
+        params: ToolParameters,
         context: 'ExecutionContext'
-    ) -> Result[Any]:
+    ) -> Result:
         """
         执行工具（实现抽象方法）
 
@@ -479,13 +475,13 @@ class BusinessTool(Tool[ParamsT, Any], ABC):
 
 
 # 便捷类型别名
-BusinessToolType = TypeVar('BusinessToolType', bound=BusinessTool)
+# BusinessToolType = TypeVar('BusinessToolType', bound=BusinessTool)
 
 
 def create_business_tool(
     name: str,
     description: str,
-    site_type: Type['Site'],
+    site_type: Optional[type] = None,
     operation_category: str = "general",
     version: str = "1.0.0"
 ):
@@ -510,7 +506,7 @@ def create_business_tool(
             operation_category="login"
         )
     """
-    def decorator(cls: Type[BusinessTool]):
+    def decorator(cls: type):
         cls.name = name
         cls.description = description
         cls.site_type = site_type
@@ -524,6 +520,5 @@ def create_business_tool(
 __all__ = [
     "BusinessTool",
     "BusinessToolMeta",
-    "BusinessToolType",
     "create_business_tool",
 ]

@@ -43,7 +43,7 @@ class ControlParams(ToolParameters):
     version="1.0.0",
     tags=["browser", "control", "cookies", "publish", "login"]
 )
-class ControlTool(Tool[ControlParams, dict]):
+class ControlTool(Tool):
     """浏览器控制工具"""
 
     async def execute(

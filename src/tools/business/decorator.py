@@ -7,8 +7,13 @@ Usage:
     from tools.business import business_tool
     from tools.sites.xiaohongshu.adapter import XiaohongshuSite
 
-    @business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
-    class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, Params]):
+    @business_tool(
+        name="xhs_check_login_status",
+        site_type=XiaohongshuSite,
+        param_type=CheckLoginStatusParams,  # 装饰器传入参数类型
+        operation_category="login"
+    )
+    class CheckLoginStatusTool(BusinessTool):
         name = "xhs_check_login_status"  # 可省略，由装饰器设置
         description = "检查小红书登录状态"
         ...
@@ -26,6 +31,7 @@ logger = logging.getLogger(__name__)
 def business_tool(
     name: str = None,
     site_type: Type = None,
+    param_type: Type = None,
     operation_category: str = "general",
     version: str = "1.0.0",
     required_login: bool = True,
@@ -39,6 +45,7 @@ def business_tool(
     Args:
         name: 工具名称，如 "xhs_check_login_status"
         site_type: 站点适配器类型，如 XiaohongshuSite
+        param_type: 参数类型（如 CheckLoginStatusParams），通过装饰器传入
         operation_category: 操作分类，如 "login", "browse", "publish", "interact"
         version: 版本号，默认 "1.0.0"
         required_login: 是否需要登录，默认 True
@@ -48,8 +55,13 @@ def business_tool(
         装饰器函数
 
     Usage:
-        @business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
-        class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, Params]):
+        @business_tool(
+            name="xhs_check_login_status",
+            site_type=XiaohongshuSite,
+            param_type=CheckLoginStatusParams,
+            operation_category="login"
+        )
+        class CheckLoginStatusTool(BusinessTool):
             description = "检查小红书登录状态"
             ...
     """
@@ -71,6 +83,10 @@ def business_tool(
 
         if site_type:
             cls.site_type = site_type
+
+        # 设置参数类型（通过装饰器传入）
+        if param_type:
+            cls.__parameter_type__ = param_type
 
         # 自动注册到注册表
         if enabled:

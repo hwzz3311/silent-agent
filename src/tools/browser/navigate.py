@@ -18,7 +18,7 @@ class NavigateParams(ToolParameters):
 
 
 @tool(name="browser.navigate", description="导航到指定 URL")
-class NavigateTool(Tool[NavigateParams, dict]):
+class NavigateTool(Tool):
     """导航工具"""
 
     async def execute(

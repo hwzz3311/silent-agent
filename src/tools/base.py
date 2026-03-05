@@ -7,16 +7,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Generic, TypeVar, Optional, Dict, List
+from typing import Any, Optional, Dict, List
 from pydantic import BaseModel, Field
 
 from src.core.result import Result, ResultMeta, Error, ErrorCode
-
-
-# ========== 类型变量 ==========
-
-TParams = TypeVar('TParams', bound=BaseModel)
-TResult = TypeVar('TResult')
 
 
 # ========== 参数定义 ==========
@@ -133,7 +127,7 @@ class ToolExecutionLog(BaseModel):
 
 # ========== 工具抽象基类 ==========
 
-class Tool(ABC, Generic[TParams, TResult]):
+class Tool(ABC):
     """
     工具抽象基类
 
@@ -141,7 +135,15 @@ class Tool(ABC, Generic[TParams, TResult]):
     - execute(): 执行工具逻辑
     - validate_params(): 验证参数（可选）
     - get_info(): 返回工具元信息（可选）
+
+    参数类型通过装饰器 @business_tool 的 param_type 参数传入，
+    或通过泛型声明 BusinessTool[ParamsType]（已不推荐）。
     """
+
+    # 支持旧式泛型语法 Tool[Param]（兼容模式）
+    @classmethod
+    def __class_getitem__(cls, item):
+        return item
 
     # 工具名称（子类必须覆盖）
     name: str = "tool"
@@ -166,9 +168,9 @@ class Tool(ABC, Generic[TParams, TResult]):
     @abstractmethod
     async def execute(
         self,
-        params: TParams,
+        params: Any,
         context: ExecutionContext
-    ) -> Result[TResult]:
+    ) -> Result:
         """
         执行工具逻辑
 
@@ -177,7 +179,7 @@ class Tool(ABC, Generic[TParams, TResult]):
             context: 执行上下文
 
         Returns:
-            Result[TResult]: 执行结果
+            Result: 执行结果
         """
         ...
 
@@ -192,8 +194,8 @@ class Tool(ABC, Generic[TParams, TResult]):
         """
         params_type = self._get_params_type()
 
-        # 检查是否是真正的类型（不是 TypeVar）
-        if params_type is TParams or not isinstance(params_type, type):
+        # 检查是否是真正的类型
+        if not isinstance(param_type, type):
             return {"type": "object", "properties": {}}
 
         # Pydantic v2+ uses model_json_schema, v1 uses schema_of
@@ -242,28 +244,17 @@ class Tool(ABC, Generic[TParams, TResult]):
         if params_type:
             return params_type
 
-        # 尝试从泛型基类获取类型参数
+        # 兼容模式：从泛型基类获取类型参数
         orig_bases = getattr(self.__class__, '__orig_bases__', None)
         if orig_bases:
             for base in orig_bases:
                 if hasattr(base, '__args__'):
                     args = getattr(base, '__args__', None)
                     if args and len(args) >= 1:
-                        # Tool[TParams, TResult]:
-                        #   args[0] = TParams (参数类型), args[1] = TResult (结果类型)
-                        # BusinessTool[TSite, TParams]:
-                        #   args[0] = TSite (Site类型), args[1] = TParams (参数类型)
-
                         # 遍历 args，找到继承自 ToolParameters 或 BaseModel 的类型
                         for arg in args:
-                            # 跳过 TypeVar
-                            if arg is TParams or arg is TResult:
-                                continue
-                            # 检查是否是实际的类（非 TypeVar）
                             if isinstance(arg, type):
                                 try:
-                                    # 检查是否继承自 ToolParameters 或 BaseModel
-                                    # 参数类型应该是 Pydantic 模型
                                     from src.tools.base import ToolParameters
                                     is_params = (
                                         issubclass(arg, ToolParameters) or
@@ -272,13 +263,11 @@ class Tool(ABC, Generic[TParams, TResult]):
                                     if is_params:
                                         return arg
                                 except TypeError:
-                                    # issubclass 需要实际类型，不是 TypeVar
                                     continue
 
-        # Fallback: 使用 TParams (注意：这可能是 TypeVar)
-        return TParams
+        return ToolParameters
 
-    async def validate_params(self, params: TParams) -> ValidationResult:
+    async def validate_params(self, params: Any) -> ValidationResult:
         """
         验证参数
 
@@ -291,8 +280,8 @@ class Tool(ABC, Generic[TParams, TResult]):
         try:
             params_type = self._get_params_type()
 
-            # 检查是否是真正的类型（不是 TypeVar）
-            if params_type is TParams or not isinstance(params_type, type):
+            # 检查是否是真正的类型
+            if not isinstance(params_type, type):
                 # 如果无法获取实际类型，直接验证通过
                 # 假设 params 已经是正确类型的实例
                 return ValidationResult(valid=True)
@@ -311,9 +300,9 @@ class Tool(ABC, Generic[TParams, TResult]):
 
     async def execute_with_validation(
         self,
-        params: TParams,
+        params: Any,
         context: ExecutionContext
-    ) -> Result[TResult]:
+    ) -> Result:
         """
         带验证的执行
 
@@ -322,7 +311,7 @@ class Tool(ABC, Generic[TParams, TResult]):
             context: 执行上下文
 
         Returns:
-            Result[TResult]: 执行结果
+            Result: 执行结果
         """
         # 验证参数
         validation = await self.validate_params(params)
@@ -339,9 +328,9 @@ class Tool(ABC, Generic[TParams, TResult]):
 
     async def execute_with_retry(
         self,
-        params: TParams,
+        params: Any,
         context: ExecutionContext
-    ) -> Result[TResult]:
+    ) -> Result:
         """
         带重试的执行
 
@@ -350,7 +339,7 @@ class Tool(ABC, Generic[TParams, TResult]):
             context: 执行上下文
 
         Returns:
-            Result[TResult]: 执行结果
+            Result: 执行结果
         """
         last_error = None
 
@@ -397,7 +386,7 @@ class Tool(ABC, Generic[TParams, TResult]):
 
     # ========== 工具方法 ==========
 
-    def ok(self, data: TResult = None, meta: ResultMeta = None) -> Result[TResult]:
+    def ok(self, data: Any = None, meta: ResultMeta = None) -> Result:
         """创建成功结果"""
         return Result.ok(data, meta)
 
@@ -407,7 +396,7 @@ class Tool(ABC, Generic[TParams, TResult]):
         code: ErrorCode = ErrorCode.EXECUTION_FAILED,
         recoverable: bool = False,
         details: dict = None
-    ) -> Result[TResult]:
+    ) -> Result:
         """创建失败结果"""
         return Result.fail(
             Error(
@@ -423,7 +412,7 @@ class Tool(ABC, Generic[TParams, TResult]):
         exc: Exception,
         code: ErrorCode = None,
         recoverable: bool = False
-    ) -> Result[TResult]:
+    ) -> Result:
         """从异常创建失败结果"""
         return Result.fail(Error.from_exception(exc, code, recoverable))
 

@@ -23,8 +23,8 @@ from .result import XHSSchedulePublishResult
 logger = logging.getLogger("xhs_schedule_publish")
 
 
-@business_tool(name="xhs_schedule_publish", site_type=XiaohongshuSite, operation_category="publish")
-class SchedulePublishTool(BusinessTool[XHSSchedulePublishParams]):
+@business_tool(name="xhs_schedule_publish", site_type=XiaohongshuSite, param_type=XHSSchedulePublishParams, operation_category="publish")
+class SchedulePublishTool(BusinessTool):
     """
     小红书定时发布工具
 

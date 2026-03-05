@@ -70,7 +70,7 @@ class VideoDownloadResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "video", "download"]
 )
-class VideoDownloadTool(Tool[VideoDownloadParams, VideoDownloadResult]):
+class VideoDownloadTool(Tool):
     """视频下载工具"""
 
     MAX_FILE_SIZE = 20 * 1024 * 1024 * 1024  # 20GB

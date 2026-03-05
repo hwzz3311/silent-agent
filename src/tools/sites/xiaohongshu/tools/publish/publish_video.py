@@ -21,8 +21,8 @@ from .result import XHSPublishVideoResult
 logger = logging.getLogger("xhs_publish_video")
 
 
-@business_tool(name="xhs_publish_video", site_type=XiaohongshuSite, operation_category="publish")
-class PublishVideoTool(BusinessTool[XHSPublishVideoParams]):
+@business_tool(name="xhs_publish_video", site_type=XiaohongshuSite, param_type=XHSPublishVideoParams, operation_category="publish")
+class PublishVideoTool(BusinessTool):
     """
     发布小红书视频笔记
 

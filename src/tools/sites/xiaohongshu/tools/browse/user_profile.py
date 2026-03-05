@@ -22,8 +22,8 @@ from .result import XHSUserProfileResult, XHSFeedItem
 logger = logging.getLogger("xhs_user_profile")
 
 
-@business_tool(name="xhs_user_profile", site_type=XiaohongshuSite, operation_category="browse")
-class UserProfileTool(BusinessTool[XHSUserProfileParams]):
+@business_tool(name="xhs_user_profile", site_type=XiaohongshuSite, param_type=XHSUserProfileParams, operation_category="browse")
+class UserProfileTool(BusinessTool):
     """
     获取小红书用户主页信息
 

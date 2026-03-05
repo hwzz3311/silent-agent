@@ -18,7 +18,7 @@ class ScreenshotParams(ToolParameters):
 
 
 @tool(name="browser.screenshot", description="截取当前页面截图")
-class ScreenshotTool(Tool[ScreenshotParams, dict]):
+class ScreenshotTool(Tool):
     """截图工具"""
 
     async def execute(

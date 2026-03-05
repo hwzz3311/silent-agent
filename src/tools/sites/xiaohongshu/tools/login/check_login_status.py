@@ -19,8 +19,13 @@ from .result import XHSCheckLoginStatusResult
 logger = logging.getLogger("xhs_check_login_status")
 
 
-@business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
-class CheckLoginStatusTool(BusinessTool[XHSCheckLoginStatusParams]):
+@business_tool(
+    name="xhs_check_login_status",
+    site_type=XiaohongshuSite,
+    param_type=XHSCheckLoginStatusParams,
+    operation_category="login"
+)
+class CheckLoginStatusTool(BusinessTool):
     """
     检查小红书登录状态
 

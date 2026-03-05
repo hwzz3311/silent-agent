@@ -19,7 +19,7 @@ class KeyboardParams(ToolParameters):
 
 
 @tool(name="browser.keyboard", description="模拟键盘输入")
-class KeyboardTool(Tool[KeyboardParams, dict]):
+class KeyboardTool(Tool):
     """键盘工具"""
 
     async def execute(

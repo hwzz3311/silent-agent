@@ -20,8 +20,8 @@ from .result import XHSGetLoginQrcodeResult
 logger = logging.getLogger("xhs_get_login_qrcode")
 
 
-@business_tool(name="xhs_get_login_qrcode", site_type=XiaohongshuSite, operation_category="login")
-class GetLoginQrcodeTool(BusinessTool[XHSGetLoginQrcodeParams]):
+@business_tool(name="xhs_get_login_qrcode", site_type=XiaohongshuSite, param_type=XHSGetLoginQrcodeParams, operation_category="login")
+class GetLoginQrcodeTool(BusinessTool):
     """
     获取小红书登录二维码
 

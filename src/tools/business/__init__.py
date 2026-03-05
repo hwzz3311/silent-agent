@@ -17,7 +17,7 @@ Usage:
     from tools.business.base import BusinessTool
     from tools.business.site_base import Site
 
-    class MyTool(BusinessTool[MySite, MyParams]):
+    class MyTool(BusinessTool):
         name = "my_tool"
         description = "我的工具"
         site_type = MySite
@@ -28,7 +28,7 @@ Usage:
 """
 
 # 抽象基类
-from .base import BusinessTool, BusinessToolMeta, BusinessToolType, create_business_tool
+from .base import BusinessTool, BusinessToolMeta, create_business_tool
 from .site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
 
 # 注册表
@@ -78,7 +78,6 @@ __all__ = [
     # 抽象基类
     "BusinessTool",
     "BusinessToolMeta",
-    "BusinessToolType",
     "create_business_tool",
     "Site",
     "SiteConfig",

@@ -21,7 +21,7 @@ class ScrollParams(ToolParameters):
 
 
 @tool(name="browser.scroll", description="滚动页面或元素")
-class ScrollTool(Tool[ScrollParams, dict]):
+class ScrollTool(Tool):
     """滚动工具"""
 
     async def execute(

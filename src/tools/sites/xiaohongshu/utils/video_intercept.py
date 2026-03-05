@@ -61,7 +61,7 @@ class VideoUploadInterceptResult:
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "video", "upload", "intercept"]
 )
-class VideoUploadInterceptTool(Tool[VideoUploadInterceptParams, VideoUploadInterceptResult]):
+class VideoUploadInterceptTool(Tool):
     """视频上传拦截工具"""
 
     async def execute(

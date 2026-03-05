@@ -45,7 +45,7 @@ class InjectScriptParams(ToolParameters):
     version="1.0.0",
     tags=["xhs", "xiaohongshu", "inject", "script", "javascript"]
 )
-class InjectScriptTool(Tool[InjectScriptParams, Any]):
+class InjectScriptTool(Tool):
     """脚本注入工具"""
 
     async def execute(

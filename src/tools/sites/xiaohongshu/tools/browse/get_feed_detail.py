@@ -24,8 +24,8 @@ from .result import XHSGetFeedDetailResult
 logger = logging.getLogger("xhs_get_feed_detail")
 
 
-@business_tool(name="xhs_get_feed_detail", site_type=XiaohongshuSite, operation_category="browse")
-class GetFeedDetailTool(BusinessTool[XHSGetFeedDetailParams]):
+@business_tool(name="xhs_get_feed_detail", site_type=XiaohongshuSite, param_type=XHSGetFeedDetailParams, operation_category="browse")
+class GetFeedDetailTool(BusinessTool):
     """
     获取小红书笔记详情
 

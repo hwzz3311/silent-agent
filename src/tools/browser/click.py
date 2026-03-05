@@ -24,7 +24,7 @@ class ClickParams(ToolParameters):
 
 
 @tool(name="browser.click", description="点击页面上的元素")
-class ClickTool(Tool[ClickParams, dict]):
+class ClickTool(Tool):
     """点击工具"""
 
     async def execute(

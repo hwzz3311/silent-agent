@@ -4,6 +4,7 @@
 提供在页面中执行函数调用的功能。
 """
 
+from typing import Any
 from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
@@ -18,14 +19,14 @@ class EvaluateParams(ToolParameters):
 
 
 @tool(name="browser.evaluate", description="在页面中执行 JavaScript 并获取返回值")
-class EvaluateTool(Tool[EvaluateParams, any]):
+class EvaluateTool(Tool):
     """求值工具"""
 
     async def execute(
         self,
         params: EvaluateParams,
         context: ExecutionContext
-    ) -> Result[any]:
+    ) -> Result[Any]:
         """执行求值"""
         from src.relay_client import SilentAgentClient
 
@@ -74,7 +75,7 @@ async def evaluate(
     args: list = None,
     world: str = "MAIN",
     context: ExecutionContext = None
-) -> Result[any]:
+) -> Result[Any]:
     """执行 JavaScript 并获取返回值"""
     params = EvaluateParams(code=code, args=args or [], world=world)
     tool = EvaluateTool()

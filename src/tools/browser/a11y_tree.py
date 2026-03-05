@@ -28,7 +28,7 @@ class A11yTreeParams(ToolParameters):
 
 
 @tool(name="browser.a11y_tree", description="获取无障碍树（支持真实树）")
-class A11yTreeTool(Tool[A11yTreeParams, dict]):
+class A11yTreeTool(Tool):
     """无障碍树工具
 
     根据上下文中的 browser_mode 选择不同的获取方式：
