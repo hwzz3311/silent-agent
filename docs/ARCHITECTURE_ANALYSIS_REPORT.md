@@ -1,7 +1,7 @@
 # 架构分析报告：SilentAgent 浏览器自动化系统
 
 > 生成日期：2026-03-05
-> 更新时间：2026-03-05（已解决 5 个问题，发现 3 个新问题，重构中 1 个）
+> 更新时间：2026-03-05（已解决 8 个问题，待解决 3 个问题）
 
 ## 项目概述
 
@@ -119,7 +119,7 @@ if not hasattr(self, '_site_instance') or self._site_instance is None:
 
 **解决**：移除单例缓存，`get_site()` 每次创建新实例，避免状态共享
 
-### 问题 11：动态导入无缓存
+### 问题 11：动态导入无缓存 ✅ 已解决
 
 **位置**: `src/tools/executor.py:114-115`
 
@@ -129,11 +129,9 @@ module = importlib.import_module(module_path)
 func = getattr(module, func_name)
 ```
 
-**问题**:
-- 每次执行都重新导入模块，无缓存机制
-- 高频调用时有性能损耗
+**解决**：问题9修复时已一起解决 - 移除硬编码映射后改用 `BusinessToolRegistry`，内部维护 `_name_to_class` 字典存储类引用。`create_instance()` 直接从内存获取类，无需每次动态导入模块。
 
-### 问题 12：选择器获取逻辑错误
+### 问题 12：选择器获取逻辑错误 ✅ 已解决
 
 **位置**: `src/tools/business/base.py:376-381`
 
@@ -144,9 +142,7 @@ if hasattr(self, 'selectors'):
     selector = getattr(site.selectors, key, None)
 ```
 
-**问题**:
-- 代码注释说"检查工具自己的选择器"，实际却从 `site.selectors` 获取
-- 应该是检查工具实例自己的属性，而非总是从 site 获取
+**解决**：修复了选择器获取逻辑，优先使用工具自己（`self.selectors`）的选择器，如果没有再从 site 适配器获取。
 
 ---
 

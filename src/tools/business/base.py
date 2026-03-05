@@ -374,12 +374,13 @@ class BusinessTool(Tool, ABC):
         """
         # 首先检查工具自己的选择器
         if hasattr(self, 'selectors'):
-            site = self.get_site()
-            selector = getattr(site.selectors, key, None)
+            selector = getattr(self.selectors, key, None)
             if selector:
                 return selector
 
-        return None
+        # 如果没有，从网站适配器获取
+        site = self.get_site()
+        return getattr(site.selectors, key, None)
 
     def get_params_type(self) -> Any:
         """
