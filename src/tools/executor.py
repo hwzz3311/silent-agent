@@ -9,23 +9,32 @@ import asyncio
 import logging
 from typing import Any, Dict
 from src.core.result import Result
-from src.tools.business.registry import BusinessToolRegistry
+from src.tools.domain.registry import BusinessToolRegistry
 from src.tools.base import ExecutionContext
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
+import warnings
+
+
 class BusinessToolExecutor:
     """
-    统一业务工具执行器
+    统一业务工具执行器（已废弃）
+
+    请直接使用 HybridClient._execute_business_tool() 或
+    BusinessToolRegistry.create_instance() + tool.execute()
 
     使用 BusinessToolRegistry 作为单一真相来源，替代硬编码映射。
     自动利用 @business_tool 装饰器的注册功能。
+
+    Deprecated: 2026-03-06
     """
 
     @staticmethod
     def execute(name: str, params: Dict[str, Any] = None, context: Any = None) -> Dict[str, Any]:
+        """Deprecated: 请使用 HybridClient._execute_business_tool()"""
         """
         执行业务工具
 

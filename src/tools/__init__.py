@@ -29,38 +29,14 @@ from .registry import (
     tool as tool_decorator,
 )
 
-from .browser import (
-    ClickTool,
-    ClickParams,
-    FillTool,
-    FillParams,
-    NavigateTool,
-    NavigateParams,
-    ScrollTool,
-    ScrollParams,
-    ScreenshotTool,
-    ScreenshotParams,
-    InjectTool,
-    InjectParams,
-    EvaluateTool,
-    EvaluateParams,
-    WaitTool,
-    WaitParams,
-    ExtractTool,
-    ExtractParams,
-    KeyboardTool,
-    KeyboardParams,
-    A11yTreeTool,
-    A11yTreeParams,
-)
-
+# Browser tools moved to src/tools/primitives/
 # 自动注册所有内置工具
-from .browser import *  # noqa: F401
+from .primitives import *  # noqa: F401
 
 
 def register_all_tools():
     """注册所有内置工具"""
-    from .browser import (
+    from .primitives import (
         ClickTool, FillTool, NavigateTool, ScrollTool,
         ScreenshotTool, InjectTool, EvaluateTool, WaitTool,
         ExtractTool, KeyboardTool, A11yTreeTool,
@@ -106,7 +82,7 @@ def register_business_tools():
     将 BusinessToolRegistry 中的业务工具同步到 ToolRegistry，
     使其可以通过 API 调用。
     """
-    from .business.registry import BusinessToolRegistry
+    from .domain.registry import BusinessToolRegistry
 
     registry = get_registry()
 

@@ -290,7 +290,7 @@ class HybridClient(BrowserPort):
 
         if not method_name:
             # 检查是否是业务工具（Python 端直接执行）
-            from src.tools.business.registry import BusinessToolRegistry
+            from src.tools.domain.registry import BusinessToolRegistry
             if BusinessToolRegistry.is_registered(name):
                 # 将 self 注入到 context 中，方便业务工具访问浏览器
                 if context is None:
@@ -355,7 +355,10 @@ class HybridClient(BrowserPort):
         Returns:
             工具执行结果
         """
-        from src.tools.business.registry import BusinessToolRegistry
+        from src.tools.domain.registry import BusinessToolRegistry
+        from src.core.result import Result
+        from src.core.exception import Error
+        from src.core.result import ResultMeta
 
         # 检查工具是否已注册
         if not BusinessToolRegistry.is_registered(name):
@@ -368,9 +371,43 @@ class HybridClient(BrowserPort):
             context = ExecutionContext()
         context.client = self
 
-        # 使用 BusinessToolExecutor 执行
-        from src.tools.executor import BusinessToolExecutor
-        return BusinessToolExecutor.execute(name, params, context)
+        # 从 Registry 获取工具并创建新实例
+        tool_instance = BusinessToolRegistry.create_instance(name)
+        if tool_instance is None:
+            raise ValueError(f"无法创建工具实例: {name}")
+
+        # 参数验证（使用 pydantic）
+        params = params or {}
+        validation = await tool_instance.validate_params(params)
+        if not validation.valid:
+            return self._convert_result(
+                Result.fail(
+                    error=Error.validation(
+                        message="参数验证失败",
+                        details={"errors": validation.errors}
+                    ),
+                    meta=ResultMeta(
+                        tool_name=name,
+                        duration_ms=0,
+                        attempt=1
+                    )
+                )
+            )
+
+        # 获取参数类型并验证转换
+        params_type = tool_instance._get_params_type()
+        if isinstance(params_type, type) and hasattr(params_type, 'model_validate'):
+            validated_params = params_type.model_validate(params)
+        elif isinstance(params_type, type) and hasattr(params_type, 'parse_obj'):
+            validated_params = params_type.parse_obj(params)
+        else:
+            validated_params = params
+
+        # 直接执行工具（异步 await）
+        result = await tool_instance.execute(validated_params, context)
+
+        # 转换 Result 为 Dict
+        return self._convert_result(result)
 
     def _convert_result(self, result: Any) -> Dict[str, Any]:
         """将 Result 对象转换为标准 API 格式"""
