@@ -1,4 +1,4 @@
-const { RPAController, OperationRecorder } = require('../puppeteer-stealth-service/skills/rpa-development/scripts/rpa-client.js');
+const { RPAController, OperationRecorder } = require('../../puppeteer-stealth-service/skills/rpa-development/scripts/rpa-client.js');
 
 async function doubaoQRCodeLogin() {
   const controller = new RPAController({
