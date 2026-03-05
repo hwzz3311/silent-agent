@@ -2,6 +2,12 @@
 
 项目技术文档 - 浏览器自动化系统 (SilentAgent)
 
+## 项目概述
+
+**SilentAgent** 是一个 Chrome 扩展 + Python 控制器系统，通过 `chrome.scripting` API + WebSocket 工具调用协议实现远程浏览器自动化控制。
+
+**核心优势**: 无 CDP 端口、无调试器横幅、无 `navigator.webdriver` 标志，通过脚本注入实现对任意授权网站的远程操作。
+
 ## 快速开始
 
 ```bash
@@ -22,21 +28,28 @@ uvicorn src.api.app:app --host 0.0.0.0 --port 8080 --reload
 ## 项目结构
 
 ```
-src/
-├── api/           # FastAPI REST 接口
-├── browser/      # 浏览器客户端（Extension/Puppeteer/Hybrid）
-├── client/       # Python 客户端
-├── config.py     # 配置
-├── core/         # 核心类型（Result, Exception, Context）
-├── ports/        # 端口层（BrowserPort 抽象接口）
-├── flow/         # 工作流引擎
-├── relay_server.py  # WebSocket 中继服务
-└── tools/        # 工具框架和业务适配器
-    ├── business/     # 业务逻辑基类
-    │   └── selector/ # 选择器版本管理
-    └── sites/        # 网站适配器
-        └── selector/ # 通用选择器定义（分页/弹窗/搜索等）
-extension/       # Chrome 扩展
+network_hook/
+├── extension/              # Chrome 扩展 (Manifest V3)
+├── src/
+│   ├── api/               # FastAPI REST 接口
+│   ├── browser/           # 浏览器客户端（Extension/Puppeteer/Hybrid）
+│   │   ├── client.py      # BrowserClient 抽象基类
+│   │   ├── factory.py    # BrowserClientFactory
+│   │   └── manager.py    # BrowserManager 多实例管理
+│   ├── client/            # Python 客户端 (SilentAgentClient)
+│   ├── config.py         # 配置
+│   ├── core/             # 核心类型（Result, Exception, Context）
+│   ├── ports/            # 端口层（BrowserPort 抽象接口）
+│   ├── flow/             # 工作流引擎
+│   ├── recorder/        # 录制回放
+│   ├── relay_server.py  # WebSocket 中继服务
+│   └── tools/            # 工具框架和业务适配器
+│       ├── business/     # 业务逻辑基类
+│       │   └── selector/ # 选择器版本管理
+│       └── sites/        # 网站适配器
+│           ├── xiaohongshu/  # 小红书 (16 个工具)
+│           └── xianyu/      # 闲鱼 (2 个工具)
+└── start_puppeteer.py   # 统一启动脚本
 ```
 
 ## 浏览器模式
@@ -71,6 +84,21 @@ extension/       # Chrome 扩展
 - **运行时配置**: `RunnerConfig` 支持依赖注入式配置传递
 - **依赖注入**: 工具通过 `ExecutionContext.client` 获取浏览器客户端
 
+### 统一异常体系 (`src/core/exception.py`)
+
+| 异常 | 说明 |
+|------|------|
+| ToolException | 工具异常基类 |
+| LoginRequiredException | 需要登录异常 |
+| ElementNotFoundException | 元素未找到异常 |
+| SelectorInvalidException | 选择器无效异常 |
+| BrowserConnectionException | 浏览器连接异常 |
+| ToolNotFoundException | 工具未找到异常 |
+| ExecutionTimeoutException | 执行超时异常 |
+| ValidationException | 参数验证异常 |
+| NavigationException | 导航异常 |
+| AuthenticationException | 认证异常 |
+
 ## 依赖注入模式
 
 工具通过 `ExecutionContext.client` 获取浏览器客户端：
@@ -96,6 +124,8 @@ async def get_browser_client() -> BrowserPort:
 ## 开发规范
 
 - API 开发见 [.claude/rule/api.md](.claude/rule/api.md)
-- 工具基类: `src/tools/tool.py`
-- 业务适配器: `src/tools/business/`
+- RPA 工具开发见 [.claude/rule/rpa_development.md](.claude/rule/rpa_development.md)
+- 工具基类: `src/tools/base.py`
+- 业务适配器: `src/tools/business/base.py`
+- 业务工具装饰器: `src/tools/business/decorator.py`（@business_tool 装饰器）
 - 网站选择器: `src/tools/sites/`（继承 `sites/selectors/common.py` 通用选择器）

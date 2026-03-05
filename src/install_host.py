@@ -148,7 +148,6 @@ def main():
     print("\n后续步骤:")
     print("1. 重启 Chrome 浏览器")
     print("2. 重新加载 Neurone 扩展")
-    print("3. 运行 demo: python python/demo.py")
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ import time
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from relay_client import RelayClient
+from relay_client import SilentAgentClient as RelayClient
 
 # ==================== 输出工具 ====================
 

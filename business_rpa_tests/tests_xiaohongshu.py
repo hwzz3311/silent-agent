@@ -27,8 +27,12 @@ from datetime import datetime
 API_BASE_URL = "http://127.0.0.1:8080"
 RELAY_URL = "http://127.0.0.1:18792"
 
-# 插件密钥（用于多插件路由）
+# 插件密钥（用于多插件路由）- 可选，二选一即可
 SECRET_KEY = "CG1PCGPNY2DHB2PKYMNLYWTOYNBPAGTO"
+
+# 浏览器实例 ID（用于多浏览器路由）- 可选，二选一即可
+# 如果传了 browser_id 则优先使用指定浏览器实例
+BROWSER_ID = "7da1213d-02f3-4cdc-8aba-47ee87014a89"
 
 # 颜色输出
 GREEN = "\033[92m"
@@ -50,9 +54,10 @@ def print_result(name: str, success: bool, message: str = ""):
 class XiaohongshuAPIClient:
     """小红书 API 客户端"""
 
-    def __init__(self, base_url: str = API_BASE_URL, secret_key: str = SECRET_KEY):
+    def __init__(self, base_url: str = API_BASE_URL, secret_key: str = SECRET_KEY, browser_id: str = BROWSER_ID):
         self.base_url = base_url
         self.secret_key = secret_key
+        self.browser_id = browser_id
         self.session = None
 
     async def connect(self):
@@ -83,25 +88,40 @@ class XiaohongshuAPIClient:
         import aiohttp
 
         url = f"{self.base_url}{path}"
-        async with self.session.request(method, url, json=data, params=params) as response:
-            content = await response.text()
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                return {"raw": content, "status": response.status}
+        print(f"[DEBUG] REQUEST: {method} {url}")
+        if data:
+            print(f"[DEBUG] DATA: {data}")
+        try:
+            async with self.session.request(method, url, json=data, params=params) as response:
+                content = await response.text()
+                print(f"[DEBUG] RESPONSE: status={response.status}, body_len={len(content)}")
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError:
+                    return {"raw": content, "status": response.status}
+        except aiohttp.ClientConnectorError as e:
+            print(f"[ERROR] 连接失败: {e}")
+            raise
+        except Exception as e:
+            print(f"[ERROR] 请求异常: {e}")
+            raise
 
     # ===== 工具执行相关 =====
 
-    async def execute_tool(self, tool: str, params: Dict[str, Any] = None, timeout: int = 60000, secret_key: str = None) -> Dict[str, Any]:
+    async def execute_tool(self, tool: str, params: Dict[str, Any] = None, timeout: int = 60000, secret_key: str = None, browser_id: str = None) -> Dict[str, Any]:
         """执行工具调用"""
         # 如果未传入 secret_key，使用默认密钥
         if secret_key is None:
             secret_key = self.secret_key
+        # 如果未传入 browser_id 使用默认浏览器实例 ID
+        if browser_id is None:
+            browser_id = self.browser_id
         data = {
             "tool": tool,
             "params": params or {},
             "timeout": timeout,
-            "secret_key": secret_key
+            "secret_key": secret_key,
+            "browser_id": browser_id
         }
         return await self.request("POST", "/api/v1/execute", data=data)
 

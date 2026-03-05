@@ -15,11 +15,16 @@ class XYPublishItemParams(ToolParameters):
     闲鱼发布商品工具参数
 
     Attributes:
+        tab_id: 可选的标签页 ID
         price: 商品价格
         description: 商品描述/正文
         images: 图片路径列表（本地路径）
         category_index: 分类索引（默认3=其他技能服务）
     """
+    tab_id: Optional[int] = Field(
+        default=None,
+        description="标签页 ID，默认使用当前活动标签页"
+    )
     price: str = Field(
         ...,
         description="商品价格"
