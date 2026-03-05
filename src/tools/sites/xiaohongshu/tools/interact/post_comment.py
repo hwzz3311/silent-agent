@@ -16,7 +16,7 @@ from .result import XHSPostCommentResult
 
 
 @business_tool(name="xhs_post_comment", site_type=XiaohongshuSite, operation_category="interact")
-class PostCommentTool(BusinessTool[XiaohongshuSite, XHSPostCommentParams]):
+class PostCommentTool(BusinessTool[XHSPostCommentParams]):
     """
     小红书发表评论工具
 

@@ -24,7 +24,7 @@ logger = logging.getLogger("xhs_schedule_publish")
 
 
 @business_tool(name="xhs_schedule_publish", site_type=XiaohongshuSite, operation_category="publish")
-class SchedulePublishTool(BusinessTool[XiaohongshuSite, XHSSchedulePublishParams]):
+class SchedulePublishTool(BusinessTool[XHSSchedulePublishParams]):
     """
     小红书定时发布工具
 

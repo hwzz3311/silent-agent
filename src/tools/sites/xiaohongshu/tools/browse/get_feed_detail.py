@@ -25,7 +25,7 @@ logger = logging.getLogger("xhs_get_feed_detail")
 
 
 @business_tool(name="xhs_get_feed_detail", site_type=XiaohongshuSite, operation_category="browse")
-class GetFeedDetailTool(BusinessTool[XiaohongshuSite, XHSGetFeedDetailParams]):
+class GetFeedDetailTool(BusinessTool[XHSGetFeedDetailParams]):
     """
     获取小红书笔记详情
 

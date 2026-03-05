@@ -26,7 +26,7 @@ logger = logging.getLogger("xianyu_password_login")
 
 
 @business_tool(name="xianyu_password_login", site_type=XianyuSite, operation_category="login")
-class PasswordLoginTool(BusinessTool[XianyuSite, PasswordLoginParams]):
+class PasswordLoginTool(BusinessTool[PasswordLoginParams]):
     """
     闲鱼密码登录工具
 

@@ -19,7 +19,7 @@ from .result import XYPublishItemResult
 
 
 @business_tool(name="xianyu_publish_item", site_type=XianyuSite, operation_category="publish")
-class PublishItemTool(BusinessTool[XianyuSite, XYPublishItemParams]):
+class PublishItemTool(BusinessTool[XYPublishItemParams]):
     """
     发布闲鱼商品
 

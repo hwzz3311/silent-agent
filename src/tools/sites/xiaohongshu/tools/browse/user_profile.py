@@ -23,7 +23,7 @@ logger = logging.getLogger("xhs_user_profile")
 
 
 @business_tool(name="xhs_user_profile", site_type=XiaohongshuSite, operation_category="browse")
-class UserProfileTool(BusinessTool[XiaohongshuSite, XHSUserProfileParams]):
+class UserProfileTool(BusinessTool[XHSUserProfileParams]):
     """
     获取小红书用户主页信息
 

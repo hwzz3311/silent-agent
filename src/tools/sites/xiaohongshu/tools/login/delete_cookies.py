@@ -16,7 +16,7 @@ from .result import BHSDeleteCookiesResult
 
 
 @business_tool(name="xhs_delete_cookies", site_type=XiaohongshuSite, operation_category="login")
-class DeleteCookiesTool(BusinessTool[XiaohongshuSite, BHSDeleteCookiesParams]):
+class DeleteCookiesTool(BusinessTool[BHSDeleteCookiesParams]):
     """
     删除小红书登录 Cookie
 

@@ -10,7 +10,7 @@
 
 from abc import ABC
 from typing import (
-    TYPE_CHECKING, Generic, TypeVar, Optional, Dict, Any, Type, List
+    TYPE_CHECKING, TypeVar, Optional, Dict, Any, Type, List
 )
 
 from src.tools.base import Tool, ToolParameters
@@ -18,10 +18,8 @@ from src.core.result import Result, ResultMeta, Error
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
-    from .site_base import Site
 
 # 类型变量
-SiteT = TypeVar('SiteT', bound='Site')
 ParamsT = TypeVar('ParamsT', bound=ToolParameters)
 ResultT = TypeVar('ResultT')
 
@@ -43,24 +41,19 @@ class BusinessToolMeta(type):
         return cls
 
 
-class BusinessTool(
-    Tool[ParamsT, Any],
-    ABC,
-    Generic[SiteT, ParamsT]
-):
+class BusinessTool(Tool[ParamsT, Any], ABC):
     """
     业务级 RPA 工具的抽象基类
 
     特点:
-    1. 泛型支持：通过 site_type 指定对应的网站适配器
+    1. 装饰器驱动：通过 @business_tool 装饰器传入 site_type
     2. 统一错误处理：继承统一错误处理机制
     3. 日志增强：自动记录操作步骤和耗时
     4. 选择器管理：使用网站选择器集合
 
-    Subclass must set:
+    Subclass must set (via @business_tool decorator):
         name: str              # 工具名称
-        description: str       # 工具描述
-        site_type: Type[SiteT] # 对应的 Site 类型
+        site_type: type       # 对应的 Site 类型
 
     Subclass can set:
         operation_category: str = "general"  # 操作分类
@@ -68,12 +61,8 @@ class BusinessTool(
         required_login: bool = True           # 是否需要登录
 
     Usage:
-        class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, CheckLoginStatusParams]):
-            name = "xhs_check_login_status"
-            description = "检查小红书登录状态"
-            site_type = XiaohongshuSite
-            operation_category = "login"
-
+        @business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
+        class CheckLoginStatusTool(BusinessTool[CheckLoginStatusParams]):
             async def execute(self, params, context) -> Result:
                 # 实现业务逻辑
                 pass
@@ -93,8 +82,8 @@ class BusinessTool(
     #: 工具分类：login/publish/browse/interact/general
     operation_category: str = "general"
 
-    #: 对应的网站适配器类型
-    site_type: Type[SiteT]
+    #: 对应的网站适配器类型（通过装饰器传入）
+    site_type: Optional[type] = None
 
     #: 是否需要登录才能执行
     required_login: bool = True
@@ -141,7 +130,7 @@ class BusinessTool(
             site = self.get_site(context)
 
             # 3. 执行核心操作
-            result = await self._execute_core(params, context, site)
+            result = await self._execute_core(params, context)
 
             # 4. 后置处理
             final_result = await self._post_execute(result, params, context)
@@ -236,6 +225,18 @@ class BusinessTool(
         # 检查是否需要登录
         if self.required_login:
             site = self.get_site(context)
+            if site is None:
+                return Result.fail(
+                    error=Error(
+                        code="SITE_NOT_FOUND",
+                        message=f"工具 {self.name} 未配置 site_type，无法执行需要登录的检查",
+                        recoverable=False,
+                    ),
+                    meta=ResultMeta(
+                        tool_name=self.name,
+                        duration_ms=0
+                    )
+                )
             login_result = await site.check_login_status(context, silent=True)
 
             if login_result.success:
@@ -270,7 +271,6 @@ class BusinessTool(
         self,
         params: ParamsT,
         context: 'ExecutionContext',
-        site: SiteT
     ) -> Result[Any]:
         """
         核心执行逻辑
@@ -280,7 +280,6 @@ class BusinessTool(
         Args:
             params: 工具参数
             context: 执行上下文
-            site: 网站适配器实例
 
         Returns:
             Result[Any]: 执行结果
@@ -336,7 +335,7 @@ class BusinessTool(
 
     # ========== 工具方法 ==========
 
-    def get_site(self, context: 'ExecutionContext' = None) -> SiteT:
+    def get_site(self, context: 'ExecutionContext' = None) -> Optional[Any]:
         """
         获取网站适配器实例
 
@@ -344,8 +343,11 @@ class BusinessTool(
             context: 执行上下文（可选）
 
         Returns:
-            SiteT: 网站适配器实例
+            Optional[Any]: 网站适配器实例，如果 site_type 为 None 返回 None
         """
+        if self.site_type is None:
+            return None
+
         # 使用单例模式缓存站点实例
         if not hasattr(self, '_site_instance') or self._site_instance is None:
             self._site_instance = self.site_type()
@@ -391,10 +393,9 @@ class BusinessTool(
         for base in self.__class__.__mro__:
             if hasattr(base, '__orig_bases__'):
                 for orig in base.__orig_bases__:
-                    if hasattr(orig, '__args__') and len(orig.__args__) >= 2:
+                    if hasattr(orig, '__args__') and len(orig.__args__) >= 1:
                         args = orig.__args__
-                        if len(args) > 1:
-                            return args[1]
+                        return args[0]
         return ToolParameters
 
     def get_result_type(self) -> Type[ResultT]:

@@ -22,7 +22,7 @@ logger = logging.getLogger("xianyu_get_cookies")
 
 
 @business_tool(name="xianyu_get_cookies", site_type=XianyuSite, operation_category="login")
-class GetCookiesTool(BusinessTool[XianyuSite, GetCookiesParams]):
+class GetCookiesTool(BusinessTool[GetCookiesParams]):
     """
     获取闲鱼 Cookie
 

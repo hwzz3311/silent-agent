@@ -21,7 +21,7 @@ logger = logging.getLogger("xhs_get_login_qrcode")
 
 
 @business_tool(name="xhs_get_login_qrcode", site_type=XiaohongshuSite, operation_category="login")
-class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams]):
+class GetLoginQrcodeTool(BusinessTool[XHSGetLoginQrcodeParams]):
     """
     获取小红书登录二维码
 

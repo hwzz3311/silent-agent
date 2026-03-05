@@ -20,7 +20,7 @@ logger = logging.getLogger("xhs_check_login_status")
 
 
 @business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
-class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusParams]):
+class CheckLoginStatusTool(BusinessTool[XHSCheckLoginStatusParams]):
     """
     检查小红书登录状态
 

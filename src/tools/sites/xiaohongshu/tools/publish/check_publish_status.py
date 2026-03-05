@@ -20,7 +20,7 @@ logger = logging.getLogger("xhs_check_publish_status")
 
 
 @business_tool(name="xhs_check_publish_status", site_type=XiaohongshuSite, operation_category="publish")
-class CheckPublishStatusTool(BusinessTool[XiaohongshuSite, XHSCheckPublishStatusParams]):
+class CheckPublishStatusTool(BusinessTool[XHSCheckPublishStatusParams]):
     """
     小红书检查发布状态工具
 

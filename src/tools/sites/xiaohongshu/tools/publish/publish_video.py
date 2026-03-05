@@ -22,7 +22,7 @@ logger = logging.getLogger("xhs_publish_video")
 
 
 @business_tool(name="xhs_publish_video", site_type=XiaohongshuSite, operation_category="publish")
-class PublishVideoTool(BusinessTool[XiaohongshuSite, XHSPublishVideoParams]):
+class PublishVideoTool(BusinessTool[XHSPublishVideoParams]):
     """
     发布小红书视频笔记
 
