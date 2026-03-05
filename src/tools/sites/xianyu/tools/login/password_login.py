@@ -12,10 +12,10 @@ from typing import Any, Optional, Dict
 
 from src.tools.base import ExecutionContext
 
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xianyu.adapters import XianyuSite, XianyuSliderSolver
 
 from .params import PasswordLoginParams
@@ -25,6 +25,7 @@ from .result import PasswordLoginResult
 logger = logging.getLogger("xianyu_password_login")
 
 
+@business_tool(name="xianyu_password_login", site_type=XianyuSite, operation_category="login")
 class PasswordLoginTool(BusinessTool[XianyuSite, PasswordLoginParams]):
     """
     闲鱼密码登录工具
@@ -717,11 +718,6 @@ class PasswordLoginTool(BusinessTool[XianyuSite, PasswordLoginParams]):
         else:
             logger.error(f"获取 Cookie 失败: {result.get('error')}")
             return {}
-
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
 
 
 __all__ = [

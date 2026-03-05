@@ -49,6 +49,7 @@ from .publishers import (
     publish_note,
     publish_video,
 )
+from src.tools.business import BusinessToolRegistry
 
 
 def register_xhs_tools():
@@ -59,7 +60,6 @@ def register_xhs_tools():
         from tools.sites.xiaohongshu import register_xhs_tools
         register_xhs_tools()
     """
-    from tools.business.registry import BusinessToolRegistry
     from .tools.login import register as login_register
     from .tools.publish import register as publish_register
     from .tools.browse import register as browse_register
@@ -76,7 +76,7 @@ def register_xhs_tools():
 
 def get_xhs_tool_names() -> list:
     """获取所有小红书工具名称"""
-    from tools.business.registry import BusinessToolRegistry
+    # from tools.business.registry import BusinessToolRegistry
 
     tools = BusinessToolRegistry.get_by_site(XiaohongshuSite)
     return list(tools.keys())

@@ -9,10 +9,10 @@ from typing import Any
 
 from src.tools.base import ExecutionContext
 
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xianyu.adapters import XianyuSite
 from .params import GetCookiesParams
 from .result import GetCookiesResult
@@ -20,10 +20,8 @@ from .result import GetCookiesResult
 # 创建日志记录器
 logger = logging.getLogger("xianyu_get_cookies")
 
-# 闲鱼相关域名
-XIANYU_DOMAINS = ["goofish.com", "taobao.com", "2.taobao.com", "alibaba.com"]
 
-
+@business_tool(name="xianyu_get_cookies", site_type=XianyuSite, operation_category="login")
 class GetCookiesTool(BusinessTool[XianyuSite, GetCookiesParams]):
     """
     获取闲鱼 Cookie
@@ -50,6 +48,10 @@ class GetCookiesTool(BusinessTool[XianyuSite, GetCookiesParams]):
     operation_category = "login"
     site_type = XianyuSite
     required_login = False  # 此工具用于获取 Cookie，不需要预先登录（但需要浏览器会话）
+
+    # 使用基类的 tab 管理抽象
+    target_site_domain = "goofish.com"
+    default_navigate_url = "https://www.goofish.com"
 
     @log_operation("xianyu_get_cookies")
     async def _execute_core(
@@ -84,32 +86,16 @@ class GetCookiesTool(BusinessTool[XianyuSite, GetCookiesParams]):
             )
 
         try:
-            # 获取 tab_id，如果参数没有指定则获取当前活动标签页
-            tab_id = params.tab_id
-
-            if not tab_id:
-                # 获取当前活动标签页
-                logger.info("尝试获取当前活动标签页...")
-                tab_result = await client.execute_tool("browser_control", {
-                    "action": "get_active_tab"
-                }, timeout=10000)
-
-                if tab_result.get("success") and tab_result.get("data"):
-                    tab_id = tab_result.get("data", {}).get("tabId")
-                    logger.info(f"获取到活动标签页: tabId={tab_id}")
-
-            # 如果仍然没有 tab_id，尝试创建新标签页导航到闲鱼
-            target_url = params.target_url or "https://www.goofish.com"
-            if not tab_id:
-                logger.info(f"尝试创建新标签页导航到闲鱼: {target_url}")
-                nav_result = await client.execute_tool("chrome_navigate", {
-                    "url": target_url,
-                    "newTab": True
-                }, timeout=15000)
-
-                if nav_result.get("success") and nav_result.get("data"):
-                    tab_id = nav_result.get("data", {}).get("tabId")
-                    logger.info(f"创建新标签页成功: tabId={tab_id}")
+            # ========== 使用 ensure_site_tab 获取标签页 ==========
+            # 优先使用参数中的 tab_id，否则使用 context 中的 tab_id
+            # fallback_url 优先使用参数中的 target_url，否则使用默认导航 URL
+            fallback_url = params.target_url or self.default_navigate_url
+            tab_id = await self.ensure_site_tab(
+                client=client,
+                context=context,
+                fallback_url=fallback_url,
+                params_tab_id=params.tab_id
+            )
 
             # 如果还是没有 tab_id，尝试不指定 tab_id直接操作
             if not tab_id:
@@ -297,12 +283,6 @@ class GetCookiesTool(BusinessTool[XianyuSite, GetCookiesParams]):
                 is_logged_in=False,
                 message=f"获取 Cookie 失败: {str(e)}"
             )
-
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
-
 
 # 便捷函数
 async def get_cookies(

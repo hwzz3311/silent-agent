@@ -9,9 +9,9 @@ import asyncio
 from typing import Any
 
 from src.tools.base import ExecutionContext
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
-from src.tools.business.site_base import Site
 from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSListFeedsParams
@@ -21,6 +21,7 @@ from .result import XHSListFeedsResult, XHSFeedItem
 logger = logging.getLogger("xhs_list_feeds")
 
 
+@business_tool(name="xhs_list_feeds", site_type=XiaohongshuSite, operation_category="browse")
 class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
     """
     获取小红书笔记列表
@@ -47,23 +48,24 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
     version = "1.0.0"
     category = "xiaohongshu"
     operation_category = "browse"
-    site_type = XiaohongshuSite
     required_login = False
+
+    # 直接模式类属性
+    target_site_domain = "xiaohongshu.com"
+    default_navigate_url = "https://www.xiaohongshu.com/"
 
     @log_operation("xhs_list_feeds")
     async def _execute_core(
         self,
         params: XHSListFeedsParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
-        核心执行逻辑 - 参考登录工具的多选择器遍历模式
+        核心执行逻辑 - 直接模式
 
         Args:
             params: 工具参数
             context: 执行上下文（包含 client）
-            site: 网站适配器实例
 
         Returns:
             XHSListFeedsResult: 获取结果
@@ -71,82 +73,22 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         logger.info("开始获取小红书笔记列表")
         logger.debug(f"参数: tab_id={params.tab_id}, page_type={params.page_type}, channel={params.channel}, max_items={params.max_items}")
 
-        # 从 context 获取 client 和 tab_id
-        client = getattr(context, 'client', None)
-        tab_id = params.tab_id or context.tab_id
-        logger.debug(f"从 context 获取 client: {client is not None}, tab_id: {tab_id}")
-
-        # ========== 频道切换 ==========
-        if params.channel and params.channel != "recommend":
-            await self._switch_channel(client, tab_id, params.channel)
-
+        # 使用 context.client 直接执行浏览器操作
+        client = context.client
         if not client:
-            # 如果 context 没有 client，调用 site 的方法
-            return await self._extract_via_site(params, context, site)
+            return XHSListFeedsResult(
+                success=False,
+                message="无法获取浏览器客户端，请确保通过 API 调用"
+            )
 
-        # 小红书域名
-        site_domain = "xiaohongshu.com"
-
-        # 获取密钥用于 site_tab 操作
-        secret_key = getattr(context, 'secret_key', None)
-
-        # ========== tab_id 管理 ==========
-        # 优先级：参数 > context > site_tab_map > 获取活动标签页 > 创建新标签页
-        tab_id = params.tab_id
-        logger.debug(f"初始 tab_id: {tab_id}")
-
-        if not tab_id:
-            # 从 context 获取 tab_id
-            tab_id = context.tab_id
-            logger.debug(f"从 context 获取 tab_id: {tab_id}")
-
-        if not tab_id and hasattr(client, 'get_site_tab'):
-            # 从全局 site tab 映射获取（execute_tool 已自动初始化不需要再调refresh_site_tabs）
-            tab_id = client.get_site_tab(site_domain, secret_key)
-            logger.debug(f"从 site_tab_map 获取 tab_id: {tab_id}")
-
-            # 检测 tab 是否还可用
-            if tab_id and not await self._is_tab_valid(client, tab_id):
-                logger.warning(f"site_tab_map 中的 tab_id={tab_id} 已失效，将重新获取")
-                if hasattr(client, 'clear_site_tab'):
-                    client.clear_site_tab(site_domain, secret_key)
-                tab_id = None
-
-        if not tab_id:
-            # 获取当前活动标签页
-            logger.info("尝试获取当前活动标签页...")
-            tab_result = await client.execute_tool("browser_control", {
-                "action": "get_active_tab"
-            }, timeout=10000)
-            logger.debug(f"get_active_tab 结果: {tab_result}")
-
-            if tab_result.get("success") and tab_result.get("data"):
-                tab_id = tab_result.get("data", {}).get("tabId")
-                logger.info(f"获取到活动标签页: tabId={tab_id}")
-            else:
-                logger.warning(f"获取活动标签页失败: {tab_result.get('error')}")
-
-        # 如果仍然没有 tab_id，创建新标签页导航到小红书
-        if not tab_id:
-            logger.info("尝试创建新标签页导航到小红书...")
-            # 根据 page_type 确定目标 URL
-            url = self._get_page_url(params.page_type)
-            nav_result = await client.execute_tool("chrome_navigate", {
-                "url": url,
-                "newTab": True
-            }, timeout=15000)
-            logger.debug(f"chrome_navigate 结果: {nav_result}")
-
-            if nav_result.get("success") and nav_result.get("data"):
-                tab_id = nav_result.get("data", {}).get("tabId")
-                logger.info(f"创建新标签页成功: tabId={tab_id}")
-            else:
-                logger.warning(f"创建新标签页失败: {nav_result.get('error')}")
-
-        # 保存 tab_id 到全局映射
-        if tab_id and hasattr(client, 'set_site_tab'):
-            client.set_site_tab(site_domain, tab_id, secret_key)
-            logger.debug(f"保存 tab_id 到 site_tab_map: {site_domain} -> {tab_id}")
+        # ========== 使用 ensure_site_tab 获取标签页 ==========
+        # 优先使用参数中的 tab_id，否则使用 context 中的 tab_id
+        tab_id = await self.ensure_site_tab(
+            client=client,
+            context=context,
+            fallback_url=self._get_page_url(params.page_type),
+            params_tab_id=params.tab_id
+        )
 
         # 如果还是没有 tab_id，抛出错误
         if not tab_id:
@@ -157,6 +99,10 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             )
 
         logger.debug(f"最终使用的 tab_id: {tab_id}")
+
+        # ========== 频道切换 ==========
+        if params.channel and params.channel != "recommend":
+            await self._switch_channel(client, tab_id, params.channel)
 
         # ========== 等待页面加载 ==========
         await asyncio.sleep(3)
@@ -405,56 +351,6 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
             success=True,
             items=feed_items,
             has_more=len(feeds_data) > params.max_items,
-            total_count=len(feed_items),
-            message=self._get_list_message(feed_items)
-        )
-
-    async def _extract_via_site(
-        self,
-        params: XHSListFeedsParams,
-        context: ExecutionContext,
-        site: Site
-    ) -> XHSListFeedsResult:
-        """通过 site 适配器提取数据（当 context 没有 client 时）"""
-        logger.info("通过 site 适配器提取数据")
-
-        extract_result = await site.extract_data(
-            context=context,
-            data_type="feed_list",
-            max_items=params.max_items
-        )
-
-        if not extract_result.success:
-            error_msg = extract_result.error.message if extract_result.error else "未知错误"
-            logger.error(f"提取失败: {error_msg}")
-            return XHSListFeedsResult(
-                success=False,
-                message=f"获取笔记列表失败: {error_msg}"
-            )
-
-        # 解析提取结果
-        items_data = extract_result.data or []
-        if isinstance(items_data, dict):
-            items_data = items_data.get("items", [])
-
-        # 转换为 FeedItem 列表
-        feed_items = []
-        for item_data in items_data:
-            feed_items.append(XHSFeedItem(
-                note_id=item_data.get("note_id"),
-                title=item_data.get("title"),
-                cover_image=item_data.get("cover_image"),
-                author=item_data.get("author"),
-                likes=item_data.get("likes", 0),
-                comments=item_data.get("comments", 0),
-                collects=item_data.get("collects", 0),
-                url=item_data.get("url"),
-            ))
-
-        return XHSListFeedsResult(
-            success=True,
-            items=feed_items,
-            has_more=len(feed_items) >= params.max_items,
             total_count=len(feed_items),
             message=self._get_list_message(feed_items)
         )
@@ -964,10 +860,6 @@ class ListFeedsTool(BusinessTool[XiaohongshuSite, XHSListFeedsParams]):
         else:
             return f"找到 {count} 篇笔记"
 
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
 
 
 # 便捷函数

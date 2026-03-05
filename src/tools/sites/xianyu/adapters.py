@@ -75,6 +75,16 @@ class XianyuSelectors(SiteSelectorSet):
     close_button: str = ".close-btn, .el-dialog__close"
     cookie_accept_button: str = ".cookie-accept, .cookie-agree"
 
+    # ========== 搜索相关选择器 ==========
+    search_input: str = "input.search-input--WY2l9QD3, input[class*='search-input']"
+    search_button: str = "button.search-icon--bewLHteU, button[class*='search-icon'], [class*='search'] button"
+    search_result_container: str = "[class*='goods-list'], [class*='result-list']"
+    search_item_link: str = "a[href*='/item?']"
+    pagination_next: str = "[class*='pagination'] a, [class*='page'] a, [class*='next']"
+    goods_price: str = "[class*='price']"
+    goods_wants: str = "[class*='want'], [class*='wanted']"
+    goods_image: str = "img[class*='cover'], img[class*='image']"
+
 
 class XianyuSliderSolver:
     """

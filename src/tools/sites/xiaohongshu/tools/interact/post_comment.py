@@ -7,15 +7,15 @@
 from typing import Any
 
 from src.tools.base import ExecutionContext
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
-from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSPostCommentParams
 from .result import XHSPostCommentResult
 
 
+@business_tool(name="xhs_post_comment", site_type=XiaohongshuSite, operation_category="interact")
 class PostCommentTool(BusinessTool[XiaohongshuSite, XHSPostCommentParams]):
     """
     小红书发表评论工具
@@ -45,12 +45,14 @@ class PostCommentTool(BusinessTool[XiaohongshuSite, XHSPostCommentParams]):
     site_type = XiaohongshuSite
     required_login = True
 
+    # 使用基类的 tab 管理抽象
+    target_site_domain = "xiaohongshu.com"
+
     @log_operation("xhs_post_comment")
     async def _execute_core(
         self,
         params: XHSPostCommentParams,
-        context: ExecutionContext,
-        site: Site
+        context: ExecutionContext
     ) -> Any:
         """
         核心执行逻辑
@@ -63,25 +65,47 @@ class PostCommentTool(BusinessTool[XiaohongshuSite, XHSPostCommentParams]):
         Returns:
             XHSPostCommentResult: 评论结果
         """
-        # 调用网站适配器的评论方法
-        comment_result = await site.post_comment(
-            context,
-            note_id=params.note_id,
-            content=params.content,
-            at_users=params.at_users
+        # 从 context 获取 client（依赖注入）
+        client = getattr(context, 'client', None)
+
+        # ========== 使用 ensure_site_tab 获取标签页 ==========
+        tab_id = await self.ensure_site_tab(
+            client=client,
+            context=context,
+            fallback_url="https://www.xiaohongshu.com/",
+            params_tab_id=params.tab_id
         )
 
-        if not comment_result.success:
+        if not tab_id:
             return XHSPostCommentResult(
                 success=False,
                 note_id=params.note_id,
                 content=params.content,
-                message=f"评论失败: {comment_result.error}"
+                message="无法获取标签页，请确保浏览器已打开"
+            )
+
+        # 直接使用 client 执行浏览器操作
+        comment_result = await client.execute_tool("browser.control", {
+            "action": "post_comment",
+            "params": {
+                "note_id": params.note_id,
+                "content": params.content,
+                "at_users": params.at_users,
+                "tab_id": tab_id
+            }
+        }, timeout=15000)
+
+        if not comment_result.get("success"):
+            return XHSPostCommentResult(
+                success=False,
+                note_id=params.note_id,
+                content=params.content,
+                message=f"评论失败: {comment_result.get('error', '未知错误')}"
             )
 
         return XHSPostCommentResult(
             success=True,
-            comment_id=comment_result.data.get("comment_id") if comment_result.data else None,
+            comment_id=comment_result.get("data", {}).get("comment_id") if comment_result.get("data") else None,
             note_id=params.note_id,
             content=params.content,
             message=self._get_comment_message(params.content)
@@ -91,12 +115,6 @@ class PostCommentTool(BusinessTool[XiaohongshuSite, XHSPostCommentParams]):
         """生成评论消息"""
         preview = content[:20] + "..." if len(content) > 20 else content
         return f"评论成功: {preview}"
-
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
-
 
 # 便捷函数
 async def post_comment(

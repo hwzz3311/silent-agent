@@ -2,20 +2,29 @@
 小红书获取笔记详情工具
 
 实现 xhs_get_feed_detail 工具，获取笔记详细信息。
+
+直接模式：使用 context.client 直接执行浏览器操作
 """
 
+import logging
 from typing import Any
 
 from src.tools.base import ExecutionContext
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
 from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
+from src.tools.sites.xiaohongshu.utils.page_data import ReadPageDataTool
 from .params import XHSGetFeedDetailParams
 from .result import XHSGetFeedDetailResult
 
+# 创建日志记录器
+logger = logging.getLogger("xhs_get_feed_detail")
 
+
+@business_tool(name="xhs_get_feed_detail", site_type=XiaohongshuSite, operation_category="browse")
 class GetFeedDetailTool(BusinessTool[XiaohongshuSite, XHSGetFeedDetailParams]):
     """
     获取小红书笔记详情
@@ -43,6 +52,10 @@ class GetFeedDetailTool(BusinessTool[XiaohongshuSite, XHSGetFeedDetailParams]):
     site_type = XiaohongshuSite
     required_login = False
 
+    # 使用基类的 tab 管理抽象
+    target_site_domain = "xiaohongshu.com"
+    default_navigate_url = "https://www.xiaohongshu.com"
+
     @log_operation("xhs_get_feed_detail")
     async def _execute_core(
         self,
@@ -51,32 +64,52 @@ class GetFeedDetailTool(BusinessTool[XiaohongshuSite, XHSGetFeedDetailParams]):
         site: Site
     ) -> Any:
         """
-        核心执行逻辑
+        核心执行逻辑 - 直接模式
 
         Args:
             params: 工具参数
-            context: 执行上下文
+            context: 执行上下文（包含 client）
             site: 网站适配器实例
 
         Returns:
             XHSGetFeedDetailResult: 详情结果
         """
-        # 调用网站适配器的提取数据方法
-        extract_result = await site.extract_data(
-            context=context,
-            data_type="feed_detail",
-            max_items=params.max_comments if params.include_comments else 0
-        )
-
-        if not extract_result.success:
+        # 使用 context.client（依赖注入）
+        client = context.client
+        if not client:
             return XHSGetFeedDetailResult(
                 success=False,
                 note_id=params.note_id,
-                message=f"获取笔记详情失败: {extract_result.error}"
+                message="无法获取浏览器客户端请确保通过 API 调用"
             )
 
-        # 解析详情结果
-        detail_data = extract_result.data if isinstance(extract_result.data, dict) else {}
+        # ========== 使用 ensure_site_tab 获取标签页 ==========
+        tab_id = await self.ensure_site_tab(
+            client=client,
+            context=context,
+            fallback_url=self.default_navigate_url,
+            param_tab_id=params.tab_id
+        )
+
+        if not tab_id:
+            logger.error("无法获取或创建标签页，浏览器可能未打开")
+            return XHSGetFeedDetailResult(
+                success=False,
+                note_id=params.note_id,
+                message="无法获取或创建标签页请确保浏览器已打开"
+            )
+
+        logger.debug(f"最终使用的 tab_id: {tab_id}")
+
+        # ========== 直接从页面提取笔记详情 ==========
+        detail_data = await self._extract_feed_detail_direct(client, tab_id)
+
+        if not detail_data:
+            return XHSGetFeedDetailResult(
+                success=False,
+                note_id=params.note_id,
+                message="无法提取笔记详情数据请检查页面是否正确加载"
+            )
 
         return XHSGetFeedDetailResult(
             success=True,
@@ -94,6 +127,54 @@ class GetFeedDetailTool(BusinessTool[XiaohongshuSite, XHSGetFeedDetailParams]):
             message=self._get_detail_message(detail_data)
         )
 
+    async def _extract_feed_detail_direct(self, client, tab_id: int) -> dict:
+        """直接从页面提取笔记详情数据"""
+        # 读取笔记详情数据
+        sources = [
+            "__INITIAL_STATE__.note.detailNote",
+            "__NUXT__.data.0.note",
+            "window.__NOTE_DETAIL__",
+        ]
+
+        detail_data = None
+        for source in sources:
+            try:
+                result = await client.execute_tool("read_page_data", {
+                    "path": source,
+                    "tabId": tab_id
+                }, timeout=15000)
+
+                if result.get("success") and result.get("data"):
+                    detail_data = result.get("data")
+                    logger.debug(f"从 {source} 获取到笔记详情")
+                    break
+            except Exception as e:
+                logger.debug(f"从 {source} 获取失败: {e}")
+                continue
+
+        if not detail_data:
+            logger.warning("未能从全局变量获取笔记详情数据")
+            return None
+
+        # 解析详情数据
+        return {
+            "note_id": detail_data.get("noteId"),
+            "title": detail_data.get("title"),
+            "content": detail_data.get("desc") or detail_data.get("content"),
+            "images": detail_data.get("imageList", []) or detail_data.get("images", []),
+            "video": detail_data.get("video"),
+            "author": {
+                "user_id": detail_data.get("user", {}).get("userId"),
+                "nickname": detail_data.get("user", {}).get("nickname"),
+                "avatar": detail_data.get("user", {}).get("avatar"),
+                "description": detail_data.get("user", {}).get("description"),
+            },
+            "likes": detail_data.get("likedCount", 0),
+            "collects": detail_data.get("collectCount", 0),
+            "comments": detail_data.get("commentCount", 0),
+            "comments_list": [],
+        }
+
     def _get_detail_message(self, detail_data: dict) -> str:
         """生成详情消息"""
         title = detail_data.get("title")
@@ -101,10 +182,6 @@ class GetFeedDetailTool(BusinessTool[XiaohongshuSite, XHSGetFeedDetailParams]):
             return f"获取笔记详情成功: {title[:20]}..."
         return "获取笔记详情成功"
 
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
 
 
 # 便捷函数

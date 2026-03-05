@@ -8,11 +8,9 @@ import logging
 from typing import Any
 
 from src.tools.base import ExecutionContext
-
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
-from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSCheckLoginStatusParams
 from .result import XHSCheckLoginStatusResult
@@ -21,6 +19,7 @@ from .result import XHSCheckLoginStatusResult
 logger = logging.getLogger("xhs_check_login_status")
 
 
+@business_tool(name="xhs_check_login_status", site_type=XiaohongshuSite, operation_category="login")
 class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusParams]):
     """
     检查小红书登录状态
@@ -44,15 +43,17 @@ class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusPara
     version = "1.0.0"
     category = "xiaohongshu"
     operation_category = "login"
-    site_type = XiaohongshuSite
     required_login = False  # 此工具本身用于检查登录状态，不需要登录
+
+    # 直接模式类属性
+    target_site_domain = "xiaohongshu.com"
+    default_navigate_url = "https://www.xiaohongshu.com/"
 
     @log_operation("xhs_check_login_status")
     async def _execute_core(
         self,
         params: XHSCheckLoginStatusParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 通过 context 获取的 client 执行浏览器操作
@@ -60,7 +61,6 @@ class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusPara
         Args:
             params: 工具参数
             context: 执行上下文（包含 client）
-            site: 网站适配器实例
 
         Returns:
             XHSCheckLoginStatusResult: 检查结果
@@ -68,65 +68,25 @@ class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusPara
         logger.info("开始检查小红书登录状态")
         logger.debug(f"参数: tab_id={params.tab_id}")
 
-        # 尝试从 context 获取 client
-        client = getattr(context, 'client', None)
-        logger.debug(f"从 context 获取 client: {client is not None}")
-
+        # 使用 context.client（依赖注入）
+        client = context.client
         if not client:
-            # 如果 context 没有 client，调用 site 的方法（会在 API 层通过 relay 执行）
-            login_result = await site.check_login_status(context)
-            if not login_result.success:
-                return XHSCheckLoginStatusResult(
-                    success=False,
-                    is_logged_in=False,
-                    message=f"检查登录状态失败: {login_result.error}"
-                )
-            login_data = login_result.data if isinstance(login_result.data, dict) else {}
             return XHSCheckLoginStatusResult(
-                success=True,
-                is_logged_in=login_data.get("is_logged_in", False),
-                username=login_data.get("username"),
-                user_id=login_data.get("user_id"),
-                avatar=login_data.get("avatar"),
-                message=self._get_status_message(login_data)
+                success=False,
+                is_logged_in=False,
+                message="无法获取浏览器客户端，请确保通过 API 调用"
             )
 
         # 使用 client 执行读取操作
         try:
-            # 获取 tab_id，如果参数没有指定则获取当前活动标签页
-            tab_id = params.tab_id
-            logger.debug(f"初始 tab_id: {tab_id}")
+            # 使用基类的 ensure_site_tab 方法获取有效标签页
+            tab_id = await self.ensure_site_tab(
+                client=client,
+                context=context,
+                fallback_url="https://www.xiaohongshu.com/",
+                params_tab_id=params.tab_id
+            )
 
-            if not tab_id:
-                # 获取当前活动标签页
-                logger.info("尝试获取当前活动标签页...")
-                tab_result = await client.execute_tool("browser_control", {
-                    "action": "get_active_tab"
-                }, timeout=10000)
-                logger.debug(f"get_active_tab 结果: {tab_result}")
-
-                if tab_result.get("success") and tab_result.get("data"):
-                    tab_id = tab_result.get("data", {}).get("tabId")
-                    logger.info(f"获取到活动标签页: tabId={tab_id}")
-                else:
-                    logger.warning(f"获取活动标签页失败: {tab_result.get('error')}")
-
-            # 如果仍然没有 tab_id，尝试创建新标签页导航到小红书
-            if not tab_id:
-                logger.info("尝试创建新标签页导航到小红书...")
-                nav_result = await client.execute_tool("chrome_navigate", {
-                    "url": "https://www.xiaohongshu.com/",
-                    "newTab": True
-                }, timeout=15000)
-                logger.debug(f"chrome_navigate 结果: {nav_result}")
-
-                if nav_result.get("success") and nav_result.get("data"):
-                    tab_id = nav_result.get("data", {}).get("tabId")
-                    logger.info(f"创建新标签页成功: tabId={tab_id}")
-                else:
-                    logger.warning(f"创建新标签页失败: {nav_result.get('error')}")
-
-            # 如果还是没有 tab_id，抛出错误
             if not tab_id:
                 logger.error("无法获取或创建标签页，浏览器可能未打开")
                 return XHSCheckLoginStatusResult(
@@ -322,10 +282,6 @@ class CheckLoginStatusTool(BusinessTool[XiaohongshuSite, XHSCheckLoginStatusPara
         else:
             return "未登录"
 
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
 
 
 # 便捷函数

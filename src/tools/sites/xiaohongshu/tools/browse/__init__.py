@@ -34,29 +34,8 @@ from .user_profile import (
 
 
 def register():
-    """
-    注册所有浏览相关工具
-
-    Returns:
-        int: 注册的工具数量
-    """
-    from src.tools.business.registry import BusinessToolRegistry
-
-    count = 0
-
-    if BusinessToolRegistry.register_by_class(ListFeedsTool):
-        count += 1
-
-    if BusinessToolRegistry.register_by_class(SearchFeedsTool):
-        count += 1
-
-    if BusinessToolRegistry.register_by_class(GetFeedDetailTool):
-        count += 1
-
-    if BusinessToolRegistry.register_by_class(UserProfileTool):
-        count += 1
-
-    return count
+    """工具已通过 @business_tool 装饰器自动注册"""
+    return 0  # 装饰器自动注册，无需手动调用
 
 
 def get_tool_names() -> list:

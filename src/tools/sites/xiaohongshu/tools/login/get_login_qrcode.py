@@ -8,10 +8,10 @@ import logging
 from typing import Any
 
 from src.tools.base import ExecutionContext
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
 from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSGetLoginQrcodeParams
 from .result import XHSGetLoginQrcodeResult
@@ -20,6 +20,7 @@ from .result import XHSGetLoginQrcodeResult
 logger = logging.getLogger("xhs_get_login_qrcode")
 
 
+@business_tool(name="xhs_get_login_qrcode", site_type=XiaohongshuSite, operation_category="login")
 class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams]):
     """
     获取小红书登录二维码
@@ -44,6 +45,10 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
     operation_category = "login"
     site_type = XiaohongshuSite
     required_login = False  # 此工具用于获取登录二维码，不需要已登录
+
+    # 使用基类的 tab 管理抽象
+    target_site_domain = "xiaohongshu.com"
+    default_navigate_url = "https://www.xiaohongshu.com/"
 
     @log_operation("xhs_get_login_qrcode")
     async def _execute_core(
@@ -78,76 +83,13 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
             )
 
         # 小红书域名
-        site_domain = "xiaohongshu.com"
-        # 获取密钥用于 site_tab 操作
-        secret_key = getattr(context, 'secret_key', None)
-
-        # ========== tab_id 管理（参考 list_feeds.py）==========
-        # 优先级：参数 > context > site_tab_map > 获取活动标签页 > 创建新标签页
-        tab_id = params.tab_id
-        logger.debug(f"初始 tab_id: {tab_id}")
-
-        if not tab_id:
-            # 从 context 获取 tab_id
-            tab_id = context.tab_id
-            logger.debug(f"从 context 获取 tab_id: {tab_id}")
-
-        if not tab_id and hasattr(client, 'get_site_tab'):
-            # 从全局 site tab 映射获取
-            tab_id = client.get_site_tab(site_domain, secret_key)
-            logger.debug(f"从 site_tab_map 获取 tab_id: {tab_id}")
-
-            # 检测 tab 是否还可用
-            if tab_id and not await self._is_tab_valid(client, tab_id):
-                logger.warning(f"site_tab_map 中的 tab_id={tab_id} 已失效，将重新获取")
-                if hasattr(client, 'clear_site_tab'):
-                    client.clear_site_tab(site_domain, secret_key)
-                tab_id = None
-
-        if not tab_id:
-            # 获取当前活动标签页
-            logger.info("尝试获取当前活动标签页...")
-            tab_result = await client.execute_tool("browser_control", {
-                "action": "get_active_tab"
-            }, timeout=10000)
-            logger.debug(f"get_active_tab 结果: {tab_result}")
-
-            if tab_result.get("success") and tab_result.get("data"):
-                tab_id = tab_result.get("data", {}).get("tabId")
-                tab_url = tab_result.get("data", {}).get("url", "")
-                logger.info(f"获取到活动标签页: tabId={tab_id}, url={tab_url}")
-
-                # 检查 URL 是否为目标网站
-                if site_domain not in tab_url:
-                    logger.info(f"活动标签页不是目标网站({site_domain})，将创建新标签页")
-                    tab_id = None
-            else:
-                logger.warning(f"获取活动标签页失败: {tab_result.get('error')}")
-
-        # 如果仍然没有 tab_id，创建新标签页导航到小红书登录页
-        if not tab_id:
-            logger.info("尝试创建新标签页导航到小红书登录页...")
-            nav_result = await client.execute_tool("chrome_navigate", {
-                "url": "https://www.xiaohongshu.com/",
-                "newTab": True
-            }, timeout=15000)
-            logger.debug(f"chrome_navigate 结果: {nav_result}")
-
-            # chrome_navigate 返回嵌套结构: {success, data: {success, data: {tabId}, error}}
-            if nav_result.get("success") and nav_result.get("data"):
-                inner_data = nav_result.get("data", {})
-                if inner_data.get("success") and inner_data.get("data"):
-                    tab_id = inner_data.get("data", {}).get("tabId")
-                    logger.info(f"创建新标签页成功: tabId={tab_id}")
-                else:
-                    logger.warning(f"创建新标签页失败: {inner_data.get('error')}")
-            else:
-                logger.warning(f"创建新标签页失败: {nav_result.get('error')}")
-
-        # 保存 tab_id 到全局映射
-        if tab_id and hasattr(client, 'set_site_tab'):
-            client.set_site_tab(site_domain, tab_id, secret_key)
-            logger.debug(f"保存 tab_id 到 site_tab_map: {site_domain} -> {tab_id}")
+        # 使用基类的 ensure_site_tab 方法获取有效标签页
+        tab_id = await self.ensure_site_tab(
+            client=client,
+            context=context,
+            fallback_url=self.default_navigate_url,
+            params_tab_id=params.tab_id
+        )
 
         # 如果还是没有 tab_id，抛出错误
         if not tab_id:
@@ -264,10 +206,6 @@ class GetLoginQrcodeTool(BusinessTool[XiaohongshuSite, XHSGetLoginQrcodeParams])
         else:
             return "无法获取登录二维码"
 
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
 
 
 # 便捷函数

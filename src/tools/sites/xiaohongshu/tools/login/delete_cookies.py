@@ -7,15 +7,15 @@
 from typing import Any, List
 
 from src.tools.base import ExecutionContext
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
-from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import BHSDeleteCookiesParams
 from .result import BHSDeleteCookiesResult
 
 
+@business_tool(name="xhs_delete_cookies", site_type=XiaohongshuSite, operation_category="login")
 class DeleteCookiesTool(BusinessTool[XiaohongshuSite, BHSDeleteCookiesParams]):
     """
     删除小红书登录 Cookie
@@ -38,15 +38,17 @@ class DeleteCookiesTool(BusinessTool[XiaohongshuSite, BHSDeleteCookiesParams]):
     version = "1.0.0"
     category = "xiaohongshu"
     operation_category = "login"
-    site_type = XiaohongshuSite
     required_login = False  # 删除 Cookie 不需要已登录
+
+    # 直接模式类属性
+    target_site_domain = "xiaohongshu.com"
+    default_navigate_url = "https://www.xiaohongshu.com"
 
     @log_operation("xhs_delete_cookies")
     async def _execute_core(
         self,
         params: BHSDeleteCookiesParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑
@@ -54,26 +56,67 @@ class DeleteCookiesTool(BusinessTool[XiaohongshuSite, BHSDeleteCookiesParams]):
         Args:
             params: 工具参数
             context: 执行上下文
-            site: 网站适配器实例
 
         Returns:
             BHSDeleteCookiesResult: 删除结果
         """
-        # 调用网站适配器的删除 Cookie 方法
-        delete_result = await site.delete_cookies(
-            context,
-            delete_all=params.delete_all,
-            cookie_names=params.cookie_names
-        )
+        import logging
 
-        if not delete_result.success:
+        logger = logging.getLogger(f"business_tool.{self.name}")
+
+        # 使用 context.client（依赖注入）
+        client = context.client
+        if not client:
             return BHSDeleteCookiesResult(
                 success=False,
-                message=f"删除 Cookie 失败: {delete_result.error}"
+                message="无法获取浏览器客户端，请确保通过 API 调用"
+            )
+
+        # 使用 ensure_site_tab 获取标签页
+        tab_id = await self.ensure_site_tab(
+            client=client,
+            context=context,
+            fallback_url=self.default_navigate_url,
+            params_tab_id=params.tab_id
+        )
+
+        if not tab_id:
+            return BHSDeleteCookiesResult(
+                success=False,
+                message="无法获取标签页"
+            )
+
+        # 构建删除参数
+        params_dict = {
+            "action": "delete_cookies",
+            "params": {}
+        }
+
+        if params.delete_all:
+            params_dict["params"]["delete_all"] = True
+        elif params.cookie_names:
+            params_dict["params"]["cookie_names"] = params.cookie_names
+
+        logger.info(
+            f"[delete_cookies] 开始删除 Cookie - "
+            f"tab_id={tab_id}, delete_all={params.delete_all}, cookie_names={params.cookie_names}"
+        )
+
+        result = await client.execute_tool(
+            "browser_control",
+            params_dict,
+            timeout=10000
+        )
+
+        if not result.get("success"):
+            logger.error(f"[delete_cookies] 删除失败: {result.get('error')}")
+            return BHSDeleteCookiesResult(
+                success=False,
+                message=f"删除 Cookie 失败: {result.get('error')}"
             )
 
         # 解析删除结果
-        result_data = delete_result.data if isinstance(delete_result.data, dict) else {}
+        result_data = result.get("data", {}) if isinstance(result.get("data"), dict) else {}
 
         return BHSDeleteCookiesResult(
             success=True,
@@ -98,10 +141,6 @@ class DeleteCookiesTool(BusinessTool[XiaohongshuSite, BHSDeleteCookiesParams]):
         else:
             return "未删除任何 Cookie"
 
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
 
 
 # 便捷函数

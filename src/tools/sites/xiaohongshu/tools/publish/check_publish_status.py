@@ -4,18 +4,22 @@
 实现 xhs_check_publish_status 工具，检查笔记发布状态。
 """
 
+import logging
 from typing import Any
 
 from src.tools.base import ExecutionContext
+from src.tools.business import business_tool
 from src.tools.business.base import BusinessTool
 from src.tools.business.logging import log_operation
-from src.tools.business.site_base import Site
-from src.tools.business.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSCheckPublishStatusParams
 from .result import XHSCheckPublishStatusResult
 
+# 创建日志记录器
+logger = logging.getLogger("xhs_check_publish_status")
 
+
+@business_tool(name="xhs_check_publish_status", site_type=XiaohongshuSite, operation_category="publish")
 class CheckPublishStatusTool(BusinessTool[XiaohongshuSite, XHSCheckPublishStatusParams]):
     """
     小红书检查发布状态工具
@@ -41,47 +45,110 @@ class CheckPublishStatusTool(BusinessTool[XiaohongshuSite, XHSCheckPublishStatus
     site_type = XiaohongshuSite
     required_login = True
 
+    # 直接模式类属性
+    target_site_domain = "xiaohongshu.com"
+    default_navigate_url = "https://www.xiaohongshu.com/"
+
     @log_operation("xhs_check_publish_status")
     async def _execute_core(
         self,
         params: XHSCheckPublishStatusParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
-        核心执行逻辑
+        核心执行逻辑 - 直接模式
 
         Args:
             params: 工具参数
-            context: 执行上下文
-            site: 网站适配器实例
+            context: 执行上下文（包含 client）
 
         Returns:
             XHSCheckPublishStatusResult: 检查结果
         """
-        # 调用网站适配器的检查发布状态方法
-        status_result = await site.check_publish_status(
-            context,
-            note_id=params.note_id
-        )
+        logger.info(f"开始检查笔记发布状态，note_id: {params.note_id}")
 
-        if not status_result.success:
+        # 直接使用 context.client
+        client = context.client
+        logger.debug(f"使用 context.client: {client is not None}")
+
+        if not client:
+            logger.error("context.client 为空，浏览器可能未连接")
             return XHSCheckPublishStatusResult(
                 success=False,
-                message=f"检查发布状态失败: {status_result.error}"
+                message="浏览器未连接，请确保浏览器已启动"
             )
 
-        # 解析状态结果
-        result_data = status_result.data if isinstance(status_result.data, dict) else {}
+        # ========== 使用 ensure_site_tab 获取标签页 ==========
+        tab_id = await self.ensure_site_tab(
+            client=client,
+            context=context,
+            fallback_url=self.default_navigate_url,
+            param_tab_id=params.tab_id
+        )
+
+        if not tab_id:
+            logger.error("无法获取或创建标签页，浏览器可能未打开")
+            return XHSCheckPublishStatusResult(
+                success=False,
+                message="无法获取或创建标签页，请确保浏览器已打开"
+            )
+
+        logger.debug(f"最终使用的 tab_id: {tab_id}")
+
+        # ========== 导航到笔记详情页 ==========
+        if params.note_id:
+            from src.tools.browser.navigate import NavigateTool
+            nav_tool = NavigateTool()
+            await nav_tool.execute(
+                params=nav_tool._get_params_type()(
+                    url=f"https://www.xiaohongshu.com/explore/{params.note_id}"
+                ),
+                context=context
+            )
+
+            # 等待页面加载
+            import asyncio
+            await asyncio.sleep(2)
+
+        # ========== 提取状态信息 ==========
+        from src.tools.browser.evaluate import EvaluateTool
+        eval_tool = EvaluateTool()
+
+        # 尝试获取页面状态
+        js_code = """
+        (function() {
+            const publishBtn = document.querySelector('.publish-btn, .publish-button');
+            const statusText = document.querySelector('[class*="status"], [class*="publish"]');
+
+            if (publishBtn) {
+                const text = publishBtn.textContent || publishBtn.innerText;
+                if (text.includes('发布')) {
+                    return { status: 'draft', message: '草稿状态' };
+                }
+            }
+
+            return { status: 'unknown', message: '状态未知' };
+        })
+        """
+
+        result = await eval_tool.execute(
+            params=eval_tool._get_params_type()(code=js_code),
+            context=context
+        )
+
+        if result.success and result.data:
+            status = result.data.get("status", "unknown")
+        else:
+            status = "unknown"
 
         return XHSCheckPublishStatusResult(
             success=True,
-            note_id=result_data.get("note_id") or params.note_id,
-            status=result_data.get("status", "unknown"),
-            publish_time=result_data.get("publish_time"),
-            views=result_data.get("views", 0),
-            likes=result_data.get("likes", 0),
-            message=self._get_status_message(result_data)
+            note_id=params.note_id,
+            status=status,
+            publish_time=None,
+            view=0,
+            likes=0,
+            message=self._get_status_message({"status": status, "views": 0, "likes": 0})
         )
 
     def _get_status_message(self, result_data: dict) -> str:
@@ -105,12 +172,6 @@ class CheckPublishStatusTool(BusinessTool[XiaohongshuSite, XHSCheckPublishStatus
             message += f"，浏览: {views}，点赞: {likes}"
 
         return message
-
-    @classmethod
-    def register(cls):
-        """注册工具到全局注册表"""
-        return BusinessToolRegistry.register_by_class(cls)
-
 
 # 便捷函数
 async def check_publish_status(

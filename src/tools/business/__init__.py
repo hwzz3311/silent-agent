@@ -71,6 +71,9 @@ from .selectors import (
     global_selector_manager,
 )
 
+# 装饰器
+from .decorator import business_tool
+
 __all__ = [
     # 抽象基类
     "BusinessTool",
@@ -109,6 +112,8 @@ __all__ = [
     "SelectorManager",
     "GlobalSelectorManager",
     "global_selector_manager",
+    # 装饰器
+    "business_tool",
 ]
 
 
