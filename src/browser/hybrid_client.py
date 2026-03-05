@@ -8,14 +8,15 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
-from .base import BrowserClient, BrowserClientError
+from src.ports.browser_port import BrowserPort
+from src.core.result import Result
 from .puppeteer_client import PuppeteerClient
 from .extension_client import ExtensionClient
 
 logger = logging.getLogger(__name__)
 
 
-class HybridClient(BrowserClient):
+class HybridClient(BrowserPort):
     """
     混合模式客户端
 
@@ -104,83 +105,109 @@ class HybridClient(BrowserClient):
 
     # ========== 页面操作（优先使用扩展） ==========
 
-    async def navigate(self, url: str, new_tab: bool = True) -> Dict[str, Any]:
+    async def navigate(self, url: str, **kwargs) -> Result[dict]:
         """导航：优先使用 Puppeteer（更可靠），不可用时使用 Extension"""
         await self._ensure_connected()
+        new_tab = kwargs.get("new_tab", True)
         if self._puppeteer:
-            return await self._puppeteer.navigate(url, new_tab=new_tab)
+            result = await self._puppeteer.navigate(url, new_tab=new_tab)
+            return Result.ok(result)
         elif self._extension:
-            return await self._extension.navigate(url, new_tab=new_tab)
-        return {"success": False, "error": "无可用的浏览器客户端"}
+            result = await self._extension.navigate(url, new_tab=new_tab)
+            return Result.ok(result)
+        return Result.ok({"success": False, "error": "无可用的浏览器客户端"})
 
-    async def click(self, selector: str, text: str = None, timeout: float = 5) -> Dict[str, Any]:
+    async def click(self, selector: str, **kwargs) -> Result[dict]:
         """点击：优先使用扩展（Puppeteer 点击有时不触发事件）"""
         await self._ensure_connected()
+        text = kwargs.get("text")
+        timeout = kwargs.get("timeout", 5)
         if self._extension:
-            return await self._extension.click(selector, text=text, timeout=timeout)
-        return await self._puppeteer.click(selector, text=text, timeout=timeout)
+            result = await self._extension.click(selector, text=text, timeout=timeout)
+            return Result.ok(result)
+        result = await self._puppeteer.click(selector, text=text, timeout=timeout)
+        return Result.ok(result)
 
-    async def fill(self, selector: str, value: str, method: str = "set") -> Dict[str, Any]:
+    async def fill(self, selector: str, value: str, **kwargs) -> Result[dict]:
         """填充：优先使用扩展"""
         await self._ensure_connected()
+        method = kwargs.get("method", "set")
         if self._extension:
-            return await self._extension.fill(selector, value, method=method)
-        return await self._puppeteer.fill(selector, value, method=method)
+            result = await self._extension.fill(selector, value, method=method)
+            return Result.ok(result)
+        result = await self._puppeteer.fill(selector, value, method=method)
+        return Result.ok(result)
 
     async def extract(
         self,
         selector: str,
         attribute: str = "text",
-        all: bool = False
-    ) -> Dict[str, Any]:
+        all: bool = False,
+        **kwargs
+    ) -> Result[dict]:
         """提取：优先使用扩展"""
         await self._ensure_connected()
         if self._extension:
-            return await self._extension.extract(selector, attribute=attribute, all=all)
-        return await self._puppeteer.extract(selector, attribute=attribute, all=all)
+            result = await self._extension.extract(selector, attribute=attribute, all=all)
+            return Result.ok(result)
+        result = await self._puppeteer.extract(selector, attribute=attribute, all=all)
+        return Result.ok(result)
 
-    async def inject(self, code: str, world: str = "MAIN") -> Dict[str, Any]:
+    async def evaluate(self, script: str, **kwargs) -> Result[dict]:
         """注入脚本：两者都可以"""
         await self._ensure_connected()
+        world = kwargs.get("world", "MAIN")
         if self._extension:
-            return await self._extension.inject(code, world=world)
-        return await self._puppeteer.inject(code, world=world)
+            result = await self._extension.inject(script, world=world)
+            return Result.ok(result)
+        result = await self._puppeteer.inject(script, world=world)
+        return Result.ok(result)
 
-    async def screenshot(self, format: str = "png") -> Dict[str, Any]:
+    async def screenshot(self, **kwargs) -> Result[dict]:
         """截图：优先使用 Puppeteer（更稳定）"""
         await self._ensure_connected()
-        return await self._puppeteer.screenshot(format=format)
+        format = kwargs.get("format", "png")
+        result = await self._puppeteer.screenshot(format=format)
+        return Result.ok(result)
 
     async def scroll(
         self,
         direction: str = "down",
         amount: int = 300,
-        selector: str = None
-    ) -> Dict[str, Any]:
+        selector: str = None,
+        **kwargs
+    ) -> Result[dict]:
         """滚动：优先使用扩展"""
         await self._ensure_connected()
         if self._extension:
-            return await self._extension.scroll(direction=direction, amount=amount, selector=selector)
-        return await self._puppeteer.scroll(direction=direction, amount=amount, selector=selector)
+            result = await self._extension.scroll(direction=direction, amount=amount, selector=selector)
+            return Result.ok(result)
+        result = await self._puppeteer.scroll(direction=direction, amount=amount, selector=selector)
+        return Result.ok(result)
 
     async def wait_for(
         self,
         selector: str,
-        count: int = 1,
-        timeout: float = 60
-    ) -> Dict[str, Any]:
+        timeout: int = 30000,
+        **kwargs
+    ) -> Result[dict]:
         """等待：两者都可以"""
         await self._ensure_connected()
+        count = kwargs.get("count", 1)
         if self._extension:
-            return await self._extension.wait_for(selector, count=count, timeout=timeout)
-        return await self._puppeteer.wait_for(selector, count=count, timeout=timeout)
+            result = await self._extension.wait_for(selector, count=count, timeout=timeout)
+            return Result.ok(result)
+        result = await self._puppeteer.wait_for(selector, count=count, timeout=timeout)
+        return Result.ok(result)
 
-    async def keyboard(self, keys: str, selector: str = None) -> Dict[str, Any]:
+    async def keyboard(self, keys: str, selector: str = None, **kwargs) -> Result[dict]:
         """键盘：优先使用扩展"""
         await self._ensure_connected()
         if self._extension:
-            return await self._extension.keyboard(keys, selector=selector)
-        return await self._puppeteer.keyboard(keys, selector=selector)
+            result = await self._extension.keyboard(keys, selector=selector)
+            return Result.ok(result)
+        result = await self._puppeteer.keyboard(keys, selector=selector)
+        return Result.ok(result)
 
     # ========== 工具执行接口（T2.5.3） ==========
 
@@ -397,12 +424,7 @@ class HybridClient(BrowserClient):
 
     # ========== 无障碍树（核心优势：真实树） ==========
 
-    async def get_a11y_tree(
-        self,
-        action: str = "get_tree",
-        limit: int = 100,
-        tab_id: int = None
-    ) -> Dict[str, Any]:
+    async def get_a11y_tree(self, **kwargs) -> Result[dict]:
         """
         获取无障碍树：使用 Puppeteer 获取真实树
 
@@ -410,48 +432,58 @@ class HybridClient(BrowserClient):
         """
         await self._ensure_connected()
 
+        action = kwargs.get("action", "get_tree")
+        limit = kwargs.get("limit", 100)
+        tab_id = kwargs.get("tab_id")
+
         if self._puppeteer:
             # 优先使用 Puppeteer 获取真实无障碍树
             result = await self._puppeteer.get_a11y_tree(action=action, limit=limit)
 
             if result.get("success"):
-                return result
+                return Result.ok(result)
 
             # 如果 Puppeteer 失败，尝试 CDP
             if action == "get_tree":
                 cdp_result = await self._puppeteer.get_a11y_tree_via_cdp(limit=limit)
                 if cdp_result.get("success"):
-                    return cdp_result
+                    return Result.ok(cdp_result)
 
         # 回退到扩展
         if self._extension:
-            return await self._extension.get_a11y_tree(action=action, limit=limit, tab_id=tab_id)
+            result = await self._extension.get_a11y_tree(action=action, limit=limit, tab_id=tab_id)
+            return Result.ok(result)
 
-        return {"success": False, "error": "无可用的无障碍树获取方式"}
+        return Result.ok({"success": False, "error": "无可用的无障碍树获取方式"})
 
     # ========== 标签页操作 ==========
 
-    async def get_active_tab(self) -> Dict[str, Any]:
+    async def get_active_tab(self) -> Result[dict]:
         await self._ensure_connected()
         if self._puppeteer:
-            return await self._puppeteer.get_active_tab()
+            result = await self._puppeteer.get_active_tab()
+            return Result.ok(result)
         if self._extension:
-            return await self._extension.get_active_tab()
-        return {"success": False, "error": "未连接"}
+            result = await self._extension.get_active_tab()
+            return Result.ok(result)
+        return Result.ok({"success": False, "error": "未连接"})
 
-    async def close_tab(self, tab_id: int) -> Dict[str, Any]:
+    async def close_tab(self, tab_id: int) -> Result[dict]:
         await self._ensure_connected()
         if self._extension:
-            return await self._extension.close_tab(tab_id)
-        return {"success": False, "error": "Puppeteer 不支持按 ID 关闭"}
+            result = await self._extension.close_tab(tab_id)
+            return Result.ok(result)
+        return Result.ok({"success": False, "error": "Puppeteer 不支持按 ID 关闭"})
 
-    async def list_tabs(self) -> List[Dict[str, Any]]:
+    async def list_tabs(self) -> Result[list]:
         await self._ensure_connected()
         if self._puppeteer:
-            return await self._puppeteer.list_tabs()
+            result = await self._puppeteer.list_tabs()
+            return Result.ok(result)
         if self._extension:
-            return await self._extension.list_tabs()
-        return []
+            result = await self._extension.list_tabs()
+            return Result.ok(result)
+        return Result.ok([])
 
 
 __all__ = ["HybridClient"]

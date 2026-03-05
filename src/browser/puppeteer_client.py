@@ -10,7 +10,9 @@ import base64
 import json
 from typing import Any, Dict, List, Optional
 
-from .base import BrowserClient, BrowserClientError
+from src.ports.browser_port import BrowserPort
+from src.core.result import Result
+from src.browser.client_factory import BrowserClientError
 
 # Pyppeteer 相关导入
 try:
@@ -22,7 +24,7 @@ except ImportError:
     pyppeteer_connect = None
 
 
-class PuppeteerClient(BrowserClient):
+class PuppeteerClient(BrowserPort):
     """
     Puppeteer 客户端
 
@@ -139,7 +141,7 @@ class PuppeteerClient(BrowserClient):
 
     # ========== 页面操作 ==========
 
-    async def navigate(self, url: str, new_tab: bool = True) -> Dict[str, Any]:
+    async def navigate(self, url: str, new_tab: bool = True) -> Result[dict]:
         await self._ensure_connected()
 
         if new_tab:
@@ -147,11 +149,11 @@ class PuppeteerClient(BrowserClient):
 
         try:
             await self._page.goto(url, {"waitUntil": "networkidle0", "timeout": 30000})
-            return {"success": True, "url": url}
+            return Result.ok({"success": True, "url": url})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
-    async def click(self, selector: str, text: str = None, timeout: float = 5) -> Dict[str, Any]:
+    async def click(self, selector: str, text: str = None, timeout: float = 5) -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -162,16 +164,16 @@ class PuppeteerClient(BrowserClient):
                     el_text = await self._page.evaluate("(el) => el.textContent", el)
                     if text in el_text:
                         await el.click()
-                        return {"success": True, "selector": selector}
-                return {"success": False, "error": f"未找到包含文本 '{text}' 的元素"}
+                        return Result.ok({"success": True, "selector": selector})
+                return Result.ok({"success": False, "error": f"未找到包含文本 '{text}' 的元素"})
 
             # 直接点击
             await self._page.click(selector, {"timeout": timeout * 1000})
-            return {"success": True, "selector": selector}
+            return Result.ok({"success": True, "selector": selector})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
-    async def fill(self, selector: str, value: str, method: str = "set") -> Dict[str, Any]:
+    async def fill(self, selector: str, value: str, method: str = "set") -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -187,16 +189,16 @@ class PuppeteerClient(BrowserClient):
                     }}""",
                     selector, value,
                 )
-            return {"success": True, "selector": selector, "value": value}
+            return Result.ok({"success": True, "selector": selector, "value": value})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
     async def extract(
         self,
         selector: str,
         attribute: str = "text",
         all: bool = False
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -212,34 +214,34 @@ class PuppeteerClient(BrowserClient):
                         results.append(html)
                     else:
                         results.append(await el.getProperty(attribute))
-                return {"success": True, "data": results}
+                return Result.ok({"success": True, "data": results})
             else:
                 el = await self._page.querySelector(selector)
                 if not el:
-                    return {"success": False, "error": "元素未找到"}
+                    return Result.ok({"success": False, "error": "元素未找到"})
 
                 if attribute == "text":
                     text = await self._page.evaluate("(el) => el.textContent", el)
-                    return {"success": True, "data": text.strip()}
+                    return Result.ok({"success": True, "data": text.strip()})
                 elif attribute == "html":
                     html = await self._page.evaluate("(el) => el.outerHTML", el)
-                    return {"success": True, "data": html}
+                    return Result.ok({"success": True, "data": html})
                 else:
                     prop = await el.getProperty(attribute)
-                    return {"success": True, "data": prop}
+                    return Result.ok({"success": True, "data": prop})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
-    async def inject(self, code: str, world: str = "MAIN") -> Dict[str, Any]:
+    async def evaluate(self, script: str, world: str = "MAIN") -> Result[dict]:
         await self._ensure_connected()
 
         try:
-            result = await self._page.evaluate(code)
-            return {"success": True, "result": result}
+            result = await self._page.evaluate(script)
+            return Result.ok({"success": True, "result": result})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
-    async def screenshot(self, format: str = "png") -> Dict[str, Any]:
+    async def screenshot(self, format: str = "png") -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -252,16 +254,16 @@ class PuppeteerClient(BrowserClient):
             else:
                 b64 = screenshot_data
 
-            return {"success": True, "data": b64, "format": format}
+            return Result.ok({"success": True, "data": b64, "format": format})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
     async def scroll(
         self,
         direction: str = "down",
         amount: int = 300,
         selector: str = None
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -283,16 +285,16 @@ class PuppeteerClient(BrowserClient):
                     }}""",
                     direction, amount,
                 )
-            return {"success": True, "direction": direction, "amount": amount}
+            return Result.ok({"success": True, "direction": direction, "amount": amount})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
     async def wait_for(
         self,
         selector: str,
         count: int = 1,
         timeout: float = 60
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -305,13 +307,13 @@ class PuppeteerClient(BrowserClient):
             actual_count = len(elements)
 
             if actual_count >= count:
-                return {"success": True, "count": actual_count}
+                return Result.ok({"success": True, "count": actual_count})
             else:
-                return {"success": False, "error": f"元素数量不足: 期望 {count}, 实际 {actual_count}"}
+                return Result.ok({"success": False, "error": f"元素数量不足: 期望 {count}, 实际 {actual_count}"})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
-    async def keyboard(self, keys: str, selector: str = None) -> Dict[str, Any]:
+    async def keyboard(self, keys: str, selector: str = None) -> Result[dict]:
         await self._ensure_connected()
 
         try:
@@ -321,9 +323,9 @@ class PuppeteerClient(BrowserClient):
 
             # 逐个按键输入
             await self._page.keyboard.type(keys)
-            return {"success": True, "keys": keys}
+            return Result.ok({"success": True, "keys": keys})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
     # ========== 无障碍树 ==========
 
@@ -332,7 +334,7 @@ class PuppeteerClient(BrowserClient):
         action: str = "get_tree",
         limit: int = 100,
         tab_id: int = None
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         """
         获取无障碍树
 
@@ -376,7 +378,7 @@ class PuppeteerClient(BrowserClient):
                 if snapshot:
                     process_node(snapshot)
 
-                return {
+                return Result.ok({
                     "success": True,
                     "data": {
                         "rootIds": root_ids[:limit],
@@ -384,20 +386,20 @@ class PuppeteerClient(BrowserClient):
                         "totalNode": len(nodes),
                         "timestamp": asyncio.get_event_loop().time(),
                     }
-                }
+                })
 
             elif action == "get_focused":
                 # 获取焦点元素
                 focused = await self._page.accessibility.getAXNode()
-                return {"success": True, "data": focused}
+                return Result.ok({"success": True, "data": focused})
 
             else:
-                return {"success": False, "error": f"Unknown action: {action}"}
+                return Result.ok({"success": False, "error": f"Unknown action: {action}"})
 
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
-    async def get_a11y_tree_via_cdp(self, limit: int = 100) -> Dict[str, Any]:
+    async def get_a11y_tree_via_cdp(self, limit: int = 100) -> Result[dict]:
         """
         通过 CDP 获取完整的无障碍树
 
@@ -416,36 +418,36 @@ class PuppeteerClient(BrowserClient):
 
             await cdp.send("Accessibility.disable")
 
-            return {"success": True, "data": result}
+            return Result.ok({"success": True, "data": result})
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return Result.ok({"success": False, "error": str(e)})
 
     # ========== 标签页操作 ==========
 
-    async def get_active_tab(self) -> Dict[str, Any]:
+    async def get_active_tab(self) -> Result[dict]:
         await self._ensure_connected()
         # 返回包含 tabId 的结果（用于兼容业务工具）
-        return {
+        return Result.ok({
             "success": True,
             "data": {
                 "tabId": "active",
                 "url": self._page.url,
                 "title": self._page.title
             }
-        }
+        })
 
-    async def close_tab(self, tab_id: int) -> Dict[str, Any]:
+    async def close_tab(self, tab_id: int) -> Result[dict]:
         await self._ensure_connected()
         # 注意：Puppeteer 中 tab_id 概念不同
-        return {"success": False, "error": "Puppeteer 不支持按 ID 关闭标签页"}
+        return Result.ok({"success": False, "error": "Puppeteer 不支持按 ID 关闭标签页"})
 
-    async def list_tabs(self) -> List[Dict[str, Any]]:
+    async def list_tabs(self) -> Result[List[dict]]:
         await self._ensure_connected()
         pages = await self._browser.pages()
-        return [
+        return Result.ok([
             {"url": p.url, "title": p.title}
             for p in pages if p.url
-        ]
+        ])
 
 
 __all__ = ["PuppeteerClient"]

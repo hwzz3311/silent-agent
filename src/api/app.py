@@ -98,7 +98,6 @@ async def get_browser_client(
     """
     import asyncio
     from src.browser import BrowserClientFactory, BrowserMode
-    from src.ports import BrowserPortAdapter
     from src.config import get_config
 
     config = get_config()
@@ -106,7 +105,7 @@ async def get_browser_client(
 
     logger.info(f"[DI] 创建浏览器客户端，模式: {browser_mode.value}")
 
-    # 创建客户端
+    # 创建客户端（已经是 BrowserPort 实现）
     client = BrowserClientFactory.create_client(browser_mode)
 
     # 连接
@@ -118,8 +117,8 @@ async def get_browser_client(
     except Exception as e:
         logger.warning(f"[DI] 浏览器客户端连接失败: {e}")
 
-    # 适配为 BrowserPort
-    return BrowserPortAdapter(client)
+    # 直接返回（已经是 BrowserPort）
+    return client
 
 
 # 导出依赖注入函数别名

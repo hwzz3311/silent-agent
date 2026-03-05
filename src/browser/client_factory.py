@@ -8,7 +8,12 @@ import os
 from enum import Enum
 from typing import Optional, Dict, Any
 
-from .base import BrowserClient, BrowserClientError
+from src.ports.browser_port import BrowserPort
+
+
+class BrowserClientError(Exception):
+    """浏览器客户端错误"""
+    pass
 
 
 class BrowserMode(str, Enum):
@@ -76,7 +81,7 @@ class BrowserClientFactory:
     根据配置创建对应的浏览器客户端。
     """
 
-    _instance: Optional[BrowserClient] = None
+    _instance: Optional[BrowserPort] = None
     _config: Optional[BrowserConfig] = None
 
     @classmethod
@@ -93,7 +98,7 @@ class BrowserClientFactory:
         return cls._config
 
     @classmethod
-    def create_client(cls, mode: BrowserMode = None) -> BrowserClient:
+    def create_client(cls, mode: BrowserMode = None) -> BrowserPort:
         """
         创建浏览器客户端
 
@@ -142,7 +147,7 @@ class BrowserClientFactory:
             raise BrowserClientError(f"Unknown browser mode: {mode}")
 
     @classmethod
-    async def get_client(cls) -> BrowserClient:
+    async def get_client(cls) -> BrowserPort:
         """
         获取单例客户端实例
 
@@ -162,7 +167,7 @@ class BrowserClientFactory:
             cls._instance = None
 
     @classmethod
-    def create_client_for_instance(cls, instance: "BrowserInstance") -> BrowserClient:
+    def create_client_for_instance(cls, instance: "BrowserInstance") -> BrowserPort:
         """
         根据浏览器实例创建客户端
 
@@ -211,7 +216,7 @@ class BrowserClientFactory:
 
 
 # 便捷函数
-def get_browser_client(mode: BrowserMode = None) -> BrowserClient:
+def get_browser_client(mode: BrowserMode = None) -> BrowserPort:
     """获取浏览器客户端（便捷函数）"""
     return BrowserClientFactory.create_client(mode)
 

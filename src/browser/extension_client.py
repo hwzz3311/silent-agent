@@ -7,11 +7,12 @@
 from typing import Any, Dict, List, Optional
 import asyncio
 
-from .base import BrowserClient, BrowserClientError
+from src.ports.browser_port import BrowserPort
+from src.core.result import Result
 from ..relay_client import SilentAgentClient as RelayClient
 
 
-class ExtensionClient(BrowserClient):
+class ExtensionClient(BrowserPort):
     """
     扩展客户端
 
@@ -58,56 +59,66 @@ class ExtensionClient(BrowserClient):
 
     # ========== 页面操作 ==========
 
-    async def navigate(self, url: str, new_tab: bool = True) -> Dict[str, Any]:
+    async def navigate(self, url: str, new_tab: bool = True) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.navigate(url, new_tab=new_tab)
+        result = await self._client.navigate(url, new_tab=new_tab)
+        return Result.ok(result)
 
-    async def click(self, selector: str, text: str = None, timeout: float = 5) -> Dict[str, Any]:
+    async def click(self, selector: str, text: str = None, timeout: float = 5) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.click(selector, text=text, timeout=timeout)
+        result = await self._client.click(selector, text=text, timeout=timeout)
+        return Result.ok(result)
 
-    async def fill(self, selector: str, value: str, method: str = "set") -> Dict[str, Any]:
+    async def fill(self, selector: str, value: str, method: str = "set") -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.fill(selector, value, method=method)
+        result = await self._client.fill(selector, value, method=method)
+        return Result.ok(result)
 
     async def extract(
         self,
         selector: str,
         attribute: str = "text",
         all: bool = False
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.extract(selector, attribute=attribute, all=all)
+        result = await self._client.extract(selector, attribute=attribute, all=all)
+        return Result.ok(result)
 
-    async def inject(self, code: str, world: str = "MAIN") -> Dict[str, Any]:
+    async def evaluate(self, script: str, world: str = "MAIN") -> Result[dict]:
+        """BrowserPort 接口：注入脚本执行"""
         await self._ensure_connected()
-        return await self._client.inject(code, world=world)
+        result = await self._client.inject(code=script, world=world)
+        return Result.ok(result)
 
-    async def screenshot(self, format: str = "png") -> Dict[str, Any]:
+    async def screenshot(self, format: str = "png") -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.screenshot(format=format)
+        result = await self._client.screenshot(format=format)
+        return Result.ok(result)
 
     async def scroll(
         self,
         direction: str = "down",
         amount: int = 300,
         selector: str = None
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.scroll(direction=direction, amount=amount, selector=selector)
+        result = await self._client.scroll(direction=direction, amount=amount, selector=selector)
+        return Result.ok(result)
 
     async def wait_for(
         self,
         selector: str,
         count: int = 1,
         timeout: float = 60
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.wait_for(selector, count=count, timeout=timeout)
+        result = await self._client.wait_for(selector, count=count, timeout=timeout)
+        return Result.ok(result)
 
-    async def keyboard(self, keys: str, selector: str = None) -> Dict[str, Any]:
+    async def keyboard(self, keys: str, selector: str = None) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.keyboard(keys, selector=selector)
+        result = await self._client.keyboard(keys, selector=selector)
+        return Result.ok(result)
 
     # ========== 无障碍树 ==========
 
@@ -116,29 +127,32 @@ class ExtensionClient(BrowserClient):
         action: str = "get_tree",
         limit: int = 100,
         tab_id: int = None
-    ) -> Dict[str, Any]:
+    ) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.call_tool(
+        result = await self._client.call_tool(
             "a11y_tree",
             action=action,
             limit=limit,
             tabId=tab_id,
         )
+        return Result.ok(result)
 
     # ========== 标签页操作 ==========
 
-    async def get_active_tab(self) -> Dict[str, Any]:
+    async def get_active_tab(self) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.get_active_tab()
+        result = await self._client.get_active_tab()
+        return Result.ok(result)
 
-    async def close_tab(self, tab_id: int) -> Dict[str, Any]:
+    async def close_tab(self, tab_id: int) -> Result[dict]:
         await self._ensure_connected()
-        return await self._client.close_tab(tab_id)
+        result = await self._client.close_tab(tab_id)
+        return Result.ok(result)
 
-    async def list_tabs(self) -> List[Dict[str, Any]]:
+    async def list_tabs(self) -> Result[dict]:
         await self._ensure_connected()
         result = await self._client.tab(action="query_tabs")
-        return result.get("data", {}).get("tabs", [])
+        return Result.ok(result.get("data", {}).get("tab", []))
 
 
 __all__ = ["ExtensionClient"]

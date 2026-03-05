@@ -142,6 +142,45 @@ class BrowserPort(ABC):
         """
         pass
 
+    # ========== 滚动和键盘 ==========
+
+    @abstractmethod
+    async def scroll(
+        self,
+        direction: str = "down",
+        amount: int = 300,
+        selector: str = None,
+        **kwargs
+    ) -> Result[dict]:
+        """
+        滚动页面
+
+        Args:
+            direction: 滚动方向 (up/down/left/right)
+            amount: 滚动距离（像素）
+            selector: 目标元素选择器（可选）
+            **kwargs: 额外参数
+
+        Returns:
+            Result[dict]: 滚动结果
+        """
+        pass
+
+    @abstractmethod
+    async def keyboard(self, keys: str, selector: str = None, **kwargs) -> Result[dict]:
+        """
+        模拟键盘输入
+
+        Args:
+            keys: 按键序列
+            selector: 目标元素选择器（可选）
+            **kwargs: 额外参数
+
+        Returns:
+            Result[dict]: 输入结果
+        """
+        pass
+
     # ========== 截图 ==========
 
     @abstractmethod
