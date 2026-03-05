@@ -2,134 +2,93 @@
 统一业务工具执行器
 
 提供业务工具的统一定义和执行逻辑。
+使用 BusinessToolRegistry 作为单一真相来源，替代硬编码映射。
 """
 
 import asyncio
-import importlib
-import inspect
-from typing import Any, Dict, Optional
+import logging
+from typing import Any, Dict
 from src.core.result import Result
+from src.tools.business.registry import BusinessToolRegistry
+from src.tools.base import ExecutionContext
+from pydantic import BaseModel
 
-
-# 业务工具映射：API 工具名 -> (Python 模块路径, 函数名)
-BUSINESS_TOOLS = {
-    # 登录相关
-    "xhs_check_login_status": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "check_login_status",
-    ),
-    "xhs_get_login_qrcode": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "get_login_qrcode",
-    ),
-    "xhs_wait_login": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "wait_login",
-    ),
-    "xhs_delete_cookies": (
-        "src.tools.sites.xiaohongshu.tools.login",
-        "delete_cookies",
-    ),
-    # 浏览相关
-    "xhs_list_feeds": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "list_feeds",
-    ),
-    "xhs_search_feeds": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "search_feeds",
-    ),
-    "xhs_get_feed_detail": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "get_feed_detail",
-    ),
-    "xhs_user_profile": (
-        "src.tools.sites.xiaohongshu.tools.browse",
-        "user_profile",
-    ),
-    # 互动相关
-    "xhs_like_feed": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "like_feed",
-    ),
-    "xhs_favorite_feed": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "favorite_feed",
-    ),
-    "xhs_post_comment": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "post_comment",
-    ),
-    "xhs_reply_comment": (
-        "src.tools.sites.xiaohongshu.tools.interact",
-        "reply_comment",
-    ),
-    # 发布相关
-    "xhs_publish": (
-        "src.tools.sites.xiaohongshu.publishers",
-        "publish_note",
-    ),
-    "xhs_publish_content": (
-        "src.tools.sites.xiaohongshu.publishers",
-        "publish_note",
-    ),
-    "xhs_publish_video": (
-        "src.tools.sites.xiaohongshu.publishers",
-        "publish_video",
-    ),
-}
+logger = logging.getLogger(__name__)
 
 
 class BusinessToolExecutor:
-    """统一业务工具执行器"""
+    """
+    统一业务工具执行器
+
+    使用 BusinessToolRegistry 作为单一真相来源，替代硬编码映射。
+    自动利用 @business_tool 装饰器的注册功能。
+    """
 
     @staticmethod
     def execute(name: str, params: Dict[str, Any] = None, context: Any = None) -> Dict[str, Any]:
         """
         执行业务工具
 
+        通过 BusinessToolRegistry 查找并执行工具。
+
         Args:
-            name: 工具名称
-            params: 工具参数
-            context: 执行上下文
+            name: 工具名称（如 "xhs_check_login_status"）
+            params: 工具参数字典
+            context: 执行上下文（可为 None）
 
         Returns:
             执行结果字典
+
+        Raises:
+            ValueError: 工具不存在或未注册
+            ConnectionError: 工具执行失败
         """
         params = params or {}
 
-        if name not in BUSINESS_TOOLS:
-            raise ValueError(f"未知业务工具: {name}")
+        # 1. 从注册表查找工具
+        tool = BusinessToolRegistry.get(name)
+        if not tool:
+            available = BusinessToolRegistry.list_all()
+            raise ValueError(f"未知业务工具: {name}，可用工具: {available[:5]}...")
 
-        # 统一获取 secret_key
-        secret_key = getattr(context, 'secret_key', None) if context else None
+        # 2. 确保 context 是 ExecutionContext 类型
+        if context is None:
+            context = ExecutionContext()
+        elif not isinstance(context, ExecutionContext):
+            # 如果是其他类型对象，确保有 secret_key 属性
+            if not hasattr(context, 'secret_key'):
+                context.secret_key = getattr(context, 'secret_key', None)
 
-        # 确保 context 有 secret_key 属性
-        if context and not hasattr(context, 'secret_key'):
-            context.secret_key = secret_key
-
-        module_path, func_name = BUSINESS_TOOLS[name]
-
-        # 动态导入模块和函数
-        module = importlib.import_module(module_path)
-        func = getattr(module, func_name)
-
-        # 调用函数
+        # 3. 创建工具实例并执行
         try:
-            sig = inspect.signature(func)
-            if 'context' in sig.parameters:
-                # 函数支持 context 参数
-                result = func(**params, context=context)
-            else:
-                result = func(**params)
+            # 从注册表创建新实例（确保干净状态）
+            tool_instance = BusinessToolRegistry.create_instance(name)
+            if not tool_instance:
+                raise ValueError(f"无法创建工具实例: {name}")
 
-            # 如果结果是 coroutine，需要 await
+            # 获取参数类型并验证
+            param_type = getattr(tool_instance.__class__, '__parameter_type__', None)
+            if param_type and issubclass(param_type, BaseModel):
+                # 使用 pydantic 模型验证参数
+                validated_params = param_type(**params)
+            else:
+                validated_params = params
+
+            # 4. 异步执行工具
+            result = tool_instance.execute(validated_params, context)
+
+            # 如果是 coroutine，需要 await
             if asyncio.iscoroutine(result):
                 result = asyncio.get_event_loop().run_until_complete(result)
 
-            # 自动转换 Result 对象为标准格式
+            # 5. 自动转换 Result 对象为标准格式
             return BusinessToolExecutor._convert_result(result)
+
+        except ValueError:
+            # 参数验证错误直接抛出
+            raise
         except Exception as e:
+            logger.exception(f"工具执行失败: {name}")
             raise ConnectionError(f"业务工具执行失败: {e}")
 
     @staticmethod
@@ -153,4 +112,4 @@ class BusinessToolExecutor:
         }
 
 
-__all__ = ["BusinessToolExecutor", "BUSINESS_TOOLS"]
+__all__ = ["BusinessToolExecutor"]

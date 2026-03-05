@@ -290,8 +290,8 @@ class HybridClient(BrowserPort):
 
         if not method_name:
             # 检查是否是业务工具（Python 端直接执行）
-            from src.client.client import BUSINESS_TOOLS
-            if name in BUSINESS_TOOLS:
+            from src.tools.business.registry import BusinessToolRegistry
+            if BusinessToolRegistry.is_registered(name):
                 # 将 self 注入到 context 中，方便业务工具访问浏览器
                 if context is None:
                     from src.tools.base import ExecutionContext

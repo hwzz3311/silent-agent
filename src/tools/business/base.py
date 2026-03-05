@@ -337,7 +337,7 @@ class BusinessTool(Tool, ABC):
 
     def get_site(self, context: 'ExecutionContext' = None) -> Optional[Any]:
         """
-        获取网站适配器实例
+        获取网站适配器实例（每次创建新实例）
 
         Args:
             context: 执行上下文（可选）
@@ -348,18 +348,17 @@ class BusinessTool(Tool, ABC):
         if self.site_type is None:
             return None
 
-        # 使用单例模式缓存站点实例
-        if not hasattr(self, '_site_instance') or self._site_instance is None:
-            self._site_instance = self.site_type()
+        # 每次创建新实例，避免状态共享和多线程竞争
+        site = self.site_type()
 
         # 更新超时和重试配置
         if context:
-            if hasattr(self._site_instance.config, 'timeout'):
-                self._site_instance.config.timeout = context.timeout
-            if hasattr(self._site_instance.config, 'retry_count'):
-                self._site_instance.config.retry_count = context.retry_count
+            if hasattr(site.config, 'timeout'):
+                site.config.timeout = context.timeout
+            if hasattr(site.config, 'retry_count'):
+                site.config.retry_count = context.retry_count
 
-        return self._site_instance
+        return site
 
     def get_selector(self, key: str) -> Optional[str]:
         """
