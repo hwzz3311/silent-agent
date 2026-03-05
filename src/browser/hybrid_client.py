@@ -345,6 +345,8 @@ class HybridClient(BrowserPort):
         """
         直接执行 Python 业务工具（不经过 relay_server）
 
+        使用 BusinessToolRegistry 作为单一真相来源。
+
         Args:
             name: 工具名称
             params: 工具参数
@@ -353,44 +355,22 @@ class HybridClient(BrowserPort):
         Returns:
             工具执行结果
         """
-        from src.client.client import BUSINESS_TOOLS
-        import importlib
-        import inspect
+        from src.tools.business.registry import BusinessToolRegistry
 
-        if name not in BUSINESS_TOOLS:
-            raise ValueError(f"未知业务工具: {name}")
+        # 检查工具是否已注册
+        if not BusinessToolRegistry.is_registered(name):
+            available = BusinessToolRegistry.list_all()
+            raise ValueError(f"未知业务工具: {name}，可用工具: {available[:5]}...")
 
-        module_path, func_name = BUSINESS_TOOLS[name]
+        # 确保 context 有 client 属性
+        if context is None:
+            from src.tools.base import ExecutionContext
+            context = ExecutionContext()
+        context.client = self
 
-        # 动态导入模块和函数
-        module = importlib.import_module(module_path)
-        func = getattr(module, func_name)
-
-        # 调用函数
-        try:
-            import asyncio
-            sig = inspect.signature(func)
-            if 'context' in sig.parameters:
-                # 函数支持 context 参数
-                result = func(**(params or {}), context=context)
-            elif hasattr(func, 'execute') or hasattr(func, '_execute_core'):
-                # 这是一个 Tool 类实例或类方法
-                tool_func = getattr(module, func_name, None)
-                if tool_func and callable(tool_func):
-                    result = tool_func(**(params or {}))
-                else:
-                    result = func(**(params or {}))
-            else:
-                result = func(**(params or {}))
-
-            # 如果结果是 coroutine，需要 await
-            if asyncio.iscoroutine(result):
-                result = await result
-
-            # 自动转换 Result 对象为标准格式
-            return self._convert_result(result)
-        except Exception as e:
-            raise ConnectionError(f"业务工具执行失败: {e}")
+        # 使用 BusinessToolExecutor 执行
+        from src.tools.executor import BusinessToolExecutor
+        return BusinessToolExecutor.execute(name, params, context)
 
     def _convert_result(self, result: Any) -> Dict[str, Any]:
         """将 Result 对象转换为标准 API 格式"""
