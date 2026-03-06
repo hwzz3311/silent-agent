@@ -4,26 +4,15 @@
 提供多种浏览器客户端的创建和管理。
 """
 
-from enum import Enum
 from typing import Optional
 
 from src.ports.browser_port import BrowserPort
+from src.config import BrowserMode, BrowserSettings
 
 
 class BrowserClientError(Exception):
     """浏览器客户端错误"""
     pass
-
-
-class BrowserMode(str, Enum):
-    """浏览器客户端模式"""
-    EXTENSION = "extension"  # 纯扩展模式（现有）
-    PUPPETEER = "puppeteer"  # 纯 Puppeteer 模式
-    HYBRID = "hybrid"  # 混合模式（Puppeteer + 扩展）
-
-
-# 从 config.py 导入 BrowserSettings 作为权威配置
-from src.config import BrowserSettings
 
 # 保持 BrowserConfig 别名以兼容旧代码
 BrowserConfig = BrowserSettings

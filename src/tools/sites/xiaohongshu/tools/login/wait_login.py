@@ -133,7 +133,7 @@ class WaitLoginTool(BusinessTool):
                 is_logged_in = False
                 user_info = None
 
-                for source in data_source:
+                for source in data_sources:
                     data = await read_page_data(source)
                     if data:
                         # 检查是否有用户信息
@@ -163,7 +163,7 @@ class WaitLoginTool(BusinessTool):
                         login_cookies = ["a1", "webId", "web_build", "xsecappid"]
                         has_login_cookie = any(
                             any(c.get("name") == ck for ck in login_cookies)
-                            for c in cookie_list
+                            for c in cookies_list
                         )
                         if has_login_cookie:
                             is_logged_in = True

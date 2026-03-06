@@ -9,7 +9,12 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from enum import Enum
 
-from src.adapters.browser.factory import BrowserMode
+
+class BrowserMode(str, Enum):
+    """浏览器客户端模式"""
+    EXTENSION = "extension"  # 纯扩展模式（现有）
+    PUPPETEER = "puppeteer"  # 纯 Puppeteer 模式
+    HYBRID = "hybrid"  # 混合模式（Puppeteer + 扩展）
 
 
 class LogLevel(str, Enum):
