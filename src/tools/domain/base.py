@@ -134,15 +134,20 @@ class BusinessTool(Tool, ABC):
         Returns:
             Optional[str]: 选择器值
         """
-        # 首先检查工具自己的选择器
+        # 首先检查工具自己的选择器（支持字典格式）
         if hasattr(self, 'selectors'):
-            selector = getattr(self.selectors, key, None)
+            if isinstance(self.selectors, dict):
+                selector = self.selectors.get(key)
+            else:
+                selector = getattr(self.selectors, key, None)
             if selector:
                 return selector
 
         # 如果没有，从网站适配器获取
         site = self.get_site()
-        return getattr(site.selectors, key, None)
+        # 将 BaseModel 转为字典后获取
+        selectors_dict = site.selectors.model_dump() if hasattr(site.selectors, 'model_dump') else {}
+        return selectors_dict.get(key) or getattr(site.selectors, key, None)
 
     def get_params_type(self) -> Any:
         """
@@ -184,21 +189,10 @@ class BusinessTool(Tool, ABC):
         Returns:
             Result[Any]: 执行结果
         """
-        # 1. 参数验证
-        validation = await self.validate_params(params)
-        if not validation.valid:
-            return Result.fail(
-                Error.validation(
-                    message="参数验证失败",
-                    details={"error": validation.errors, "warnings": validation.warnings}
-                ),
-                meta=ResultMeta(tool_name=self.name, duration_ms=0)
-            )
-
-        # 2. 获取站点实例
+        # 1. 获取站点实例
         site = self.get_site(context)
 
-        # 3. 核心执行（带重试）
+        # 2. 核心执行（带重试）
         last_error = None
         for attempt in range(1, context.retry_count + 1):
             start_time = None

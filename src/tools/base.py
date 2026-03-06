@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional, Dict, List
+from warnings import deprecated
 from pydantic import BaseModel, Field
 
 from src.core.result import Result, ResultMeta, Error, ErrorCode
@@ -423,8 +424,14 @@ class Tool(ABC):
 _global_tool_factory: Optional['ToolFactory'] = None
 
 
+@deprecated("业务工具执行路径不经过此处，保留仅为兼容")
 class ToolFactory:
-    """工具工厂"""
+    """
+    工具工厂（已废弃）
+
+    业务工具执行路径已改为：API → client.execute_tool() → _execute_business_tool()
+    此类保留仅为向后兼容，不再推荐使用。
+    """
 
     def __init__(self):
         """实例属性，避免类变量共享状态"""

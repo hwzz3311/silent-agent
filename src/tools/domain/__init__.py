@@ -64,11 +64,6 @@ from src.tools.sites.selectors import (
     SelectorType,
     SelectorInfo,
     SelectorTestResult,
-    SelectorManager,
-    GlobalSelectorManager,
-    get_selector_manager,
-    set_selector_manager,
-    reset_selector_manager,
 )
 
 
@@ -103,11 +98,6 @@ __all__ = [
     "SelectorType",
     "SelectorInfo",
     "SelectorTestResult",
-    "SelectorManager",
-    "GlobalSelectorManager",
-    "get_selector_manager",
-    "set_selector_manager",
-    "reset_selector_manager",
     # 装饰器
     "business_tool",
 ]
