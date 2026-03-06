@@ -4,31 +4,30 @@
 提供登录状态检查、Cookie 获取等功能。
 """
 
-from .get_cookies import (
-    GetCookiesTool,
+import importlib
+_get_cookies_module = importlib.import_module('.get_cookies', package=__name__)
+from _get_cookies_module import (
+    GetCookieTool,
     get_cookies,
-    GetCookiesParams,
-    GetCookiesResult,
+    GetCookieParams,
+    GetCookieResult,
 )
 
-from .params import (
-    GetCookiesParams,
+from .types import (
+    GetCookieParams,
+    GetCookieResult,
     PasswordLoginParams,
-)
-
-from .result import (
-    GetCookiesResult,
     PasswordLoginResult,
 )
 
 from .password_login import PasswordLoginTool
 
 __all__ = [
-    # Get Cookies
-    "GetCookiesTool",
+    # Get Cookie
+    "GetCookieTool",
     "get_cookies",
-    "GetCookiesParams",
-    "GetCookiesResult",
+    "GetCookieParams",
+    "GetCookieResult",
     # Password Login
     "PasswordLoginParams",
     "PasswordLoginResult",

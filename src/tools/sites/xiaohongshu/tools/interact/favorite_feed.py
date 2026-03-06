@@ -11,8 +11,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSFavoriteFeedParams
-from .result import XHSFavoriteFeedResult
+from .types import XHSFavoriteFeedParams, XHSFavoriteFeedResult
 
 
 @business_tool(name="xhs_favorite_feed", site_type=XiaohongshuSite, param_type=XHSFavoriteFeedParams, operation_category="interact")

@@ -43,7 +43,14 @@ __all__ = [
     "check_login_status",
     "XHSCheckLoginStatusParams",
     "XHSCheckLoginStatusResult",
+    "XHSGetLoginQrcodeParams",
+    "XHSGetLoginQrcodeResult",
+    "BHSDeleteCookiesParams",
+    "BHSDeleteCookiesResult",
+    "XHSWaitLoginParams",
+    "XHSWaitLoginResult",
     "register",
+    "get_tool_names",
 ]
 
 
@@ -55,9 +62,3 @@ def get_tool_names() -> list:
         "xhs_delete_cookies",
         "xhs_wait_login",
     ]
-
-
-__all__ = [
-    "register",
-    "get_tool_names",
-]

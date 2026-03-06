@@ -12,8 +12,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xianyu.adapters import XianyuSite
-from .params import XYSearchItemParams
-from .result import XYSearchItemResult, XYSearchItem
+from .types import XYSearchItemParams, XYSearchItemResult, XYSearchItem
 
 
 @business_tool(name="xianyu_search_item", site_type=XianyuSite, param_type=XYSearchItemParams, operation_category="browse")

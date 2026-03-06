@@ -32,6 +32,18 @@ from .reply_comment import (
     XHSReplyCommentResult,
 )
 
+# 从 types 模块导入，方便外部使用
+from .types import (
+    XHSLikeFeedParams,
+    XHSLikeFeedResult,
+    XHSFavoriteFeedParams,
+    XHSFavoriteFeedResult,
+    XHSPostCommentParams,
+    XHSPostCommentResult,
+    XHSReplyCommentParams,
+    XHSReplyCommentResult,
+)
+
 
 def register():
     """工具已通过 @business_tool 装饰器自动注册"""
@@ -59,4 +71,13 @@ __all__ = [
     "post_comment",
     "ReplyCommentTool",
     "reply_comment",
+    # 类型定义
+    "XHSLikeFeedParams",
+    "XHSLikeFeedResult",
+    "XHSFavoriteFeedParams",
+    "XHSFavoriteFeedResult",
+    "XHSPostCommentParams",
+    "XHSPostCommentResult",
+    "XHSReplyCommentParams",
+    "XHSReplyCommentResult",
 ]

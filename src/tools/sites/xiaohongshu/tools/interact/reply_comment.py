@@ -11,8 +11,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSReplyCommentParams
-from .result import XHSReplyCommentResult
+from .types import XHSReplyCommentParams, XHSReplyCommentResult
 
 
 @business_tool(name="xhs_reply_comment", site_type=XiaohongshuSite, param_type=XHSReplyCommentParams, operation_category="interact")

@@ -14,8 +14,7 @@ from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.domain.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSListFeedsParams
-from .result import XHSListFeedsResult, XHSFeedItem
+from .types import XHSListFeedsParams, XHSListFeedsResult, XHSFeedItem
 
 # 创建日志记录器
 logger = logging.getLogger("xhs_list_feeds")

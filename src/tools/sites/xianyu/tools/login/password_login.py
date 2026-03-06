@@ -18,8 +18,7 @@ from src.tools.domain.logging import log_operation
 from src.tools.domain.site_base import Site
 from src.tools.sites.xianyu.adapters import XianyuSite, XianyuSliderSolver
 
-from .params import PasswordLoginParams
-from .result import PasswordLoginResult
+from .types import PasswordLoginParams, PasswordLoginResult
 
 # 创建日志记录器
 logger = logging.getLogger("xianyu_password_login")

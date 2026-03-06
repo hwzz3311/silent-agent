@@ -1,15 +1,21 @@
 """
 选择器模块
 
-已迁移到 src/tools/selector/
-此文件保留用于向后兼容，请使用新导入路径。
+所有网站共享的选择器定义和运行时管理。
+
+目录结构:
+- base.py    - 基类定义（BasePageSelectors, BaseExtraSelectors, BaseSelectorSet）
+- common.py  - 通用选择器（分页、弹窗、搜索、详情等）
+- manager.py - 运行时管理（SelectorManager, GlobalSelectorManager）
 """
 
-# 重新导出保持向后兼容
-from src.tools.selector.definition import (
+from .base import (
     BasePageSelectors,
     BaseExtraSelectors,
     BaseSelectorSet,
+)
+
+from .common import (
     CommonPaginationSelectors,
     CommonModalSelectors,
     CommonSearchSelectors,
@@ -21,7 +27,7 @@ from src.tools.selector.definition import (
     create_common_page_selectors,
 )
 
-from src.tools.selector.runtime import (
+from .manager import (
     SelectorType,
     SelectorStatus,
     SelectorInfo,
@@ -48,7 +54,7 @@ __all__ = [
     "CommonPublishSelectors",
     "CommonExtraSelectors",
     "create_common_page_selectors",
-    # Runtime
+    # Manager
     "SelectorType",
     "SelectorStatus",
     "SelectorInfo",

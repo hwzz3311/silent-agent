@@ -1,13 +1,14 @@
 """
-闲鱼发布商品工具参数
+闲鱼发布商品工具类型定义
 
-提供发布商品相关工具的参数定义。
+提供发布商品相关的参数和结果定义。
 """
 
 from typing import Optional, List
-from pydantic import Field
+from pydantic import Field, BaseModel
 
 from src.tools.base import ToolParameters
+from src.tools.mixins import ToDictMixin
 
 
 class XYPublishItemParams(ToolParameters):
@@ -45,6 +46,23 @@ class XYPublishItemParams(ToolParameters):
     )
 
 
+class XYPublishItemResult(BaseModel, ToDictMixin):
+    """
+    闲鱼发布商品结果
+
+    Attributes:
+        success: 操作是否成功
+        item_id: 商品ID
+        url: 商品链接
+        message: 状态描述消息
+    """
+    success: bool = False
+    item_id: Optional[str] = None
+    url: Optional[str] = None
+    message: str = ""
+
+
 __all__ = [
     "XYPublishItemParams",
+    "XYPublishItemResult",
 ]

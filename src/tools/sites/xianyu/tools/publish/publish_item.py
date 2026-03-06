@@ -14,8 +14,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xianyu.adapters import XianyuSite
-from .params import XYPublishItemParams
-from .result import XYPublishItemResult
+from .types import XYPublishItemParams, XYPublishItemResult
 
 
 @business_tool(name="xianyu_publish_item", site_type=XianyuSite, param_type=XYPublishItemParams, operation_category="publish")

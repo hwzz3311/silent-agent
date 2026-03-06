@@ -16,8 +16,7 @@ from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.domain.site_base import Site
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSSchedulePublishParams
-from .result import XHSSchedulePublishResult
+from .types import XHSSchedulePublishParams, XHSSchedulePublishResult
 
 # 创建日志记录器
 logger = logging.getLogger("xhs_schedule_publish")

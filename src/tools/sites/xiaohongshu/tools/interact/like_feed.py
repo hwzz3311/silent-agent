@@ -11,8 +11,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSLikeFeedParams
-from .result import XHSLikeFeedResult
+from .types import XHSLikeFeedParams, XHSLikeFeedResult
 
 
 @business_tool(name="xhs_like_feed", site_type=XiaohongshuSite, param_type=XHSLikeFeedParams, operation_category="interact")

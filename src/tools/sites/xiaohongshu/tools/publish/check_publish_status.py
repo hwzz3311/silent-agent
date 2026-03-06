@@ -12,8 +12,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSCheckPublishStatusParams
-from .result import XHSCheckPublishStatusResult
+from .types import XHSCheckPublishStatusParams, XHSCheckPublishStatusResult
 
 # 创建日志记录器
 logger = logging.getLogger("xhs_check_publish_status")

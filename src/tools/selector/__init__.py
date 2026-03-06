@@ -1,14 +1,12 @@
 """
 选择器模块
 
-提供选择器定义和运行时管理功能。
-
-目录结构:
-- definition/  - 静态定义（基类、通用选择器）
-- runtime/    - 运行时管理（版本管理、降级、验证）
+已迁移到 src/tools/sites/selectors/
+此文件保留用于向后兼容请使用新导入路径 src.tools.sites.selectors
 """
 
-from .definition import (
+# 重新导出保持向后兼容
+from src.tools.sites.selectors import (
     BasePageSelectors,
     BaseExtraSelectors,
     BaseSelectorSet,
@@ -21,9 +19,6 @@ from .definition import (
     CommonPublishSelectors,
     CommonExtraSelectors,
     create_common_page_selectors,
-)
-
-from .runtime import (
     SelectorType,
     SelectorStatus,
     SelectorInfo,
@@ -36,11 +31,11 @@ from .runtime import (
 )
 
 __all__ = [
-    # Definition - Base
+    # Base
     "BasePageSelectors",
     "BaseExtraSelectors",
     "BaseSelectorSet",
-    # Definition - Common
+    # Common
     "CommonPaginationSelectors",
     "CommonModalSelectors",
     "CommonSearchSelectors",
@@ -49,8 +44,8 @@ __all__ = [
     "CommonProfileSelectors",
     "CommonPublishSelectors",
     "CommonExtraSelectors",
-    "create_common_page_selector",
-    # Runtime
+    "create_common_page_selectors",
+    # Manager
     "SelectorType",
     "SelectorStatus",
     "SelectorInfo",

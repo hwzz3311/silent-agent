@@ -5,8 +5,7 @@
 """
 
 from .search_item import SearchItemTool, search_item, XYSearchItemParams, XYSearchItemResult
-from .params import XYSearchItemParams
-from .result import XYSearchItemResult
+from .types import XYSearchItem  # XYSearchItem 未在 search_item 中导出
 
 
 def register():
@@ -18,6 +17,7 @@ __all__ = [
     "SearchItemTool",
     "search_item",
     "XYSearchItemParams",
+    "XYSearchItem",
     "XYSearchItemResult",
     "register",
 ]

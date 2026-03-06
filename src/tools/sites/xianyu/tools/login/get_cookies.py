@@ -14,8 +14,8 @@ from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.domain.site_base import Site
 from src.tools.sites.xianyu.adapters import XianyuSite
-from .params import GetCookiesParams
-from .result import GetCookiesResult
+from .types import GetCookiesParams
+from .types import GetCookieResult
 
 # 创建日志记录器
 logger = logging.getLogger("xianyu_get_cookies")
@@ -289,7 +289,7 @@ async def get_cookies(
     tab_id: int = None,
     target_url: str = None,
     context: ExecutionContext = None
-) -> GetCookiesResult:
+) -> GetCookieResult:
     """
     便捷的获取 Cookie 函数
 

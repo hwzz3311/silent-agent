@@ -13,8 +13,7 @@ from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.domain.site_base import Site
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSPublishContentParams
-from .result import XHSPublishContentResult
+from .types import XHSPublishContentParams, XHSPublishContentResult
 
 # 创建日志记录器
 logger = logging.getLogger("xhs_publish_content")

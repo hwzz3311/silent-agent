@@ -325,21 +325,38 @@ class SilentAgentClient:
         Returns:
             工具执行结果
         """
-        from src.tools.executor import BusinessToolExecutor
+        from src.tools.domain.registry import get_registry
+        from src.core.result import Result
 
         # 确保 context 有 secret_key 属性（供业务工具使用）
         if context and not hasattr(context, 'secret_key'):
             context.secret_key = self._secret_key
 
-        return BusinessToolExecutor.execute(name, params, context)
+        # 获取工具实例 (使用 BusinessToolRegistry)
+        registry = get_registry()
+        tool = registry.get(name)
+        if not tool:
+            return Result.fail(
+                error={"code": "TOOL_NOT_FOUND", "message": f"Tool {name} not found"},
+                meta=None
+            )
+
+        # 执行工具
+        return tool.execute(params or {}, context)
 
     def _convert_result(self, result: Any) -> Dict[str, Any]:
         """
         将 Result 对象转换为标准 API 格式
         """
-        from src.tools.executor import BusinessToolExecutor
+        from src.core.result import Result
 
-        return BusinessToolExecutor._convert_result(result)
+        if isinstance(result, Result):
+            return {
+                "success": result.success,
+                "data": result.data,
+                "error": result.error.model_dump() if hasattr(result.error, 'model_dump') else result.error
+            }
+        return {"success": True, "data": result, "error": None}
 
     async def execute_tool(
         self,
@@ -716,9 +733,18 @@ def execute_business_tool(name: str, params: Dict[str, Any] = None) -> Any:
     Example:
         result = execute_business_tool("xhs_check_login_status", {})
     """
-    from src.tools.executor import BusinessToolExecutor
+    from src.tools.domain.registry import get_registry
+    from src.tools.base import ExecutionContext
 
-    return BusinessToolExecutor.execute(name, params)
+    registry = get_registry()
+    tool = registry.get(name)
+    if not tool:
+        return {"success": False, "data": None, "error": {"code": "TOOL_NOT_FOUND", "message": f"Tool {name} not found"}}
+
+    context = ExecutionContext()
+    result = tool.execute(params or {}, context)
+
+    return _convert_result(result)
 
 
 def _convert_result(result: Any) -> Dict[str, Any]:
@@ -731,9 +757,15 @@ def _convert_result(result: Any) -> Dict[str, Any]:
     Returns:
         标准格式字典 {success, data, error}
     """
-    from src.tools.executor import BusinessToolExecutor
+    from src.core.result import Result
 
-    return BusinessToolExecutor._convert_result(result)
+    if isinstance(result, Result):
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error.model_dump() if hasattr(result.error, 'model_dump') else result.error
+        }
+    return {"success": True, "data": result, "error": None}
 
 
 __all__ = [

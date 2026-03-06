@@ -4,32 +4,35 @@
 包含图文发布、视频发布、定时发布等工具。
 """
 
+from .types import (
+    XHSPublishContentParams,
+    XHSPublishContentResult,
+    XHSPublishVideoParams,
+    XHSPublishVideoResult,
+    XHSSchedulePublishParams,
+    XHSSchedulePublishResult,
+    XHSCheckPublishStatusParams,
+    XHSCheckPublishStatusResult,
+)
+
 from .publish_content import (
     PublishContentTool,
     publish_content,
-    XHSPublishContentParams,
-    XHSPublishContentResult,
 )
 
 from .publish_video import (
     PublishVideoTool,
     publish_video,
-    XHSPublishVideoParams,
-    XHSPublishVideoResult,
 )
 
 from .schedule_publish import (
     SchedulePublishTool,
     schedule_publish,
-    XHSSchedulePublishParams,
-    XHSSchedulePublishResult,
 )
 
 from .check_publish_status import (
     CheckPublishStatusTool,
     check_publish_status,
-    XHSCheckPublishStatusParams,
-    XHSCheckPublishStatusResult,
 )
 
 
@@ -49,6 +52,16 @@ def get_tool_names() -> list:
 
 
 __all__ = [
+    # 类型定义
+    "XHSPublishContentParams",
+    "XHSPublishContentResult",
+    "XHSPublishVideoParams",
+    "XHSPublishVideoResult",
+    "XHSSchedulePublishParams",
+    "XHSSchedulePublishResult",
+    "XHSCheckPublishStatusParams",
+    "XHSCheckPublishStatusResult",
+    # 工具
     "register",
     "get_tool_names",
     "PublishContentTool",

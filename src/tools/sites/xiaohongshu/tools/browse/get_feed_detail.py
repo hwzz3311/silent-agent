@@ -17,8 +17,7 @@ from src.tools.domain.site_base import Site
 from src.tools.domain.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from src.tools.sites.xiaohongshu.utils.page_data import ReadPageDataTool
-from .params import XHSGetFeedDetailParams
-from .result import XHSGetFeedDetailResult
+from .types import XHSGetFeedDetailParams, XHSGetFeedDetailResult
 
 # 创建日志记录器
 logger = logging.getLogger("xhs_get_feed_detail")

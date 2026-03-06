@@ -4,8 +4,7 @@
 提供工具执行的管道化处理，包括参数验证、前置检查、后置处理和重试策略。
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Optional, List
+from typing import Any, Optional
 import asyncio
 import time
 import logging
@@ -16,122 +15,9 @@ from src.core.result import Result, ResultMeta, Error, ErrorCode
 logger = logging.getLogger(__name__)
 
 
-# ========== 接口定义 ==========
-
-class IParamValidator(ABC):
-    """
-    参数验证接口
-
-    定义工具参数验证的标准接口。
-    """
-
-    @abstractmethod
-    async def validate(self, tool: Tool, params: Any) -> Result:
-        """
-        验证工具参数
-
-        Args:
-            tool: 工具实例
-            params: 待验证的参数
-
-        Returns:
-            Result: 验证结果，成功时 data 为验证后的参数，失败时 error 包含错误信息
-        """
-        pass
-
-
-class IPreCheck(ABC):
-    """
-    前置检查接口
-
-    定义工具执行前置条件检查的标准接口。
-    """
-
-    @abstractmethod
-    async def check(self, tool: Tool, params: Any, context: ExecutionContext) -> Result:
-        """
-        执行前置检查
-
-        Args:
-            tool: 工具实例
-            params: 工具参数
-            context: 执行上下文
-
-        Returns:
-            Result: 检查结果，成功时继续执行，失败时返回错误
-        """
-        pass
-
-
-class IPostProcessor(ABC):
-    """
-    后置处理接口
-
-    定义工具执行后置处理的标准接口。
-    """
-
-    @abstractmethod
-    async def process(
-        self,
-        tool: Tool,
-        params: Any,
-        context: ExecutionContext,
-        result: Result
-    ) -> Result:
-        """
-        执行后置处理
-
-        Args:
-            tool: 工具实例
-            params: 工具参数
-            context: 执行上下文
-            result: 执行结果
-
-        Returns:
-            Result: 处理后的结果
-        """
-        pass
-
-
-class IRetryStrategy(ABC):
-    """
-    重试策略接口
-
-    定义工具执行失败时重试策略的标准接口。
-    """
-
-    @abstractmethod
-    def should_retry(self, result: Result, attempt: int, max_attempts: int) -> bool:
-        """
-        判断是否需要重试
-
-        Args:
-            result: 执行结果
-            attempt: 当前尝试次数
-            max_attempts: 最大尝试次数
-
-        Returns:
-            bool: 是否需要重试
-        """
-        pass
-
-    @abstractmethod
-    async def get_delay(self, attempt: int) -> float:
-        """
-        获取重试延迟时间（秒）
-
-        Args:
-            attempt: 当前尝试次数
-
-        Returns:
-            float: 延迟时间（秒）
-        """
-        pass
-
-
 # ========== 默认实现 ==========
 
-class DefaultParamValidator(IParamValidator):
+class DefaultParamValidator:
     """默认参数验证器"""
 
     async def validate(self, tool: Tool, params: Any) -> Result:
@@ -153,7 +39,7 @@ class DefaultParamValidator(IParamValidator):
             return Result.fail(Error.from_exception(e, ErrorCode.VALIDATION_ERROR, recoverable=True))
 
 
-class DefaultPreCheck(IPreCheck):
+class DefaultPreCheck:
     """默认前置检查器（空实现）"""
 
     async def check(self, tool: Tool, params: Any, context: ExecutionContext) -> Result:
@@ -161,7 +47,7 @@ class DefaultPreCheck(IPreCheck):
         return Result.ok()
 
 
-class DefaultPostProcessor(IPostProcessor):
+class DefaultPostProcessor:
     """默认后置处理器（空实现）"""
 
     async def process(
@@ -175,7 +61,7 @@ class DefaultPostProcessor(IPostProcessor):
         return result
 
 
-class DefaultRetryStrategy(IRetryStrategy):
+class DefaultRetryStrategy:
     """默认重试策略"""
 
     def __init__(self, base_delay: float = 1.0, max_delay: float = 30.0, exponential: bool = True):
@@ -230,10 +116,10 @@ class ExecutionPipeline:
 
     def __init__(
         self,
-        param_validator: Optional[IParamValidator] = None,
-        pre_check: Optional[IPreCheck] = None,
-        post_processor: Optional[IPostProcessor] = None,
-        retry_strategy: Optional[IRetryStrategy] = None
+        param_validator: Optional[DefaultParamValidator] = None,
+        pre_check: Optional[DefaultPreCheck] = None,
+        post_processor: Optional[DefaultPostProcessor] = None,
+        retry_strategy: Optional[DefaultRetryStrategy] = None
     ):
         """
         初始化执行管道
@@ -417,11 +303,6 @@ def create_default_pipeline() -> ExecutionPipeline:
 
 
 __all__ = [
-    # 接口
-    "IParamValidator",
-    "IPreCheck",
-    "IPostProcessor",
-    "IRetryStrategy",
     # 默认实现
     "DefaultParamValidator",
     "DefaultPreCheck",

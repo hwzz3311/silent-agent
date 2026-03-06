@@ -13,8 +13,7 @@ from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.domain.site_base import Site
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSGetLoginQrcodeParams
-from .result import XHSGetLoginQrcodeResult
+from .types import XHSGetLoginQrcodeParams, XHSGetLoginQrcodeResult
 
 # 创建日志记录器
 logger = logging.getLogger("xhs_get_login_qrcode")

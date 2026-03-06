@@ -12,8 +12,7 @@ from src.tools.domain import business_tool
 from src.tools.domain.base import BusinessTool
 from src.tools.domain.logging import log_operation
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
-from .params import XHSWaitLoginParams
-from .result import XHSWaitLoginResult
+from .types import XHSWaitLoginParams, XHSWaitLoginResult
 
 
 @business_tool(name="xhs_wait_login", site_type=XiaohongshuSite, param_type=XHSWaitLoginParams, operation_category="login")

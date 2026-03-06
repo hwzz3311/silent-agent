@@ -1,14 +1,50 @@
 """
-闲鱼搜索商品工具结果
+闲鱼搜索工具类型定义
 
-提供搜索商品相关工具的结果定义。
+提供搜索商品相关的参数和结果类型定义。
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
+from src.tools.base import ToolParameters
+from src.tools.mixins import ToDictMixin
 
-class XYSearchItem(BaseModel):
+
+class XYSearchItemParams(ToolParameters):
+    """
+    闲鱼搜索商品工具参数
+
+    Attributes:
+        tab_id: 可选的标签页 ID
+        keyword: 搜索关键词
+        pages: 获取页数（默认1）
+        items_per_page: 每页商品数（默认30）
+    """
+    tab_id: Optional[int] = Field(
+        default=None,
+        description="标签页 ID默认使用当前活动标签页"
+    )
+    keyword: str = Field(
+        ...,
+        min_length=1,
+        description="搜索关键词"
+    )
+    pages: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="获取页数，1-10页"
+    )
+    items_per_page: int = Field(
+        default=30,
+        ge=1,
+        le=50,
+        description="每页商品数"
+    )
+
+
+class XYSearchItem(BaseModel, ToDictMixin):
     """
     单个搜索商品信息
     """
@@ -24,7 +60,7 @@ class XYSearchItem(BaseModel):
     url: str = Field(default="", description="商品链接")
 
 
-class XYSearchItemResult(BaseModel):
+class XYSearchItemResult(BaseModel, ToDictMixin):
     """
     闲鱼搜索商品结果
 
@@ -43,12 +79,9 @@ class XYSearchItemResult(BaseModel):
     results: List[XYSearchItem] = Field(default_factory=list, description="商品列表")
     message: str = ""
 
-    def to_dict(self) -> dict:
-        """转换为字典格式"""
-        return self.model_dump() if hasattr(self, 'model_dump') else self.dict()
-
 
 __all__ = [
+    "XYSearchItemParams",
     "XYSearchItem",
     "XYSearchItemResult",
 ]

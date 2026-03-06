@@ -28,7 +28,7 @@ Usage:
 """
 
 # 抽象基类
-from .base import BusinessTool, BusinessToolMeta, create_business_tool
+from .base import BusinessTool, create_business_tool
 from .site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
 
 # 注册表
@@ -59,8 +59,8 @@ from .logging import (
     DEFAULT_SENSITIVE_FIELDS,
 )
 
-# 选择器管理 - 已迁移到 src/tools/selector/runtime/
-from ..selector.runtime import (
+# 选择器管理 - 通过统一的 src.tools.selector 入口导入
+from src.tools.selector import (
     SelectorType,
     SelectorStatus,
     SelectorInfo,
@@ -78,7 +78,6 @@ from .decorator import business_tool
 __all__ = [
     # 抽象基类
     "BusinessTool",
-    "BusinessToolMeta",
     "create_business_tool",
     "Site",
     "SiteConfig",

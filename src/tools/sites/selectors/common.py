@@ -173,15 +173,6 @@ class CommonExtraSelectors(BaseModel):
     所有网站共享的备用选择器。
     """
 
-    generic_container: List[str] = Field(
-        default_factory=lambda: [
-            "[data-testid]",
-            ".el-container",
-            ".main-container"
-        ],
-        description="通用容器备用选择器"
-    )
-
     feed_card_alternatives: List[str] = Field(
         default_factory=lambda: [
             "[data-testid='feed-card']",
@@ -211,17 +202,6 @@ class CommonExtraSelectors(BaseModel):
             "[class*='goods']"
         ],
         description="详情页备用选择器"
-    )
-
-    login_button_alternatives: List[str] = Field(
-        default_factory=lambda: [
-            "[data-testid='login-btn']",
-            ".login-btn",
-            ".btn-login",
-            "[class*='login']",
-            "[text()*='登录']"
-        ],
-        description="登录按钮备用选择器"
     )
 
 

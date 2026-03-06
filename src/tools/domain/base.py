@@ -3,37 +3,20 @@
 
 提供业务工具的统一模板，包含：
 - 泛型支持：支持不同的网站适配器
-- 统一执行流程：前置检查 → 执行操作 → 后置处理（通过 ExecutionPipeline）
+- 统一执行流程：参数验证 → 核心执行（含重试）
 - 日志增强：自动记录操作步骤
 - 选择器管理：使用网站选择器集合
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Dict, Any, List
 
 from src.tools.base import Tool, ToolParameters
-from src.core.result import Result, ResultMeta
-from src.tools.executor import get_default_pipeline
+from src.core.result import Result, ResultMeta, Error, ErrorCode
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
-
-
-class BusinessToolMeta(type):
-    """
-    业务工具元类
-
-    用于自动收集工具元信息和验证子类实现。
-    """
-
-    def __new__(mcs, name: str, bases: tuple, attrs: dict):
-        cls = super().__new__(mcs, name, bases, attrs)
-
-        # 自动收集工具类别
-        if not hasattr(cls, 'operation_category'):
-            cls.operation_category = "general"
-
-        return cls
 
 
 class BusinessTool(Tool, ABC):
@@ -45,7 +28,7 @@ class BusinessTool(Tool, ABC):
     2. 统一错误处理：继承统一错误处理机制
     3. 日志增强：自动记录操作步骤和耗时
     4. 选择器管理：使用网站选择器集合
-    5. 执行管道：使用 ExecutionPipeline 进行参数验证、前置检查、重试和后置处理
+    5. 执行管道：直接执行核心逻辑（含参数验证、重试）
 
     Subclass must set (via @business_tool decorator):
         name: str              # 工具名称
@@ -182,7 +165,7 @@ class BusinessTool(Tool, ABC):
         """
         return type
 
-    # ========== 执行方法（委托给 ExecutionPipeline） ==========
+    # ========== 执行方法（直接执行） ==========
 
     async def execute(
         self,
@@ -192,8 +175,7 @@ class BusinessTool(Tool, ABC):
         """
         执行工具（实现抽象方法）
 
-        委托给 ExecutionPipeline 执行完整的流程：参数验证 → 前置检查 → 核心执行 → 后置处理。
-        ExecutionPipeline 会自动处理重试逻辑。
+        直接执行核心逻辑，包含参数验证和重试。
 
         Args:
             params: 工具参数
@@ -202,51 +184,57 @@ class BusinessTool(Tool, ABC):
         Returns:
             Result[Any]: 执行结果
         """
-        # 使用默认执行管道（包含验证、前置检查、重试、后置处理）
-        pipeline = get_default_pipeline()
-        return await pipeline.execute(self, params, context)
+        # 1. 参数验证
+        validation = await self.validate_params(params)
+        if not validation.valid:
+            return Result.fail(
+                Error.validation(
+                    message="参数验证失败",
+                    details={"error": validation.errors, "warnings": validation.warnings}
+                ),
+                meta=ResultMeta(tool_name=self.name, duration_ms=0)
+            )
 
-    async def execute_with_validation(
-        self,
-        params: ToolParameters,
-        context: 'ExecutionContext'
-    ) -> Result:
-        """
-        带验证的执行（保持兼容）
+        # 2. 获取站点实例
+        site = self.get_site(context)
 
-        委托给 ExecutionPipeline 执行完整流程（包含参数验证）。
+        # 3. 核心执行（带重试）
+        last_error = None
+        for attempt in range(1, context.retry_count + 1):
+            start_time = None
+            try:
+                start_time = __import__('time').time()
 
-        Args:
-            params: 工具参数
-            context: 执行上下文
+                # 执行核心逻辑
+                result = await self._execute_core(params, context, site)
 
-        Returns:
-            Result: 执行结果
-        """
-        # 使用默认执行管道
-        pipeline = get_default_pipeline()
-        return await pipeline.execute(self, params, context)
+                # 记录执行时间
+                if start_time and result.meta:
+                    result.meta.duration_ms = int((__import__('time').time() - start_time) * 1000)
+                    result.meta.attempt = attempt
 
-    async def execute_with_retry(
-        self,
-        params: ToolParameters,
-        context: 'ExecutionContext'
-    ) -> Result:
-        """
-        带重试的执行（保持兼容）
+                if result.success:
+                    return result
 
-        委托给 ExecutionPipeline 执行完整流程（包含重试逻辑）。
+                # 不可恢复错误直接返回
+                if result.error and not result.error.recoverable:
+                    return result
 
-        Args:
-            params: 工具参数
-            context: 执行上下文
+                last_error = result.error
 
-        Returns:
-            Result: 执行结果
-        """
-        # 使用默认执行管道（已包含重试逻辑）
-        pipeline = get_default_pipeline()
-        return await pipeline.execute(self, params, context)
+            except Exception as e:
+                last_error = Error.from_exception(e, ErrorCode.EXECUTION_FAILED, recoverable=True)
+
+            # 判断是否需要重试
+            if attempt < context.retry_count:
+                delay = context.retry_delay / 1000
+                await asyncio.sleep(delay)
+
+        # 所有尝试都失败
+        return Result.fail(
+            last_error or Error.unknown("工具执行失败"),
+            meta=ResultMeta(tool_name=self.name, duration_ms=0, attempt=context.retry_count)
+        )
 
     # ========== 类方法 ==========
 
@@ -347,6 +335,5 @@ def create_business_tool(
 
 __all__ = [
     "BusinessTool",
-    "BusinessToolMeta",
     "create_business_tool",
 ]
