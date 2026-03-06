@@ -3,16 +3,17 @@
 
 提供业务工具的统一模板，包含：
 - 泛型支持：支持不同的网站适配器
-- 统一执行流程：前置检查 → 执行操作 → 后置处理
+- 统一执行流程：前置检查 → 执行操作 → 后置处理（通过 ExecutionPipeline）
 - 日志增强：自动记录操作步骤
 - 选择器管理：使用网站选择器集合
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Dict, Any, List
 
 from src.tools.base import Tool, ToolParameters
-from src.core.result import Result, ResultMeta, Error
+from src.core.result import Result, ResultMeta
+from src.tools.executor import get_default_pipeline
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
@@ -44,6 +45,7 @@ class BusinessTool(Tool, ABC):
     2. 统一错误处理：继承统一错误处理机制
     3. 日志增强：自动记录操作步骤和耗时
     4. 选择器管理：使用网站选择器集合
+    5. 执行管道：使用 ExecutionPipeline 进行参数验证、前置检查、重试和后置处理
 
     Subclass must set (via @business_tool decorator):
         name: str              # 工具名称
@@ -87,185 +89,9 @@ class BusinessTool(Tool, ABC):
     #: 是否需要登录才能执行
     required_login: bool = True
 
-    # ========== 工具实现 ==========
+    # ========== 业务抽象方法（子类必须覆盖） ==========
 
-    async def execute_with_validation(
-        self,
-        params: ToolParameters,
-        context: 'ExecutionContext'
-    ) -> Result:
-        """
-        带验证的执行（覆盖父类方法添加业务逻辑）
-
-        统一执行流程:
-        1. 前置检查（登录状态、页面状态等）
-        2. 获取网站适配器实例
-        3. 执行操作
-        4. 后置处理
-        5. 返回结果
-        """
-        # 验证参数
-        validation = await self.validate_params(params)
-        if not validation.valid:
-            return Result.fail(
-                error=Error.validation(
-                    message="参数验证失败",
-                    details={"errors": validation.errors}
-                ),
-                meta=ResultMeta(
-                    tool_name=self.name,
-                    duration_ms=0,
-                    attempt=1
-                )
-            )
-
-        try:
-            # 1. 前置检查
-            pre_check = await self._pre_execute(params, context)
-            if not pre_check.success:
-                return pre_check
-
-            # 2. 获取网站适配器
-            site = self.get_site(context)
-
-            # 3. 执行核心操作
-            result = await self._execute_core(params, context)
-
-            # 4. 后置处理
-            final_result = await self._post_execute(result, params, context)
-
-            return final_result
-
-        except Exception as e:
-            return self.error_from_exception(e)
-
-    async def execute_with_retry(
-        self,
-        params: ToolParameters,
-        context: 'ExecutionContext'
-    ) -> Result:
-        """
-        带重试的执行（覆盖父类方法）
-
-        在父类重试逻辑基础上增加业务特定的重试策略。
-        """
-        last_error = None
-        site = None
-
-        for attempt in range(1, context.retry_count + 1):
-            try:
-                # 重试时重新获取网站适配器
-                site = self.get_site(context)
-
-                result = await self.execute_with_validation(params, context)
-
-                if result.success:
-                    if result.meta:
-                        result.meta.attempt = attempt
-                    return result
-
-                # 如果是不可恢复错误，直接返回
-                if result.error and result.error.recoverable is False:
-                    return result
-
-                last_error = result.error
-
-            except Exception as e:
-                from .errors import BusinessException
-                if isinstance(e, BusinessException):
-                    # 业务异常通常不可恢复
-                    return Result.fail(
-                        error=e,
-                        meta=ResultMeta(
-                            tool_name=self.name,
-                            attempt=attempt,
-                            duration_ms=attempt * context.retry_delay
-                        )
-                    )
-                last_error = e
-
-            # 等待后重试
-            if attempt < context.retry_count:
-                await self._sleep(context.retry_delay)
-
-        # 所有尝试都失败
-        return Result.fail(
-            error=Error.from_exception(last_error) if last_error else Error.unknown("执行失败"),
-            meta=ResultMeta(
-                tool_name=self.name,
-                attempt=context.retry_count,
-                duration_ms=context.retry_count * context.retry_delay
-            )
-        )
-
-    # ========== 子类可覆盖的方法 ==========
-
-    async def _pre_execute(
-        self,
-        params: ToolParameters,
-        context: 'ExecutionContext'
-    ) -> Result[bool]:
-        """
-        前置检查
-
-        默认实现:
-        - 检查登录状态（如果 required_login=True）
-        - 检查页面状态
-
-        Args:
-            params: 工具参数
-            context: 执行上下文
-
-        Returns:
-            Result[bool]: 检查是否通过
-        """
-        from .errors import BusinessErrorCode
-
-        # 检查是否需要登录
-        if self.required_login:
-            site = self.get_site(context)
-            if site is None:
-                return Result.fail(
-                    error=Error(
-                        code="SITE_NOT_FOUND",
-                        message=f"工具 {self.name} 未配置 site_type，无法执行需要登录的检查",
-                        recoverable=False,
-                    ),
-                    meta=ResultMeta(
-                        tool_name=self.name,
-                        duration_ms=0
-                    )
-                )
-            login_result = await site.check_login_status(context, silent=True)
-
-            if login_result.success:
-                if not login_result.data.get("is_logged_in", False):
-                    return Result.fail(
-                        error=Error(
-                            code=BusinessErrorCode.LOGIN_REQUIRED.value,
-                            message=f"需要登录后才能执行操作 {self.name}",
-                            recoverable=True,
-                            details={
-                                "site_name": site.site_name,
-                                "operation": self.name,
-                                "suggestion": "请先调用登录工具或等待用户登录"
-                            }
-                        ),
-                        meta=ResultMeta(
-                            tool_name=self.name,
-                            duration_ms=0
-                        )
-                    )
-            else:
-                return Result.fail(
-                    error=Error.unknown(
-                        message="无法检查登录状态",
-                        details={"error": str(login_result.error)}
-                    )
-                )
-
-        return Result.ok(True)
-
+    @abstractmethod
     async def _execute_core(
         self,
         params: Any,
@@ -286,54 +112,7 @@ class BusinessTool(Tool, ABC):
         """
         raise NotImplementedError("子类必须实现 _execute_core 方法")
 
-    async def _post_execute(
-        self,
-        result: Result,
-        params: ToolParameters,
-        context: 'ExecutionContext'
-    ) -> Result:
-        """
-        后置处理
-
-        默认实现直接返回结果。子类可以覆盖此方法添加:
-        - 结果验证
-        - 清理操作
-        - 日志记录
-
-        Args:
-            result: 执行结果
-            params: 工具参数
-            context: 执行上下文
-
-        Returns:
-            Result[Any]: 处理后的结果
-        """
-        # 如果结果不是 Result 类型，包装为 Result
-        from src.core.result import Result as CoreResult
-        if not isinstance(result, CoreResult):
-            # 将 BaseModel 结果包装为 Result
-            if hasattr(result, 'success'):
-                return CoreResult.ok(
-                    data=result,
-                    meta=ResultMeta(
-                        tool_name=self.name,
-                        duration_ms=0
-                    )
-                )
-            else:
-                return CoreResult.fail(
-                    error=Error.unknown(
-                        message="执行返回了非 Result 类型的结果",
-                        details={"result_type": type(result).__name__}
-                    ),
-                    meta=ResultMeta(
-                        tool_name=self.name,
-                        duration_ms=0
-                    )
-                )
-        return result
-
-    # ========== 工具方法 ==========
+    # ========== 工具方法（领域接口） ==========
 
     def get_site(self, context: 'ExecutionContext' = None) -> Optional[Any]:
         """
@@ -403,6 +182,8 @@ class BusinessTool(Tool, ABC):
         """
         return type
 
+    # ========== 执行方法（委托给 ExecutionPipeline） ==========
+
     async def execute(
         self,
         params: ToolParameters,
@@ -411,7 +192,8 @@ class BusinessTool(Tool, ABC):
         """
         执行工具（实现抽象方法）
 
-        直接调用 execute_with_retry，使用统一的业务执行流程。
+        委托给 ExecutionPipeline 执行完整的流程：参数验证 → 前置检查 → 核心执行 → 后置处理。
+        ExecutionPipeline 会自动处理重试逻辑。
 
         Args:
             params: 工具参数
@@ -420,7 +202,51 @@ class BusinessTool(Tool, ABC):
         Returns:
             Result[Any]: 执行结果
         """
-        return await self.execute_with_retry(params, context)
+        # 使用默认执行管道（包含验证、前置检查、重试、后置处理）
+        pipeline = get_default_pipeline()
+        return await pipeline.execute(self, params, context)
+
+    async def execute_with_validation(
+        self,
+        params: ToolParameters,
+        context: 'ExecutionContext'
+    ) -> Result:
+        """
+        带验证的执行（保持兼容）
+
+        委托给 ExecutionPipeline 执行完整流程（包含参数验证）。
+
+        Args:
+            params: 工具参数
+            context: 执行上下文
+
+        Returns:
+            Result: 执行结果
+        """
+        # 使用默认执行管道
+        pipeline = get_default_pipeline()
+        return await pipeline.execute(self, params, context)
+
+    async def execute_with_retry(
+        self,
+        params: ToolParameters,
+        context: 'ExecutionContext'
+    ) -> Result:
+        """
+        带重试的执行（保持兼容）
+
+        委托给 ExecutionPipeline 执行完整流程（包含重试逻辑）。
+
+        Args:
+            params: 工具参数
+            context: 执行上下文
+
+        Returns:
+            Result: 执行结果
+        """
+        # 使用默认执行管道（已包含重试逻辑）
+        pipeline = get_default_pipeline()
+        return await pipeline.execute(self, params, context)
 
     # ========== 类方法 ==========
 
@@ -456,6 +282,8 @@ class BusinessTool(Tool, ABC):
             "interact",    # 互动相关
             "general",     # 通用操作
         ]
+
+    # ========== 字符串表示 ==========
 
     def __repr__(self) -> str:
         return (
