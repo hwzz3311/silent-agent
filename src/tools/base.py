@@ -195,7 +195,7 @@ class Tool(ABC):
         params_type = self._get_params_type()
 
         # 检查是否是真正的类型
-        if not isinstance(param_type, type):
+        if not isinstance(params_type, type):
             return {"type": "object", "properties": {}}
 
         # Pydantic v2+ uses model_json_schema, v1 uses schema_of
@@ -419,33 +419,35 @@ class Tool(ABC):
 
 # ========== 工具工厂 ==========
 
+# 模块级单例（支持依赖注入）
+_global_tool_factory: Optional['ToolFactory'] = None
+
+
 class ToolFactory:
     """工具工厂"""
 
-    _tools: Dict[str, Tool] = {}
+    def __init__(self):
+        """实例属性，避免类变量共享状态"""
+        self._tools: Dict[str, Tool] = {}
 
-    @classmethod
-    def register(cls, tool: Tool) -> None:
-        """注册工具"""
-        cls._tools[tool.name] = tool
+    # ========== 实例方法（内部使用）==========
+    def _register_instance(self, tool: Tool) -> None:
+        """注册工具（内部方法）"""
+        self._tools[tool.name] = tool
 
-    @classmethod
-    def get(cls, name: str) -> Optional[Tool]:
-        """获取工具"""
-        return cls._tools.get(name)
+    def _get_instance(self, name: str) -> Optional[Tool]:
+        """获取工具（内部方法）"""
+        return self._tools.get(name)
 
-    @classmethod
-    def list_tools(cls) -> List[str]:
-        """列出所有工具"""
-        return list(cls._tools.keys())
+    def _list_tools_instance(self) -> List[str]:
+        """列出所有工具（内部方法）"""
+        return list(self._tools.keys())
 
-    @classmethod
-    def clear(cls) -> None:
-        """清空所有工具"""
-        cls._tools.clear()
+    def _clear_instance(self) -> None:
+        """清空所有工具（内部方法）"""
+        self._tools.clear()
 
-    @classmethod
-    def create_from_params(cls, name: str, params_dict: dict) -> Optional[Result]:
+    def create_from_params(self, name: str, params_dict: dict) -> Optional[Result]:
         """
         根据参数字典创建参数对象
 
@@ -456,7 +458,7 @@ class ToolFactory:
         Returns:
             Result，包含参数对象
         """
-        tool = cls.get(name)
+        tool = self.get(name)
         if not tool:
             return Result.fail(
                 Error.tool_not_found(name),
@@ -480,6 +482,56 @@ class ToolFactory:
                 ),
                 meta=ResultMeta(tool_name=name, duration_ms=0)
             )
+
+    # ========== 类方法兼容（委托给模块单例）==========
+    # 为保持向后兼容，保留类方法调用
+
+    @classmethod
+    def register(cls, tool: Tool) -> None:
+        """注册工具（兼容类方法）"""
+        get_tool_factory()._register_instance(tool)
+
+    @classmethod
+    def get(cls, name: str) -> Optional[Tool]:
+        """获取工具（兼容类方法）"""
+        return get_tool_factory()._get_instance(name)
+
+    @classmethod
+    def list_tools(cls) -> List[str]:
+        """列出所有工具（兼容类方法）"""
+        return get_tool_factory()._list_tools_instance()
+
+    @classmethod
+    def clear(cls) -> None:
+        """清空所有工具（兼容类方法）"""
+        get_tool_factory()._clear_instance()
+
+    @classmethod
+    def create_from_params(cls, name: str, params_dict: dict) -> Optional[Result]:
+        """创建参数对象（兼容类方法）"""
+        return get_tool_factory().create_from_params(name, params_dict)
+
+
+# ========== 便捷访问函数 ==========
+
+def get_tool_factory() -> ToolFactory:
+    """获取工具工厂（支持依赖注入）"""
+    global _global_tool_factory
+    if _global_tool_factory is None:
+        _global_tool_factory = ToolFactory()
+    return _global_tool_factory
+
+
+def set_tool_factory(factory: ToolFactory) -> None:
+    """注入工具工厂（用于测试）"""
+    global _global_tool_factory
+    _global_tool_factory = factory
+
+
+def reset_tool_factory() -> None:
+    """重置工具工厂（用于测试清理）"""
+    global _global_tool_factory
+    _global_tool_factory = None
 
 
 # ========== 便捷函数 ==========

@@ -30,7 +30,9 @@ from .runtime import (
     SelectorTestResult,
     SelectorManager,
     GlobalSelectorManager,
-    global_selector_manager,
+    get_selector_manager,
+    set_selector_manager,
+    reset_selector_manager,
 )
 
 __all__ = [
@@ -55,5 +57,7 @@ __all__ = [
     "SelectorTestResult",
     "SelectorManager",
     "GlobalSelectorManager",
-    "global_selector_manager",
+    "get_selector_manager",
+    "set_selector_manager",
+    "reset_selector_manager",
 ]

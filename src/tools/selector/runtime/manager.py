@@ -754,41 +754,9 @@ class GlobalSelectorManager:
     管理所有网站的选择器。支持依赖注入以便测试。
     """
 
-    _instance: ClassVar[Optional['GlobalSelectorManager']] = None
-    _injected: ClassVar[Optional['GlobalSelectorManager']] = None
-    _managers: ClassVar[Dict[str, SelectorManager]] = {}
-
-    @classmethod
-    def get_manager_instance(cls) -> 'GlobalSelectorManager':
-        """获取实例（优先使用注入的）"""
-        if cls._injected is not None:
-            return cls._injected
-        if cls._instance is None:
-            cls._instance = cls.__new__(cls)
-        return cls._instance
-
-    @classmethod
-    def set_manager(cls, manager: 'GlobalSelectorManager') -> None:
-        """注入管理器（用于测试）"""
-        cls._injected = manager
-
-    @classmethod
-    def reset_manager(cls) -> None:
-        """重置管理器（用于测试清理）"""
-        cls._injected = None
-        cls._instance = None
-        cls._managers.clear()
-
-    def __new__(cls) -> 'GlobalSelectorManager':
-        if cls._injected is not None:
-            return cls._injected
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        if not hasattr(self, '_managers'):
-            self._managers = {}
+        """实例属性，避免类变量共享状态"""
+        self._managers: Dict[str, SelectorManager] = {}
 
     def get_manager(self, site_name: str) -> SelectorManager:
         """
@@ -828,23 +796,28 @@ class GlobalSelectorManager:
         return list(self._managers.keys())
 
 
-# 全局选择器管理器实例
-global_selector_manager = GlobalSelectorManager()
+# 模块级单例（支持依赖注入）
+_global_selector_manager: Optional[GlobalSelectorManager] = None
 
 
 def get_selector_manager() -> GlobalSelectorManager:
     """获取选择器管理器（支持依赖注入）"""
-    return GlobalSelectorManager.get_manager_instance()
+    global _global_selector_manager
+    if _global_selector_manager is None:
+        _global_selector_manager = GlobalSelectorManager()
+    return _global_selector_manager
 
 
 def set_selector_manager(manager: GlobalSelectorManager) -> None:
-    """设置选择器管理器（用于测试注入）"""
-    GlobalSelectorManager.set_manager(manager)
+    """注入管理器（用于测试）"""
+    global _global_selector_manager
+    _global_selector_manager = manager
 
 
 def reset_selector_manager() -> None:
-    """重置选择器管理器（用于测试清理）"""
-    GlobalSelectorManager.reset_manager()
+    """重置管理器（用于测试清理）"""
+    global _global_selector_manager
+    _global_selector_manager = None
 
 
 __all__ = [
@@ -854,7 +827,6 @@ __all__ = [
     "SelectorTestResult",
     "SelectorManager",
     "GlobalSelectorManager",
-    "global_selector_manager",
     "get_selector_manager",
     "set_selector_manager",
     "reset_selector_manager",
