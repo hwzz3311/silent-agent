@@ -20,7 +20,6 @@ from src.tools.sites.selectors import (
     CommonExtraSelectors,
     create_common_page_selectors,
     SelectorType,
-    SelectorStatus,
     SelectorInfo,
     SelectorTestResult,
     SelectorManager,
@@ -47,7 +46,6 @@ __all__ = [
     "create_common_page_selectors",
     # Manager
     "SelectorType",
-    "SelectorStatus",
     "SelectorInfo",
     "SelectorTestResult",
     "SelectorManager",

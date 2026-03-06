@@ -29,7 +29,6 @@ from .common import (
 
 from .manager import (
     SelectorType,
-    SelectorStatus,
     SelectorInfo,
     SelectorTestResult,
     SelectorManager,
@@ -56,7 +55,6 @@ __all__ = [
     "create_common_page_selectors",
     # Manager
     "SelectorType",
-    "SelectorStatus",
     "SelectorInfo",
     "SelectorTestResult",
     "SelectorManager",

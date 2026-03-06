@@ -27,8 +27,8 @@ Usage:
     BusinessToolRegistry.register(MyTool())
 """
 
-# 抽象基类
-from .base import BusinessTool, create_business_tool
+# 抽象基类和装饰器
+from .base import BusinessTool, create_business_tool, business_tool
 from .site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
 
 # 注册表
@@ -62,7 +62,6 @@ from .logging import (
 # 选择器管理 - 通过统一的 src.tools.selector 入口导入
 from src.tools.selector import (
     SelectorType,
-    SelectorStatus,
     SelectorInfo,
     SelectorTestResult,
     SelectorManager,
@@ -72,8 +71,6 @@ from src.tools.selector import (
     reset_selector_manager,
 )
 
-# 装饰器
-from .decorator import business_tool
 
 __all__ = [
     # 抽象基类
@@ -104,7 +101,6 @@ __all__ = [
     "DEFAULT_SENSITIVE_FIELDS",
     # 选择器管理
     "SelectorType",
-    "SelectorStatus",
     "SelectorInfo",
     "SelectorTestResult",
     "SelectorManager",
