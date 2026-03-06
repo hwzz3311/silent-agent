@@ -59,8 +59,8 @@ from .logging import (
     DEFAULT_SENSITIVE_FIELDS,
 )
 
-# 选择器管理 - 通过统一的 src.tools.selector 入口导入
-from src.tools.selector import (
+# 选择器管理
+from src.tools.sites.selectors import (
     SelectorType,
     SelectorInfo,
     SelectorTestResult,

@@ -379,23 +379,8 @@ class HybridClient(BrowserPort):
         if tool_instance is None:
             raise ValueError(f"无法创建工具实例: {name}")
 
-        # 参数验证（使用 pydantic）
+        # 参数验证已移至 BusinessTool.execute()，此处只做 pydantic 转换
         params = params or {}
-        validation = await tool_instance.validate_params(params)
-        if not validation.valid:
-            return self._convert_result(
-                Result.fail(
-                    error=Error.validation(
-                        message="参数验证失败",
-                        details={"errors": validation.errors}
-                    ),
-                    meta=ResultMeta(
-                        tool_name=name,
-                        duration_ms=0,
-                        attempt=1
-                    )
-                )
-            )
 
         # 获取参数类型并验证转换
         params_type = tool_instance._get_params_type()
