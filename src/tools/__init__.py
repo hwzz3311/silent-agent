@@ -82,17 +82,18 @@ def register_business_tools():
     将 BusinessToolRegistry 中的业务工具同步到 ToolRegistry，
     使其可以通过 API 调用。
     """
-    from .domain.registry import BusinessToolRegistry
+    from .domain.registry import get_registry as get_business_registry
 
     registry = get_registry()
+    business_registry = get_business_registry()
 
     # 先导入所有业务工具模块，触发自动注册
     # 闲鱼 - 手动注册工具（闲鱼登录模块没有 register 函数）
     try:
         from .sites.xianyu.tools.login.get_cookies import GetCookiesTool
         from .sites.xianyu.tools.login.password_login import PasswordLoginTool
-        BusinessToolRegistry.register_by_class(GetCookiesTool)
-        BusinessToolRegistry.register_by_class(PasswordLoginTool)
+        business_registry.register_by_class(GetCookiesTool)
+        business_registry.register_by_class(PasswordLoginTool)
     except Exception as e:
         print(f"[ToolRegistry] Skip xianyu login: {e}")
 
@@ -128,7 +129,7 @@ def register_business_tools():
         print(f"[ToolRegistry] Skip xhs interact: {e}")
 
     # 获取所有业务工具
-    business_tools = BusinessToolRegistry.get_all()
+    business_tools = business_registry.get_all()
     count = 0
 
     for tool in business_tools:

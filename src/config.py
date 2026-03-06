@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from enum import Enum
 
-from src.browser.client_factory import BrowserMode
+from src.adapters.browser.factory import BrowserMode
 
 
 class LogLevel(str, Enum):

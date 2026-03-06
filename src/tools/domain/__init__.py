@@ -35,10 +35,9 @@ from .site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
 from .registry import (
     BusinessToolRegistry,
     ToolVersionInfo,
-    business_registry,
-    get_tool,
-    register_tool,
-    list_tools,
+    get_registry,
+    set_registry,
+    reset_registry,
 )
 
 # 错误处理
@@ -60,8 +59,8 @@ from .logging import (
     DEFAULT_SENSITIVE_FIELDS,
 )
 
-# 选择器管理
-from .selectors import (
+# 选择器管理 - 已迁移到 src/tools/selector/runtime/
+from ..selector.runtime import (
     SelectorType,
     SelectorStatus,
     SelectorInfo,
@@ -86,10 +85,9 @@ __all__ = [
     # 注册表
     "BusinessToolRegistry",
     "ToolVersionInfo",
-    "business_registry",
-    "get_tool",
-    "register_tool",
-    "list_tools",
+    "get_registry",
+    "set_registry",
+    "reset_registry",
     # 错误处理
     "BusinessErrorCode",
     "BusinessError",
@@ -145,7 +143,7 @@ def discover_and_register(package_name: str, prefix: str = "xhs_") -> int:
     Returns:
         int: 注册的工具数量
     """
-    return BusinessToolRegistry.discover_from_package(package_name, prefix)
+    return get_registry().discover_from_package(package_name, prefix)
 
 
 # 版本信息

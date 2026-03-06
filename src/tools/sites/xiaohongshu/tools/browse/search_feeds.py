@@ -9,10 +9,10 @@ import asyncio
 from typing import Any
 
 from src.tools.base import ExecutionContext
-from src.tools.business import business_tool
-from src.tools.business.base import BusinessTool
-from src.tools.business.logging import log_operation
-from src.tools.business.registry import BusinessToolRegistry
+from src.tools.domain import business_tool
+from src.tools.domain.base import BusinessTool
+from src.tools.domain.logging import log_operation
+from src.tools.domain.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSSearchFeedsParams
 from .result import XHSSearchFeedsResult
@@ -138,7 +138,7 @@ class SearchFeedsTool(BusinessTool):
         max_items: int = 20
     ) -> dict:
         """直接执行搜索操作"""
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             # 导航到搜索页面

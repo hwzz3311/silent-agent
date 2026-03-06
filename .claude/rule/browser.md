@@ -48,7 +48,7 @@ SECRET_KEY=your_key
 支持同时运行多个浏览器实例，通过 `BrowserManager` 管理：
 
 ```python
-from src.browser import BrowserManager, BrowserInstance, BrowserMode
+from src.adapters.browser import BrowserManager, BrowserInstance, BrowserMode
 
 # 创建实例
 instance = BrowserInstance(

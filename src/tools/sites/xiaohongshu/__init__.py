@@ -49,7 +49,7 @@ from .publishers import (
     publish_note,
     publish_video,
 )
-from src.tools.business import BusinessToolRegistry
+from src.tools.domain.registry import get_registry
 
 
 def register_xhs_tools():
@@ -71,14 +71,14 @@ def register_xhs_tools():
     browse_register()
     interact_register()
 
-    return BusinessToolRegistry.get_by_site(XiaohongshuSite)
+    return get_registry().get_by_site(XiaohongshuSite)
 
 
 def get_xhs_tool_names() -> list:
     """获取所有小红书工具名称"""
     # from tools.business.registry import BusinessToolRegistry
 
-    tools = BusinessToolRegistry.get_by_site(XiaohongshuSite)
+    tools = get_registry().get_by_site(XiaohongshuSite)
     return list(tools.keys())
 
 

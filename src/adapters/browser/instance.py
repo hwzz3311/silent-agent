@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from .client_factory import BrowserMode
+from .factory import BrowserMode
 
 
 @dataclass

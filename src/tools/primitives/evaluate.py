@@ -28,7 +28,7 @@ class EvaluateTool(Tool):
         context: ExecutionContext
     ) -> Result[Any]:
         """执行求值"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         # 优先使用已连接的 client（从 context 传入），避免重复创建连接
         client = getattr(context, 'client', None)

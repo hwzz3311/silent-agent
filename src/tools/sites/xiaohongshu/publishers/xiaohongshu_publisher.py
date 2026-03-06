@@ -142,8 +142,8 @@ class XiaohongshuPublisher(Tool):
         context: ExecutionContext
     ) -> Result[PublishNoteResult]:
         """发布图文笔记流程"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
 
         steps = []
         tab_id = params.tab_id or context.tab_id
@@ -255,8 +255,8 @@ class XiaohongshuPublisher(Tool):
         context: ExecutionContext
     ) -> Result[PublishVideoResult]:
         """发布视频流程"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
 
         steps = []
         tab_id = params.tab_id or context.tab_id
@@ -394,12 +394,12 @@ class XiaohongshuPublisher(Tool):
 
     def _get_fill_params(self, selector: str, value: str):
         """创建填充参数"""
-        from src.tools.browser.fill import FillParams
+        from src.tools.primitives.fill import FillParams
         return FillParams(selector=selector, value=value)
 
     def _get_click_params(self, selector: str):
         """创建点击参数"""
-        from src.tools.browser.click import ClickParams
+        from src.tools.primitives.click import ClickParams
         return ClickParams(selector=selector)
 
     # 便捷方法

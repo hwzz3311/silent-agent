@@ -11,10 +11,10 @@ import uuid
 from datetime import datetime
 
 from src.tools.base import ExecutionContext
-from src.tools.business import business_tool
-from src.tools.business.base import BusinessTool
-from src.tools.business.logging import log_operation
-from src.tools.business.site_base import Site
+from src.tools.domain import business_tool
+from src.tools.domain.base import BusinessTool
+from src.tools.domain.logging import log_operation
+from src.tools.domain.site_base import Site
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSSchedulePublishParams
 from .result import XHSSchedulePublishResult
@@ -125,7 +125,7 @@ class SchedulePublishTool(BusinessTool):
 
         # ========== 填写发布内容 ==========
         # 填写标题
-        from src.tools.browser.fill import FillTool
+        from src.tools.primitives.fill import FillTool
         fill_tool = FillTool()
         await fill_tool.execute(
             params=fill_tool._get_params_type()(

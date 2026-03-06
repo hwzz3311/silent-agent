@@ -145,7 +145,7 @@ class ReadPageDataTool(Tool):
         tab_id: Optional[int] = None
     ) -> Result[Any]:
         """执行读取脚本"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         client = SilentAgentClient()
 

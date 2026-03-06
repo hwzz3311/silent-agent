@@ -28,7 +28,7 @@ class NavigateTool(Tool):
     ) -> Result[dict]:
         """执行导航"""
         import logging
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         logger = logging.getLogger("navigate")
 

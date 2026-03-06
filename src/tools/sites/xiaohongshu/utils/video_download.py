@@ -224,7 +224,7 @@ class VideoDownloadTool(Tool):
         speed: float
     ):
         """在页面显示下载进度"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         client = SilentAgentClient()
 

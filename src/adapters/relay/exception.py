@@ -5,7 +5,6 @@
 """
 
 
-
 class ClientException(Exception):
     """客户端基础异常"""
 

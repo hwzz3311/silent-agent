@@ -100,7 +100,7 @@ class ControlTool(Tool):
         domains = params.get("domains", [])
 
         # 使用 evaluate 工具执行 JavaScript 清除 Cookie
-        from src.tools.browser.evaluate import EvaluateTool
+        from src.tools.primitives.evaluate import EvaluateTool
 
         try:
             eval_tool = EvaluateTool()
@@ -155,7 +155,7 @@ class ControlTool(Tool):
         delete_all = params.get("delete_all", False)
         cookie_names = params.get("cookie_names", [])
 
-        from src.tools.browser.evaluate import EvaluateTool
+        from src.tools.primitives.evaluate import EvaluateTool
         import logging
 
         logger = logging.getLogger("xhs_delete_cookies")
@@ -224,7 +224,7 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理获取登录二维码操作"""
-        from src.tools.browser.navigate import NavigateTool
+        from src.tools.primitives.navigate import NavigateTool
 
         try:
             # 导航到登录页面
@@ -237,7 +237,7 @@ class ControlTool(Tool):
             )
 
             # 等待二维码加载
-            from src.tools.browser.wait import WaitTool
+            from src.tools.primitives.wait import WaitTool
             wait_tool = WaitTool()
             await wait_tool.execute(
                 params=wait_tool._get_params_type()(
@@ -446,8 +446,8 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理发布图文笔记操作"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
 
         try:
             title = params.get("title", "")
@@ -503,8 +503,8 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理发布视频笔记操作"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
 
         try:
             title = params.get("title", "")
@@ -562,7 +562,7 @@ class ControlTool(Tool):
     ) -> Result[dict]:
         """处理定时发布操作"""
         # 定时发布功能通常需要后端支持，这里返回提示信息
-        from src.tools.browser.fill import FillTool
+        from src.tools.primitives.fill import FillTool
 
         try:
             title = params.get("title", "")
@@ -608,7 +608,7 @@ class ControlTool(Tool):
 
         try:
             # 导航到笔记详情页
-            from src.tools.browser.navigate import NavigateTool
+            from src.tools.primitives.navigate import NavigateTool
 
             if note_id:
                 nav_tool = NavigateTool()
@@ -620,7 +620,7 @@ class ControlTool(Tool):
                 )
 
             # 提取状态信息
-            from src.tools.browser.evaluate import EvaluateTool
+            from src.tools.primitives.evaluate import EvaluateTool
 
             eval_tool = EvaluateTool()
 
@@ -680,7 +680,7 @@ class ControlTool(Tool):
             max_items = params.get("max_items", 20)
 
             # 导航到搜索页
-            from src.tools.browser.navigate import NavigateTool
+            from src.tools.primitives.navigate import NavigateTool
             nav_tool = NavigateTool()
             await nav_tool.execute(
                 params=nav_tool._get_params_type()(
@@ -693,7 +693,7 @@ class ControlTool(Tool):
             await asyncio.sleep(2)
 
             # 提取搜索结果
-            from src.tools.browser.evaluate import EvaluateTool
+            from src.tools.primitives.evaluate import EvaluateTool
 
             eval_tool = EvaluateTool()
             js_code = """
@@ -747,7 +747,7 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理点赞操作"""
-        from src.tools.browser.evaluate import EvaluateTool
+        from src.tools.primitives.evaluate import EvaluateTool
 
         try:
             note_id = params.get("note_id", "")
@@ -793,7 +793,7 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理收藏操作"""
-        from src.tools.browser.evaluate import EvaluateTool
+        from src.tools.primitives.evaluate import EvaluateTool
 
         try:
             note_id = params.get("note_id", "")
@@ -842,8 +842,8 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理发表评论操作"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
 
         try:
             note_id = params.get("note_id", "")
@@ -896,8 +896,8 @@ class ControlTool(Tool):
         context: ExecutionContext
     ) -> Result[dict]:
         """处理回复评论操作"""
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
 
         try:
             comment_id = params.get("comment_id", "")

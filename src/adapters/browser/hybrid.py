@@ -10,11 +10,15 @@ from typing import Any, Dict, List, Optional
 
 from src.ports.browser_port import BrowserPort
 from src.core.result import Result
-from .puppeteer_client import PuppeteerClient
-from .extension_client import ExtensionClient
+from .puppeteer import PuppeteerClient
+from .extension import ExtensionClient
 from .router import DefaultRoutingStrategy
 
+from src.tools.domain.registry import BusinessToolRegistry, get_registry
+from src.core.result import Result, ResultMeta, Error
+
 logger = logging.getLogger(__name__)
+
 
 
 class HybridClient(BrowserPort):
@@ -290,8 +294,9 @@ class HybridClient(BrowserPort):
 
         if not method_name:
             # 检查是否是业务工具（Python 端直接执行）
-            from src.tools.domain.registry import BusinessToolRegistry
-            if BusinessToolRegistry.is_registered(name):
+            from src.tools.domain.registry import get_registry
+            registry = get_registry()
+            if registry.is_registered(name):
                 # 将 self 注入到 context 中，方便业务工具访问浏览器
                 if context is None:
                     from src.tools.base import ExecutionContext
@@ -355,14 +360,12 @@ class HybridClient(BrowserPort):
         Returns:
             工具执行结果
         """
-        from src.tools.domain.registry import BusinessToolRegistry
-        from src.core.result import Result
-        from src.core.exception import Error
-        from src.core.result import ResultMeta
+        from src.tools.domain.registry import get_registry
+        registry = get_registry()
 
         # 检查工具是否已注册
-        if not BusinessToolRegistry.is_registered(name):
-            available = BusinessToolRegistry.list_all()
+        if not registry.is_registered(name):
+            available = registry.list_all()
             raise ValueError(f"未知业务工具: {name}，可用工具: {available[:5]}...")
 
         # 确保 context 有 client 属性
@@ -372,7 +375,7 @@ class HybridClient(BrowserPort):
         context.client = self
 
         # 从 Registry 获取工具并创建新实例
-        tool_instance = BusinessToolRegistry.create_instance(name)
+        tool_instance = registry.create_instance(name)
         if tool_instance is None:
             raise ValueError(f"无法创建工具实例: {name}")
 

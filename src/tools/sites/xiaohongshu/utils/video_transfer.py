@@ -337,7 +337,7 @@ class VideoChunkTransferTool(Tool):
             # 获取标签页 ID
             tab_id = params.tab_id or context.tab_id
             if not tab_id:
-                from src.relay_client import SilentAgentClient
+                from src.adapters.relay import SilentAgentClient
                 client = SilentAgentClient()
                 try:
                     page_info = await client.call_tool("chrome_get_page_info")
@@ -373,7 +373,7 @@ class VideoChunkTransferTool(Tool):
         timeout: int
     ) -> VideoChunkTransferResult:
         """执行分块传输"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         client = SilentAgentClient()
 

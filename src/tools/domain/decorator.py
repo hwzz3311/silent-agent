@@ -23,7 +23,7 @@ import logging
 from typing import Optional, Type, Callable
 
 from .base import BusinessTool
-from .registry import BusinessToolRegistry
+from .registry import BusinessToolRegistry, get_registry
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ def business_tool(
 
         # 自动注册到注册表
         if enabled:
-            BusinessToolRegistry.register_by_class(cls, enabled=True)
+            get_registry().register_by_class(cls, enabled=True)
             logger.info(f"Registered tool '{cls.name}' via @business_tool decorator")
 
         return cls

@@ -374,7 +374,7 @@ API 端点：
 
 ```python
 import asyncio
-from src.client.client import SilentAgentClient
+from src.adapters.relay import SilentAgentClient
 
 async def main():
     async with SilentAgentClient(host="127.0.0.1", port=18792) as client:
@@ -395,7 +395,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from src.client.client import SilentAgentClient
+from src.adapters.relay import SilentAgentClient
 
 async def main():
     # 方式一：创建客户端时指定密钥
@@ -459,7 +459,7 @@ curl -X POST http://localhost:8080/api/v1/execute \
 Python 中使用：
 
 ```python
-from src.browser import BrowserManager
+from src.adapters.browser import BrowserManager
 
 # 使用指定实例
 client = await BrowserManager.get_client(instance_id)

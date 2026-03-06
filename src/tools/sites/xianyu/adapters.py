@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 from src.tools.base import ExecutionContext
 from src.core.result import Result, Error
 
-from src.tools.business.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
-from src.tools.business.errors import BusinessException
+from src.tools.domain.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
+from src.tools.domain.errors import BusinessException
 
 
 class XianyuSiteConfig(SiteConfig):
@@ -382,9 +382,9 @@ class XianyuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 发布结果，包含 item_id 和 url
         """
-        from src.tools.browser.fill import FillTool
-        from src.tools.browser.click import ClickTool
-        from src.tools.browser.evaluate import EvaluateTool
+        from src.tools.primitives.fill import FillTool
+        from src.tools.primitives.click import ClickTool
+        from src.tools.primitives.evaluate import EvaluateTool
         import asyncio
         import os
 
@@ -544,7 +544,7 @@ class XianyuSite(Site):
 
             # 7. 验证发布成功
             # 获取当前 URL 检查是否跳转到商品详情页
-            from src.tools.browser.navigate import GetUrlTool
+            from src.tools.primitives.navigate import GetUrlTool
             get_url_tool = GetUrlTool()
             url_result = await get_url_tool.execute(
                 params=get_url_tool._get_params_type()(),

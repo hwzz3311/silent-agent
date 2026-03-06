@@ -72,7 +72,7 @@ class InjectScriptTool(Tool):
         context: ExecutionContext
     ) -> Result[Any]:
         """在 MAIN 世界执行代码"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         client = SilentAgentClient()
 
@@ -97,7 +97,7 @@ class InjectScriptTool(Tool):
         context: ExecutionContext
     ) -> Result[Any]:
         """在 ISOLATED 世界执行代码"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         client = SilentAgentClient()
 

@@ -30,7 +30,7 @@ class ScreenshotTool(Tool):
         # 优先使用 context 中的 client（依赖注入），降级使用全局客户端
         client = context.client
         if client is None:
-            from src.relay_client import SilentAgentClient
+            from src.adapters.relay import SilentAgentClient
             client = SilentAgentClient()
 
         try:

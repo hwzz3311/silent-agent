@@ -44,7 +44,7 @@ async def register_browser(request: RegisterBrowserRequest):
     - **relay_host**: Relay 服务器主机
     - **relay_port**: Relay 服务器端口
     """
-    from src.browser import BrowserManager, BrowserInstance, BrowserMode
+    from src.adapters.browser import BrowserManager, BrowserInstance, BrowserMode
 
     # 创建浏览器实例
     instance = BrowserInstance(
@@ -83,7 +83,7 @@ async def list_browsers():
 
     返回所有注册的浏览器实例列表。
     """
-    from src.browser import BrowserManager
+    from src.adapters.browser import BrowserManager
 
     instances = BrowserManager.list_instances()
 
@@ -119,7 +119,7 @@ async def unregister_browser(instance_id: str):
 
     - **instance_id**: 浏览器实例 ID
     """
-    from src.browser import BrowserManager
+    from src.adapters.browser import BrowserManager
 
     success = BrowserManager.unregister_instance(instance_id)
 
@@ -144,7 +144,7 @@ async def browser_health(instance_id: str):
 
     - **instance_id**: 浏览器实例 ID
     """
-    from src.browser import BrowserManager
+    from src.adapters.browser import BrowserManager
 
     instance = BrowserManager.get_instance(instance_id)
 
@@ -172,7 +172,7 @@ async def set_default_browser(instance_id: str):
 
     - **instance_id**: 浏览器实例 ID
     """
-    from src.browser import BrowserManager
+    from src.adapters.browser import BrowserManager
 
     success = BrowserManager.set_default_instance(instance_id)
 

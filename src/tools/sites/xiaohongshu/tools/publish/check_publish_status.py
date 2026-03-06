@@ -8,9 +8,9 @@ import logging
 from typing import Any
 
 from src.tools.base import ExecutionContext
-from src.tools.business import business_tool
-from src.tools.business.base import BusinessTool
-from src.tools.business.logging import log_operation
+from src.tools.domain import business_tool
+from src.tools.domain.base import BusinessTool
+from src.tools.domain.logging import log_operation
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSCheckPublishStatusParams
 from .result import XHSCheckPublishStatusResult
@@ -97,7 +97,7 @@ class CheckPublishStatusTool(BusinessTool):
 
         # ========== 导航到笔记详情页 ==========
         if params.note_id:
-            from src.tools.browser.navigate import NavigateTool
+            from src.tools.primitives.navigate import NavigateTool
             nav_tool = NavigateTool()
             await nav_tool.execute(
                 params=nav_tool._get_params_type()(
@@ -111,7 +111,7 @@ class CheckPublishStatusTool(BusinessTool):
             await asyncio.sleep(2)
 
         # ========== 提取状态信息 ==========
-        from src.tools.browser.evaluate import EvaluateTool
+        from src.tools.primitives.evaluate import EvaluateTool
         eval_tool = EvaluateTool()
 
         # 尝试获取页面状态

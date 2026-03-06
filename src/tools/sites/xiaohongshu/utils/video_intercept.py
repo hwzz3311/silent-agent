@@ -88,7 +88,7 @@ class VideoUploadInterceptTool(Tool):
             # 获取标签页 ID
             tab_id = params.tab_id or context.tab_id
             if not tab_id:
-                from src.relay_client import SilentAgentClient
+                from src.adapters.relay import SilentAgentClient
                 client = SilentAgentClient()
                 try:
                     page_info = await client.call_tool("chrome_get_page_info")
@@ -122,7 +122,7 @@ class VideoUploadInterceptTool(Tool):
         timeout: int
     ) -> VideoUploadInterceptResult:
         """执行拦截逻辑"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         client = SilentAgentClient()
 

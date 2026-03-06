@@ -6,7 +6,7 @@ WebSocket 客户端模块
 
 from .client import SilentAgentClient, create_client
 from .connection import ConnectionManager, ConnectionConfig, ConnectionInfo, ConnectionState
-from .exceptions import (
+from .exception import (
     ClientException,
     ConnectionError,
     DisconnectedError,

@@ -95,7 +95,7 @@ class UploadFileTool(Tool):
     ) -> Result[UploadFileResult]:
         """执行文件上传"""
         try:
-            from src.relay_client import SilentAgentClient
+            from src.adapters.relay import SilentAgentClient
 
             client = SilentAgentClient()
 
@@ -247,7 +247,7 @@ class SetFilesTool(Tool):
     ) -> Result[SetFilesResult]:
         """执行多文件设置"""
         try:
-            from src.relay_client import SilentAgentClient
+            from src.adapters.relay import SilentAgentClient
 
             client = SilentAgentClient()
 

@@ -5,7 +5,7 @@
 """
 
 from typing import (
-    Dict, Optional, Type, List, Set, Any, ClassVar
+    Dict, Optional, Type, List, Set, Any
 )
 import logging
 import inspect
@@ -17,8 +17,8 @@ from .site_base import Site
 
 logger = logging.getLogger(__name__)
 
-# 注入的注册表（测试用）
-_injected_registry: Optional['BusinessToolRegistry'] = None
+# 应用级单例（进程内唯一）
+_app_registry: Optional['BusinessToolRegistry'] = None
 
 
 class ToolVersionInfo(BaseModel):
@@ -45,103 +45,48 @@ class BusinessToolRegistry:
     3. 工具版本管理
     4. 工具自动发现
 
-    Singleton Pattern: 支持依赖注入以便测试
+    设计: 依赖注入友好，支持应用级单例
 
     Usage:
+        # 创建实例
+        registry = BusinessToolRegistry()
+
         # 注册工具
-        BusinessToolRegistry.register(CheckLoginStatusTool())
+        registry.register(CheckLoginStatusTool())
 
         # 按名称获取
-        tool = BusinessToolRegistry.get("xhs_check_login_status")
+        tool = registry.get("xhs_check_login_status")
 
         # 按网站类型获取
-        xhs_tools = BusinessToolRegistry.get_by_site(XiaohongshuSite)
+        xhs_tools = registry.get_by_site(XiaohongshuSite)
 
         # 按类别获取
-        login_tools = BusinessToolRegistry.get_by_category("login")
+        login_tools = registry.get_by_category("login")
 
-        # 测试注入
-        from src.tools.domain.registry import set_registry, reset_registry
-        mock_registry = BusinessToolRegistry()
-        set_registry(mock_registry)
-        # ... 测试代码
-        reset_registry()
+        # 应用级单例（推荐）
+        from src.tools.domain.registry import get_registry
+        registry = get_registry()
     """
 
-    # 类变量
-    _instance: ClassVar[Optional['BusinessToolRegistry']] = None
-    _injected: ClassVar[Optional['BusinessToolRegistry']] = None
-
-    # 工具存储
-    _tools: ClassVar[Dict[str, BusinessTool]] = {}
-    _tool_versions: ClassVar[Dict[str, ToolVersionInfo]] = {}
-    _site_tools: ClassVar[Dict[Type[Site], Dict[str, BusinessTool]]] = {}
-    _categories: ClassVar[Dict[str, Set[str]]] = {}
-    _name_to_class: ClassVar[Dict[str, Type[BusinessTool]]] = {}
-
-    @classmethod
-    def get_registry(cls) -> 'BusinessToolRegistry':
-        """获取注册表实例（优先使用注入的）"""
-        if cls._injected is not None:
-            return cls._injected
-        if cls._instance is None:
-            cls._instance = cls.__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    @classmethod
-    def set_registry(cls, registry: 'BusinessToolRegistry') -> None:
-        """注入注册表（用于测试）"""
-        cls._injected = registry
-
-    @classmethod
-    def reset_registry(cls) -> None:
-        """重置注册表（用于测试清理）"""
-        cls._injected = None
-        cls._instance = None
-        cls._tools.clear()
-        cls._tool_versions.clear()
-        cls._site_tools.clear()
-        cls._categories.clear()
-        cls._name_to_class.clear()
-
-    def __new__(cls) -> 'BusinessToolRegistry':
-        if cls._injected is not None:
-            return cls._injected
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
     def __init__(self):
-        if self._initialized:
-            return
-
-        self._tools = {}
-        self._tool_versions = {}
-        self._site_tools = {}
-        self._categories = {}
-        self._name_to_class = {}
+        """初始化注册表实例"""
+        # 实例属性（非类变量）
+        self._tools: Dict[str, BusinessTool] = {}
+        self._tool_versions: Dict[str, ToolVersionInfo] = {}
+        self._site_tools: Dict[Type[Site], Dict[str, BusinessTool]] = {}
+        self._categories: Dict[str, Set[str]] = {}
+        self._name_to_class: Dict[str, Type[BusinessTool]] = {}
 
         # 初始化默认类别
-        default_categories = [
-            "login",       # 登录相关
-            "publish",     # 发布相关
-            "browse",      # 浏览相关
-            "interact",    # 互动相关
-            "general",     # 通用操作
-        ]
-        for cat in default_categories:
+        for cat in ["login", "publish", "browse", "interact", "general"]:
             self._categories[cat] = set()
 
-        self._initialized = True
         logger.info("BusinessToolRegistry initialized")
 
     # ========== 核心方法 ==========
 
-    @classmethod
     def register(
-        cls,
+        self,
         tool: BusinessTool,
         version: str = None,
         enabled: bool = True,
@@ -164,13 +109,13 @@ class BusinessToolRegistry:
         tool_version = version or tool.version
 
         # 检查是否已存在
-        if tool_name in cls._tools and not overwrite:
+        if tool_name in self._tools and not overwrite:
             logger.warning(f"Tool {tool_name} already registered, skipping")
             return False
 
         # 注册工具
-        cls._tools[tool_name] = tool
-        cls._tool_versions[tool_name] = ToolVersionInfo(
+        self._tools[tool_name] = tool
+        self._tool_versions[tool_name] = ToolVersionInfo(
             version=tool_version,
             registered_at=__import__('time').time(),
             enabled=enabled
@@ -179,25 +124,24 @@ class BusinessToolRegistry:
         # 注册到网站索引
         site_type = getattr(tool, 'site_type', None)
         if site_type and issubclass(site_type, Site):
-            if site_type not in cls._site_tools:
-                cls._site_tools[site_type] = {}
-            cls._site_tools[site_type][tool_name] = tool
+            if site_type not in self._site_tools:
+                self._site_tools[site_type] = {}
+            self._site_tools[site_type][tool_name] = tool
 
         # 注册到类别索引
         category = getattr(tool, 'operation_category', 'general')
-        if category not in cls._categories:
-            cls._categories[category] = set()
-        cls._categories[category].add(tool_name)
+        if category not in self._categories:
+            self._categories[category] = set()
+        self._categories[category].add(tool_name)
 
         # 保存类引用（用于动态创建实例）
-        cls._name_to_class[tool_name] = tool.__class__
+        self._name_to_class[tool_name] = tool.__class__
 
         logger.info(f"Registered tool: {tool_name} (v{tool_version})")
         return True
 
-    @classmethod
     def register_by_class(
-        cls,
+        self,
         tool_class: Type[BusinessTool],
         version: str = None,
         enabled: bool = True
@@ -224,10 +168,9 @@ class BusinessToolRegistry:
 
         # 创建实例并注册
         instance = tool_class()
-        return cls.register(instance, version, enabled)
+        return self.register(instance, version, enabled)
 
-    @classmethod
-    def unregister(cls, tool_name: str) -> bool:
+    def unregister(self, tool_name: str) -> bool:
         """
         注销工具
 
@@ -237,32 +180,31 @@ class BusinessToolRegistry:
         Returns:
             bool: 是否注销成功
         """
-        if tool_name not in cls._tools:
+        if tool_name not in self._tools:
             logger.warning(f"Tool {tool_name} not found, skipping unregister")
             return False
 
         # 从各处索引中移除
-        tool = cls._tools.pop(tool_name)
-        cls._tool_versions.pop(tool_name, None)
+        tool = self._tools.pop(tool_name)
+        self._tool_version.pop(tool_name, None)
 
         # 从网站索引中移除
         site_type = getattr(tool, 'site_type', None)
-        if site_type and site_type in cls._site_tools:
-            cls._site_tools[site_type].pop(tool_name, None)
+        if site_type and site_type in self._site_tools:
+            self._site_tools[site_type].pop(tool_name, None)
 
         # 从类别索引中移除
         category = getattr(tool, 'operation_category', 'general')
-        if category in cls._categories:
-            cls._categories[category].discard(tool_name)
+        if category in self._categories:
+            self._categories[category].discard(tool_name)
 
         # 从类引用中移除
-        cls._name_to_class.pop(tool_name, None)
+        self._name_to_class.pop(tool_name, None)
 
         logger.info(f"Unregistered tool: {tool_name}")
         return True
 
-    @classmethod
-    def get(cls, tool_name: str) -> Optional[BusinessTool]:
+    def get(self, tool_name: str) -> Optional[BusinessTool]:
         """
         获取工具实例
 
@@ -272,10 +214,9 @@ class BusinessToolRegistry:
         Returns:
             Optional[BusinessTool]: 工具实例，不存在返回 None
         """
-        return cls._tools.get(tool_name)
+        return self._tools.get(tool_name)
 
-    @classmethod
-    def get_instance(cls, tool_name: str) -> Optional[BusinessTool]:
+    def get_instance(self, tool_name: str) -> Optional[BusinessTool]:
         """
         获取工具实例（别名方法）
 
@@ -285,10 +226,9 @@ class BusinessToolRegistry:
         Returns:
             Optional[BusinessTool]: 工具实例
         """
-        return cls.get(tool_name)
+        return self.get(tool_name)
 
-    @classmethod
-    def create_instance(cls, tool_name: str) -> Optional[BusinessTool]:
+    def create_instance(self, tool_name: str) -> Optional[BusinessTool]:
         """
         创建工具实例
 
@@ -300,15 +240,14 @@ class BusinessToolRegistry:
         Returns:
             Optional[BusinessTool]: 新创建的实例
         """
-        tool_class = cls._name_to_class.get(tool_name)
+        tool_class = self._name_to_class.get(tool_name)
         if tool_class:
             return tool_class()
         return None
 
     # ========== 查找方法 ==========
 
-    @classmethod
-    def get_by_site(cls, site_type: Type[Site]) -> Dict[str, BusinessTool]:
+    def get_by_site(self, site_type: Type[Site]) -> Dict[str, BusinessTool]:
         """
         获取指定网站类型的所有工具
 
@@ -319,18 +258,17 @@ class BusinessToolRegistry:
             Dict[str, BusinessTool]: 工具名称 -> 工具实例的字典
         """
         # 直接匹配
-        if site_type in cls._site_tools:
-            return cls._site_tools[site_type].copy()
+        if site_type in self._site_tools:
+            return self._site_tools[site_type].copy()
 
         # 检查子类
-        for registered_site, tools in cls._site_tools.items():
+        for registered_site, tools in self._site_tools.items():
             if issubclass(site_type, registered_site):
                 return tools.copy()
 
         return {}
 
-    @classmethod
-    def get_by_category(cls, category: str) -> Dict[str, BusinessTool]:
+    def get_by_category(self, category: str) -> Dict[str, BusinessTool]:
         """
         获取指定类别的所有工具
 
@@ -340,15 +278,14 @@ class BusinessToolRegistry:
         Returns:
             Dict[str, BusinessTool]: 工具名称 -> 工具实例的字典
         """
-        tool_names = cls._categories.get(category, set())
+        tool_names = self._categories.get(category, set())
         return {
-            name: cls._tools[name]
+            name: self._tools[name]
             for name in tool_names
-            if name in cls._tools
+            if name in self._tools
         }
 
-    @classmethod
-    def get_by_name_pattern(cls, pattern: str) -> Dict[str, BusinessTool]:
+    def get_by_name_pattern(self, pattern: str) -> Dict[str, BusinessTool]:
         """
         按名称模式查找工具
 
@@ -360,13 +297,12 @@ class BusinessToolRegistry:
         """
         import re
         result = {}
-        for name, tool in cls._tools.items():
+        for name, tool in self._tools.items():
             if re.search(pattern, name, re.IGNORECASE):
                 result[name] = tool
         return result
 
-    @classmethod
-    def search(cls, query: str) -> Dict[str, BusinessTool]:
+    def search(self, query: str) -> Dict[str, BusinessTool]:
         """
         搜索工具（名称、描述、类别）
 
@@ -379,7 +315,7 @@ class BusinessToolRegistry:
         query_lower = query.lower()
         result = {}
 
-        for name, tool in cls._tools.items():
+        for name, tool in self._tools.items():
             # 检查名称
             if query_lower in name.lower():
                 result[name] = tool
@@ -399,18 +335,16 @@ class BusinessToolRegistry:
 
     # ========== 列表方法 ==========
 
-    @classmethod
-    def list_all(cls) -> List[str]:
+    def list_all(self) -> List[str]:
         """
         列出所有已注册的工具名称
 
         Returns:
             List[str]: 工具名称列表
         """
-        return list(cls._tools.keys())
+        return list(self._tools.keys())
 
-    @classmethod
-    def list_enabled(cls) -> List[str]:
+    def list_enabled(self) -> List[str]:
         """
         列出所有已启用的工具名称
 
@@ -418,12 +352,11 @@ class BusinessToolRegistry:
             List[str]: 工具名称列表
         """
         return [
-            name for name, info in cls._tool_versions.items()
+            name for name, info in self._tool_version.items()
             if info.enabled
         ]
 
-    @classmethod
-    def list_by_category(cls, category: str) -> List[str]:
+    def list_by_category(self, category: str) -> List[str]:
         """
         列出指定类别的所有工具名称
 
@@ -433,52 +366,47 @@ class BusinessToolRegistry:
         Returns:
             List[str]: 工具名称列表
         """
-        return list(cls._categories.get(category, set()))
+        return list(self._categories.get(category, set()))
 
-    @classmethod
-    def list_categories(cls) -> List[str]:
+    def list_categories(self) -> List[str]:
         """
         列出所有类别
 
         Returns:
             List[str]: 类别列表
         """
-        return list(cls._categories.keys())
+        return list(self._categories.keys())
 
-    @classmethod
-    def list_sites(cls) -> List[Type[Site]]:
+    def list_sites(self) -> List[Type[Site]]:
         """
         列出所有已注册工具的网站类型
 
         Returns:
             List[Type[Site]]: 网站类型列表
         """
-        return list(cls._site_tools.keys())
+        return list(self._site_tools.keys())
 
     # ========== 状态方法 ==========
 
-    @classmethod
-    def count(cls) -> int:
+    def count(self) -> int:
         """
         获取工具总数
 
         Returns:
             int: 工具数量
         """
-        return len(cls._tools)
+        return len(self._tools)
 
-    @classmethod
-    def enabled_count(cls) -> int:
+    def enabled_count(self) -> int:
         """
         获取已启用工具数量
 
         Returns:
             int: 已启用工具数量
         """
-        return sum(1 for info in cls._tool_versions.values() if info.enabled)
+        return sum(1 for info in self._tool_version.values() if info.enabled)
 
-    @classmethod
-    def is_registered(cls, tool_name: str) -> bool:
+    def is_registered(self, tool_name: str) -> bool:
         """
         检查工具是否已注册
 
@@ -488,10 +416,9 @@ class BusinessToolRegistry:
         Returns:
             bool: 是否已注册
         """
-        return tool_name in cls._tools
+        return tool_name in self._tools
 
-    @classmethod
-    def is_enabled(cls, tool_name: str) -> bool:
+    def is_enabled(self, tool_name: str) -> bool:
         """
         检查工具是否已启用
 
@@ -501,13 +428,12 @@ class BusinessToolRegistry:
         Returns:
             bool: 是否已启用
         """
-        info = cls._tool_versions.get(tool_name)
+        info = self._tool_version.get(tool_name)
         return info.enabled if info else False
 
     # ========== 管理方法 ==========
 
-    @classmethod
-    def enable(cls, tool_name: str) -> bool:
+    def enable(self, tool_name: str) -> bool:
         """
         启用工具
 
@@ -517,15 +443,14 @@ class BusinessToolRegistry:
         Returns:
             bool: 是否操作成功
         """
-        if tool_name not in cls._tool_versions:
+        if tool_name not in self._tool_version:
             return False
 
-        cls._tool_versions[tool_name].enabled = True
+        self._tool_version[tool_name].enabled = True
         logger.info(f"Enabled tool: {tool_name}")
         return True
 
-    @classmethod
-    def disable(cls, tool_name: str) -> bool:
+    def disable(self, tool_name: str) -> bool:
         """
         禁用工具
 
@@ -535,32 +460,30 @@ class BusinessToolRegistry:
         Returns:
             bool: 是否操作成功
         """
-        if tool_name not in cls._tool_versions:
+        if tool_name not in self._tool_version:
             return False
 
-        cls._tool_versions[tool_name].enabled = False
+        self._tool_version[tool_name].enabled = False
         logger.info(f"Disabled tool: {tool_name}")
         return True
 
-    @classmethod
-    def clear(cls) -> int:
+    def clear(self) -> int:
         """
         清空所有注册
 
         Returns:
             int: 清空前工具数量
         """
-        count = len(cls._tools)
-        cls._tools.clear()
-        cls._tool_versions.clear()
-        cls._site_tools.clear()
-        cls._categories = {cat: set() for cat in cls._categories}
-        cls._name_to_class.clear()
+        count = len(self._tools)
+        self._tools.clear()
+        self._tool_version.clear()
+        self._site_tools.clear()
+        self._categories = {cat: set() for cat in self._categories}
+        self._name_to_class.clear()
         logger.info(f"Cleared {count} tools")
         return count
 
-    @classmethod
-    def get_tool_info(cls, tool_name: str) -> Optional[Dict[str, Any]]:
+    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
         """
         获取工具详细信息
 
@@ -570,11 +493,11 @@ class BusinessToolRegistry:
         Returns:
             Optional[Dict[str, Any]]: 工具信息字典
         """
-        tool = cls._tools.get(tool_name)
+        tool = self._tools.get(tool_name)
         if not tool:
             return None
 
-        version_info = cls._tool_versions.get(tool_name)
+        version_info = self._tool_version.get(tool_name)
 
         return {
             "name": tool.name,
@@ -587,8 +510,7 @@ class BusinessToolRegistry:
             "registered_at": version_info.registered_at if version_info else None,
         }
 
-    @classmethod
-    def get_all_info(cls) -> List[Dict[str, Any]]:
+    def get_all_info(self) -> List[Dict[str, Any]]:
         """
         获取所有工具信息
 
@@ -596,25 +518,23 @@ class BusinessToolRegistry:
             List[Dict[str, Any]]: 工具信息列表
         """
         return [
-            cls.get_tool_info(name)
-            for name in cls._tools.keys()
+            self.get_tool_info(name)
+            for name in self._tools.keys()
         ]
 
-    @classmethod
-    def get_all(cls) -> List[BusinessTool]:
+    def get_all(self) -> List[BusinessTool]:
         """
         获取所有已注册的业务工具
 
         Returns:
             List[BusinessTool]: 工具实例列表
         """
-        return list(cls._tools.values())
+        return list(self._tools.values())
 
     # ========== 自动发现 ==========
 
-    @classmethod
     def discover_from_module(
-        cls,
+        self,
         module,
         prefix: str = "xhs_",
         enabled: bool = True
@@ -653,15 +573,14 @@ class BusinessToolRegistry:
                         tool_name = f"{tool_name}_tool"
 
                     # 注册工具
-                    if cls.register_by_class(attr, enabled=enabled):
+                    if self.register_by_class(attr, enabled=enabled):
                         count += 1
 
         logger.info(f"Discovered {count} tools from module {module.__name__}")
         return count
 
-    @classmethod
     def discover_from_package(
-        cls,
+        self,
         package_name: str,
         prefix: str = "xhs_",
         enabled: bool = True
@@ -683,7 +602,7 @@ class BusinessToolRegistry:
 
             count = 0
             for _, module_name in inspect.getmembers(package, inspect.ismodule):
-                count += cls.discover_from_module(
+                count += self.discover_from_module(
                     module_name,
                     prefix=prefix,
                     enabled=enabled
@@ -696,51 +615,32 @@ class BusinessToolRegistry:
             return 0
 
 
-# 单例访问便捷函数
-business_registry = BusinessToolRegistry()
-
+# ========== 应用级单例访问器 ==========
 
 def get_registry() -> BusinessToolRegistry:
-    """获取注册表（优先使用注入的，否则使用默认）"""
-    global _injected_registry
-    if _injected_registry is not None:
-        return _injected_registry
-    return business_registry
+    """获取应用级注册表单例（推荐使用）"""
+    global _app_registry
+    if _app_registry is None:
+        _app_registry = BusinessToolRegistry()
+    return _app_registry
 
 
 def set_registry(registry: BusinessToolRegistry) -> None:
-    """设置注册表（用于测试注入 mock）"""
-    global _injected_registry
-    _injected_registry = registry
+    """设置应用级注册表（用于测试注入 mock）"""
+    global _app_registry
+    _app_registry = registry
 
 
 def reset_registry() -> None:
-    """重置注册表（用于测试清理）"""
-    global _injected_registry
-    _injected_registry = None
-    # 清理单例状态
-    BusinessToolRegistry._instance = None
-    BusinessToolRegistry._tools.clear()
-    BusinessToolRegistry._tool_versions.clear()
-    BusinessToolRegistry._site_tools.clear()
-    BusinessToolRegistry._categories.clear()
-    BusinessToolRegistry._name_to_class.clear()
-
-
-# 便捷别名
-get_tool = BusinessToolRegistry.get
-register_tool = BusinessToolRegistry.register
-list_tools = BusinessToolRegistry.list_all
+    """重置应用级注册表（用于测试清理）"""
+    global _app_registry
+    _app_registry = None
 
 
 __all__ = [
     "BusinessToolRegistry",
     "ToolVersionInfo",
-    "business_registry",
     "get_registry",
     "set_registry",
     "reset_registry",
-    "get_tool",
-    "register_tool",
-    "list_tools",
 ]

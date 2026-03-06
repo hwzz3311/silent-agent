@@ -39,7 +39,7 @@ async def get_client():
     global _browser_client
     if _browser_client is None:
         import asyncio
-        from src.browser import BrowserClientFactory, BrowserMode
+        from src.adapters.browser import BrowserClientFactory, BrowserMode
         from src.config import get_config
 
         config = get_config()
@@ -49,7 +49,7 @@ async def get_client():
 
         if mode == BrowserMode.EXTENSION:
             # 使用旧的客户端（向后兼容）
-            from src.client.client import SilentAgentClient
+            from src.adapters.relay import SilentAgentClient
             _browser_client = SilentAgentClient()
             try:
                 await asyncio.wait_for(_browser_client.connect(), timeout=10)
@@ -97,7 +97,7 @@ async def get_browser_client(
         BrowserPort: 浏览器端口实例
     """
     import asyncio
-    from src.browser import BrowserClientFactory, BrowserMode
+    from src.adapters.browser import BrowserClientFactory, BrowserMode
     from src.config import get_config
 
     config = get_config()

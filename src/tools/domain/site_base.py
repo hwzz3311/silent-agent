@@ -257,8 +257,8 @@ class Site(ABC):
         Returns:
             Result[bool]: 是否处理了 Cookie 弹窗
         """
-        from src.tools.browser.click import ClickTool
-        from src.tools.browser.wait import WaitTool
+        from src.tools.primitives.click import ClickTool
+        from src.tools.primitives.wait import WaitTool
 
         selector = self.selectors.cookie_accept_button
         if not selector:

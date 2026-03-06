@@ -12,7 +12,7 @@ from pydantic import Field
 
 from src.tools.base import Tool, ToolParameters, ExecutionContext, tool
 from src.core.result import Result
-from src.browser import BrowserClientFactory, BrowserMode
+from src.adapters.browser import BrowserClientFactory, BrowserMode
 
 
 class A11yTreeParams(ToolParameters):
@@ -96,7 +96,7 @@ class A11yTreeTool(Tool):
         # 优先使用 context 中的 client（依赖注入），降级使用全局客户端
         client = context.client
         if client is None:
-            from src.relay_client import SilentAgentClient
+            from src.adapters.relay import SilentAgentClient
             client = SilentAgentClient()
 
         try:
@@ -135,7 +135,7 @@ class A11yTreeTool(Tool):
         params: A11yTreeParams
     ) -> Result[dict]:
         """回退到模拟树（hybrid 模式失败时）"""
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
 
         # 注意：fallback 场景下没有 context，降级创建新客户端
         client = SilentAgentClient()

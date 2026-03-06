@@ -55,7 +55,7 @@ async def execute_tool(request: ExecuteRequest):
     logger.debug(f"[API] 请求参数: {json.dumps(request.params or {}, ensure_ascii=False, indent=2)}")
 
     # 获取客户端：优先使用 BrowserManager（多实例模式）
-    from src.browser import BrowserManager
+    from src.adapters.browser import BrowserManager
 
     # 检查是否指定了 browser_id
     if request.browser_id:
@@ -78,7 +78,7 @@ async def execute_tool(request: ExecuteRequest):
         # 创建 ExecutionContext 并传入 tab_id、client、secret_key 和 browser_mode
         from src.tools.base import ExecutionContext
         from src.config import get_config
-        from src.browser.client_factory import BrowserMode
+        from src.adapters.browser.factory import BrowserMode
 
         config = get_config()
         # 使用请求中的 browser_mode（如果提供），否则使用配置中的模式

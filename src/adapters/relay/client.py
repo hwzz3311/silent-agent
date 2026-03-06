@@ -9,7 +9,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from .connection import ConnectionManager, ConnectionConfig, ConnectionInfo
-from .exceptions import (
+from .exception import (
     ConnectionError,
     DisconnectedError,
     TimeoutError,
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # 业务工具注册表：统一从 Registry 导入
 # 这些工具在 Python 端实现，直接调用不经过 extension
-from src.tools.business.registry import BusinessToolRegistry
+from src.tools.domain.registry import get_registry
 
 
 class SilentAgentClient:
@@ -370,7 +370,7 @@ class SilentAgentClient:
             ValueError: 未知工具
         """
         # 1. 检查是否是业务工具（Python 端直接执行）
-        if BusinessToolRegistry.is_registered(name):
+        if get_registry().is_registered(name):
             try:
                 # 将 self（client）注入到 context 中，方便业务工具访问浏览器
                 if context is None:
@@ -741,5 +741,5 @@ __all__ = [
     "create_client",
     "execute_tool",
     "execute_business_tool",
-    "BusinessToolRegistry",
+    "get_registry",
 ]

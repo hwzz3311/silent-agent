@@ -1,17 +1,15 @@
 """
 选择器模块
 
-提供通用的选择器基类和通用选择器定义。
-各网站特定选择器继承这些基础类实现。
+已迁移到 src/tools/selector/
+此文件保留用于向后兼容，请使用新导入路径。
 """
 
-from .base import (
+# 重新导出保持向后兼容
+from src.tools.selector.definition import (
     BasePageSelectors,
     BaseExtraSelectors,
     BaseSelectorSet,
-)
-
-from .common import (
     CommonPaginationSelectors,
     CommonModalSelectors,
     CommonSearchSelectors,
@@ -21,6 +19,16 @@ from .common import (
     CommonPublishSelectors,
     CommonExtraSelectors,
     create_common_page_selectors,
+)
+
+from src.tools.selector.runtime import (
+    SelectorType,
+    SelectorStatus,
+    SelectorInfo,
+    SelectorTestResult,
+    SelectorManager,
+    GlobalSelectorManager,
+    global_selector_manager,
 )
 
 __all__ = [
@@ -38,4 +46,12 @@ __all__ = [
     "CommonPublishSelectors",
     "CommonExtraSelectors",
     "create_common_page_selectors",
+    # Runtime
+    "SelectorType",
+    "SelectorStatus",
+    "SelectorInfo",
+    "SelectorTestResult",
+    "SelectorManager",
+    "GlobalSelectorManager",
+    "global_selector_manager",
 ]

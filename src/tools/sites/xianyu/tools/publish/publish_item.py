@@ -10,9 +10,9 @@ import os
 from typing import Any
 
 from src.tools.base import ExecutionContext
-from src.tools.business import business_tool
-from src.tools.business.base import BusinessTool
-from src.tools.business.logging import log_operation
+from src.tools.domain import business_tool
+from src.tools.domain.base import BusinessTool
+from src.tools.domain.logging import log_operation
 from src.tools.sites.xianyu.adapters import XianyuSite
 from .params import XYPublishItemParams
 from .result import XYPublishItemResult
@@ -95,10 +95,10 @@ class PublishItemTool(BusinessTool):
 
         try:
             # 辅助工具
-            from src.tools.browser.fill import FillTool
-            from src.tools.browser.click import ClickTool
-            from src.tools.browser.evaluate import EvaluateTool
-            from src.tools.browser.navigate import GetUrlTool
+            from src.tools.primitives.fill import FillTool
+            from src.tools.primitives.click import ClickTool
+            from src.tools.primitives.evaluate import EvaluateTool
+            from src.tools.primitives.navigate import GetUrlTool
 
             fill_tool = FillTool()
             click_tool = ClickTool()
@@ -171,7 +171,7 @@ class PublishItemTool(BusinessTool):
                             return {{ success: true }};
                         }})()
                         """
-                        from src.tools.browser.evaluate import EvaluateParams
+                        from src.tools.primitives.evaluate import EvaluateParams
 
                         await eval_tool.execute(
                             params=EvaluateParams(code=upload_script, args=[], tab_id=tab_id),
@@ -189,7 +189,7 @@ class PublishItemTool(BusinessTool):
                 return document.body.innerHTML.includes('网页版暂不支持发布此分类');
             })()
             """
-            from src.tools.browser.evaluate import EvaluateParams
+            from src.tools.primitives.evaluate import EvaluateParams
 
             # 遍历分类直到找到支持的
             for i in range(params.category_index, 10):

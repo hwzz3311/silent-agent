@@ -9,10 +9,10 @@ import asyncio
 from typing import Any
 
 from src.tools.base import ExecutionContext
-from src.tools.business import business_tool
-from src.tools.business.base import BusinessTool
-from src.tools.business.logging import log_operation
-from src.tools.business.registry import BusinessToolRegistry
+from src.tools.domain import business_tool
+from src.tools.domain.base import BusinessTool
+from src.tools.domain.logging import log_operation
+from src.tools.domain.registry import BusinessToolRegistry
 from src.tools.sites.xiaohongshu.adapters import XiaohongshuSite
 from .params import XHSListFeedsParams
 from .result import XHSListFeedsResult, XHSFeedItem

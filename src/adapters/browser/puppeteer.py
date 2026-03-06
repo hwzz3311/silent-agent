@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from src.ports.browser_port import BrowserPort
 from src.core.result import Result
-from src.browser.client_factory import BrowserClientError
+from src.adapters.browser.factory import BrowserClientError
 
 # Pyppeteer 相关导入
 try:

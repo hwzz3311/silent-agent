@@ -442,7 +442,7 @@ async def _execute_core(self, params, context, site):
     client = context.client
     if not client:
         # 降级处理：创建默认客户端
-        from src.relay_client import SilentAgentClient
+        from src.adapters.relay import SilentAgentClient
         client = SilentAgentClient()
         await client.connect()
 

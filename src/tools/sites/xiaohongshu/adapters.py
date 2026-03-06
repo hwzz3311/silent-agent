@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 from src.tools.base import ExecutionContext
 from src.core.result import Result, Error
 
-from src.tools.business.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
-from src.tools.business.errors import BusinessException
+from src.tools.domain.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
+from src.tools.domain.errors import BusinessException
 
 # 导入新框架的工具（替代旧的 src.tools.xhs）
 from .utils import (
@@ -177,7 +177,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[bool]: 导航是否成功
         """
-        from src.tools.browser.navigate import NavigateTool
+        from src.tools.primitives.navigate import NavigateTool
 
         # 构建 URL
         url_map = {
@@ -591,7 +591,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[bool]: 元素是否出现
         """
-        from src.tools.browser.wait import WaitTool
+        from src.tools.primitives.wait import WaitTool
 
         try:
             wait_tool = WaitTool()
@@ -1014,7 +1014,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[bool]: 是否清除成功
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1049,8 +1049,8 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 删除结果，包含 deleted_count 和 deleted_names
         """
-        from src.tools.browser.control import ControlTool
-        from src.tools.browser.navigate import NavigateTool
+        from src.tools.primitives.control import ControlTool
+        from src.tools.primitives.navigate import NavigateTool
         import logging
 
         logger = logging.getLogger("xhs_delete_cookies")
@@ -1182,7 +1182,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 发布结果，包含 note_id 和 url
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1249,7 +1249,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 发布结果，包含 note_id 和 url
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1322,7 +1322,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 定时任务结果，包含 task_id
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1382,7 +1382,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 状态结果，包含 status、views、likes 等
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1436,7 +1436,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 搜索结果列表
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1490,7 +1490,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 操作结果
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1531,7 +1531,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 操作结果
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1575,7 +1575,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 评论结果
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()
@@ -1624,7 +1624,7 @@ class XiaohongshuSite(Site):
         Returns:
             Result[Dict[str, Any]]: 回复结果
         """
-        from src.tools.browser.control import ControlTool
+        from src.tools.primitives.control import ControlTool
 
         try:
             control_tool = ControlTool()

@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional
 from enum import Enum
 
-from .exceptions import (
+from .exception import (
     ConnectionError,
     DisconnectedError,
     TimeoutError,

@@ -8,9 +8,9 @@ import asyncio
 from typing import Any, List
 
 from src.tools.base import ExecutionContext
-from src.tools.business import business_tool
-from src.tools.business.base import BusinessTool
-from src.tools.business.logging import log_operation
+from src.tools.domain import business_tool
+from src.tools.domain.base import BusinessTool
+from src.tools.domain.logging import log_operation
 from src.tools.sites.xianyu.adapters import XianyuSite
 from .params import XYSearchItemParams
 from .result import XYSearchItemResult, XYSearchItem
@@ -95,10 +95,10 @@ class SearchItemTool(BusinessTool):
 
         try:
             # 辅助工具
-            from src.tools.browser.click import ClickTool
-            from src.tools.browser.fill import FillTool
-            from src.tools.browser.evaluate import EvaluateTool
-            from src.tools.browser.navigate import GetUrlTool
+            from src.tools.primitives.click import ClickTool
+            from src.tools.primitives.fill import FillTool
+            from src.tools.primitives.evaluate import EvaluateTool
+            from src.tools.primitives.navigate import GetUrlTool
 
             click_tool = ClickTool()
             fill_tool = FillTool()

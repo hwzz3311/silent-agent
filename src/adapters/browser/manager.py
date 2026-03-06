@@ -6,37 +6,30 @@
 """
 
 import logging
-from typing import Dict, List, Optional, ClassVar
+from typing import Dict, List, Optional
 
-from .client_factory import BrowserClientFactory, BrowserMode
+from .factory import BrowserClientFactory, BrowserMode
 from .instance import BrowserInstance
 
 logger = logging.getLogger(__name__)
 
+# 应用级单例（进程内唯一）
+_app_manager: Optional['BrowserManager'] = None
+
 
 class BrowserManager:
-    """多浏览器实例管理器"""
+    """
+    多浏览器实例管理器
 
-    # 类变量用于向后兼容（存储实际实例的容器）
-    _instances: ClassVar[Dict[str, BrowserInstance]] = {}
-    _default_instance_id: ClassVar[Optional[str]] = None
-    # 注入的模拟管理器（测试用）
-    _injected_manager: ClassVar[Optional['BrowserManager']] = None
+    设计: 依赖注入友好，支持应用级单例
+    """
 
-    @classmethod
-    def set_manager(cls, manager: 'BrowserManager') -> None:
-        """注入管理器（用于测试）"""
-        cls._injected_manager = manager
+    def __init__(self):
+        """初始化管理器实例"""
+        self._instances: Dict[str, BrowserInstance] = {}
+        self._default_instance_id: Optional[str] = None
 
-    @classmethod
-    def reset_manager(cls) -> None:
-        """重置管理器（用于测试清理）"""
-        cls._injected_manager = None
-        cls._instances = {}
-        cls._default_instance_id = None
-
-    @classmethod
-    def register_instance(cls, instance: BrowserInstance) -> str:
+    def register_instance(self, instance: BrowserInstance) -> str:
         """
         注册浏览器实例
 
@@ -46,15 +39,14 @@ class BrowserManager:
         Returns:
             实例 ID
         """
-        cls._instances[instance.instance_id] = instance
+        self._instances[instance.instance_id] = instance
         # 首次注册设为默认
-        if cls._default_instance_id is None:
-            cls._default_instance_id = instance.instance_id
+        if self._default_instance_id is None:
+            self._default_instance_id = instance.instance_id
         logger.info(f"[BrowserManager] 注册实例: {instance.instance_id}, 模式: {instance.mode.value}")
         return instance.instance_id
 
-    @classmethod
-    def get_instance(cls, instance_id: Optional[str] = None) -> Optional[BrowserInstance]:
+    def get_instance(self, instance_id: Optional[str] = None) -> Optional[BrowserInstance]:
         """
         获取浏览器实例
 
@@ -66,14 +58,13 @@ class BrowserManager:
         """
         if instance_id is None:
             # 返回默认实例
-            if cls._default_instance_id:
-                return cls._instances.get(cls._default_instance_id)
+            if self._default_instance_id:
+                return self._instances.get(self._default_instance_id)
             return None
 
-        return cls._instances.get(instance_id)
+        return self._instances.get(instance_id)
 
-    @classmethod
-    def unregister_instance(cls, instance_id: str) -> bool:
+    def unregister_instance(self, instance_id: str) -> bool:
         """
         注销实例并关闭客户端
 
@@ -83,7 +74,7 @@ class BrowserManager:
         Returns:
             是否成功注销
         """
-        instance = cls._instances.get(instance_id)
+        instance = self._instances.get(instance_id)
         if not instance:
             logger.warning(f"[BrowserManager] 实例不存在: {instance_id}")
             return False
@@ -97,27 +88,25 @@ class BrowserManager:
                 logger.warning(f"[BrowserManager] 关闭客户端失败: {e}")
 
         # 从字典中移除
-        del cls._instances[instance_id]
+        del self._instances[instance_id]
 
-        # 如果是默认实例，重置默认
-        if cls._default_instance_id == instance_id:
-            cls._default_instance_id = list(cls._instances.keys())[0] if cls._instances else None
+        # 如果是默认实例重置默认
+        if self._default_instance_id == instance_id:
+            self._default_instance_id = list(self._instances.keys())[0] if self._instances else None
 
         logger.info(f"[BrowserManager] 已注销实例: {instance_id}")
         return True
 
-    @classmethod
-    def list_instances(cls) -> List[Dict]:
+    def list_instances(self) -> List[Dict]:
         """
         列出所有实例
 
         Returns:
             实例信息列表
         """
-        return [inst.to_dict() for inst in cls._instances.values()]
+        return [inst.to_dict() for inst in self._instances.values()]
 
-    @classmethod
-    async def get_client(cls, instance_id: Optional[str] = None):
+    async def get_client(self, instance_id: Optional[str] = None):
         """
         获取实例的客户端（自动连接）
 
@@ -127,7 +116,7 @@ class BrowserManager:
         Returns:
             浏览器客户端实例
         """
-        instance = cls.get_instance(instance_id)
+        instance = self.get_instance(instance_id)
         if not instance:
             raise ValueError(f"浏览器实例不存在: {instance_id}")
 
@@ -150,8 +139,7 @@ class BrowserManager:
 
         return client
 
-    @classmethod
-    def set_default_instance(cls, instance_id: str) -> bool:
+    def set_default_instance(self, instance_id: str) -> bool:
         """
         设置默认实例
 
@@ -161,13 +149,40 @@ class BrowserManager:
         Returns:
             是否设置成功
         """
-        if instance_id not in cls._instances:
+        if instance_id not in self._instances:
             logger.warning(f"[BrowserManager] 设置默认失败，不存在: {instance_id}")
             return False
 
-        cls._default_instance_id = instance_id
+        self._default_instance_id = instance_id
         logger.info(f"[BrowserManager] 已设置默认实例: {instance_id}")
         return True
 
 
-__all__ = ["BrowserManager"]
+# ========== 应用级单例访问器 ==========
+
+def get_browser_manager() -> BrowserManager:
+    """获取应用级浏览器管理器单例（推荐使用）"""
+    global _app_manager
+    if _app_manager is None:
+        _app_manager = BrowserManager()
+    return _app_manager
+
+
+def set_browser_manager(manager: BrowserManager) -> None:
+    """设置应用级浏览器管理器（用于测试注入 mock）"""
+    global _app_manager
+    _app_manager = manager
+
+
+def reset_browser_manager() -> None:
+    """重置应用级浏览器管理器（用于测试清理）"""
+    global _app_manager
+    _app_manager = None
+
+
+__all__ = [
+    "BrowserManager",
+    "get_browser_manager",
+    "set_browser_manager",
+    "reset_browser_manager",
+]

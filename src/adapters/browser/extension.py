@@ -9,7 +9,7 @@ import asyncio
 
 from src.ports.browser_port import BrowserPort
 from src.core.result import Result
-from ..relay_client import SilentAgentClient as RelayClient
+from src.adapters.relay import SilentAgentClient as RelayClient
 
 
 class ExtensionClient(BrowserPort):

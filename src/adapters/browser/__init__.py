@@ -10,7 +10,7 @@
 - BrowserInstance: 浏览器实例数据类
 """
 
-from .client_factory import BrowserMode, BrowserClientFactory, get_browser_client, BrowserClientError
+from .factory import BrowserMode, BrowserClientFactory, get_browser_client, BrowserClientError
 from .manager import BrowserManager
 from .instance import BrowserInstance
 
