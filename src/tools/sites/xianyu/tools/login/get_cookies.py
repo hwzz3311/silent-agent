@@ -79,7 +79,7 @@ class GetCookiesTool(BusinessTool):
 
         if not client:
             logger.error("无法获取浏览器客户端，请确保浏览器已启动")
-            return GetCookiesResult(
+            return GetCookieResult(
                 success=False,
                 is_logged_in=False,
                 message="无法获取浏览器客户端，请确保浏览器已启动"
@@ -210,7 +210,7 @@ class GetCookiesTool(BusinessTool):
             # 如果未登录，返回错误
             if not is_logged_in:
                 logger.warning("用户未登录，无法获取 Cookie")
-                return GetCookiesResult(
+                return GetCookieResult(
                     success=False,
                     is_logged_in=False,
                     message="用户未登录，请先完成登录后再获取 Cookie"
@@ -267,7 +267,7 @@ class GetCookiesTool(BusinessTool):
             # 这里保留所有 Cookie，由调用方自行处理
 
             # 返回成功结果
-            return GetCookiesResult(
+            return GetCookieResult(
                 success=True,
                 cookie=cookie_dict,
                 is_logged_in=True,
@@ -278,7 +278,7 @@ class GetCookiesTool(BusinessTool):
 
         except Exception as e:
             logger.exception(f"获取 Cookie 时发生异常: {str(e)}")
-            return GetCookiesResult(
+            return GetCookieResult(
                 success=False,
                 is_logged_in=False,
                 message=f"获取 Cookie 失败: {str(e)}"
@@ -312,7 +312,7 @@ async def get_cookies(
     if result.success:
         return result.data
     else:
-        return GetCookiesResult(
+        return GetCookieResult(
             success=False,
             is_logged_in=False,
             message=f"获取失败: {result.error}"
@@ -323,5 +323,5 @@ __all__ = [
     "GetCookiesTool",
     "get_cookies",
     "GetCookiesParams",
-    "GetCookiesResult",
+    "GetCookieResult",
 ]
