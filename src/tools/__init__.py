@@ -33,6 +33,9 @@ from .primitives import *  # noqa: F401
 
 
 # 业务工具通过 @business_tool 装饰器自动注册到 BusinessToolRegistry
+# 导入各站点工具模块以触发自动注册
+from .sites import xiaohongshu  # noqa: F401
+from .sites import xianyu  # noqa: F401
 
 
 __all__ = [

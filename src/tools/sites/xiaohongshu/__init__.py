@@ -49,6 +49,10 @@ from .publishers import (
     publish_note,
     publish_video,
 )
+
+# 导入工具模块以触发 @business_tool 装饰器自动注册
+from . import tools  # noqa: F401
+
 from src.tools.domain.registry import get_registry
 
 
