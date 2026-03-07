@@ -11,7 +11,7 @@
 """
 
 from .factory import BrowserMode, BrowserClientFactory, get_browser_client, BrowserClientError
-from .manager import BrowserManager
+from .manager import BrowserManager, get_browser_manager
 from .instance import BrowserInstance
 
 __all__ = [
@@ -21,4 +21,5 @@ __all__ = [
     "BrowserClientError",
     "BrowserManager",
     "BrowserInstance",
+    "get_browser_manager",
 ]

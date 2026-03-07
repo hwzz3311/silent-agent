@@ -29,6 +29,11 @@ class BrowserManager:
         self._instances: Dict[str, BrowserInstance] = {}
         self._default_instance_id: Optional[str] = None
 
+    @classmethod
+    def get_instance(cls) -> 'BrowserManager':
+        """获取应用级单例（兼容类方法调用）"""
+        return get_browser_manager()
+
     def register_instance(self, instance: BrowserInstance) -> str:
         """
         注册浏览器实例

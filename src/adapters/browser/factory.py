@@ -64,7 +64,7 @@ class BrowserClientFactory:
             from .puppeteer import PuppeteerClient
             return PuppeteerClient(
                 headless=config.puppeteer_headless,
-                args=config.puppeteer_arg,
+                args=config.puppeteer_args,
                 stealth=config.stealth_enabled,
                 executable_path=config.puppeteer_executable_path,
                 browser_ws_endpoint=config.browser_ws_endpoint,
@@ -74,7 +74,7 @@ class BrowserClientFactory:
             return HybridClient(
                 puppeteer_config={
                     "headless": config.puppeteer_headless,
-                    "args": config.puppeteer_arg,
+                    "args": config.puppeteer_args,
                     "stealth": config.stealth_enabled,
                     "executable_path": config.puppeteer_executable_path,
                     "browser_ws_endpoint": config.browser_ws_endpoint,

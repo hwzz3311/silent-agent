@@ -55,12 +55,13 @@ async def execute_tool(request: ExecuteRequest):
     logger.debug(f"[API] 请求参数: {json.dumps(request.params or {}, ensure_ascii=False, indent=2)}")
 
     # 获取客户端：优先使用 BrowserManager（多实例模式）
-    from src.adapters.browser import BrowserManager
+    from src.adapters.browser import get_browser_manager
 
     # 检查是否指定了 browser_id
     if request.browser_id:
         # 使用指定的浏览器实例
-        client = await BrowserManager.get_client(request.browser_id)
+        manager = get_browser_manager()
+        client = await manager.get_client(request.browser_id)
         logger.info(f"[API] 使用指定浏览器实例: {request.browser_id}")
     else:
         # 降级使用全局单例客户端

@@ -44,7 +44,10 @@ async def register_browser(request: RegisterBrowserRequest):
     - **relay_host**: Relay 服务器主机
     - **relay_port**: Relay 服务器端口
     """
-    from src.adapters.browser import BrowserManager, BrowserInstance, BrowserMode
+    from src.adapters.browser import get_browser_manager, BrowserInstance, BrowserMode
+
+    # 获取管理器
+    manager = get_browser_manager()
 
     # 创建浏览器实例
     instance = BrowserInstance(
@@ -56,11 +59,11 @@ async def register_browser(request: RegisterBrowserRequest):
     )
 
     # 检查是否已有默认实例
-    existing_default = BrowserManager.get_instance()
+    existing_default = manager.get_instance()
     is_default = existing_default is None
 
     # 注册实例
-    instance_id = BrowserManager.register_instance(instance)
+    instance_id = manager.register_instance(instance)
 
     logger.info(f"[Browser API] 注册浏览器实例: {instance_id}, 模式: {request.mode}")
 
@@ -83,9 +86,10 @@ async def list_browsers():
 
     返回所有注册的浏览器实例列表。
     """
-    from src.adapters.browser import BrowserManager
+    from src.adapters.browser import get_browser_manager
 
-    instances = BrowserManager.list_instances()
+    manager = get_browser_manager()
+    instances = manager.list_instances()
 
     # 转换为 Pydantic 模型
     instance_infos = [
@@ -119,9 +123,10 @@ async def unregister_browser(instance_id: str):
 
     - **instance_id**: 浏览器实例 ID
     """
-    from src.adapters.browser import BrowserManager
+    from src.adapters.browser import get_browser_manager
 
-    success = BrowserManager.unregister_instance(instance_id)
+    manager = get_browser_manager()
+    success = manager.unregister_instance(instance_id)
 
     if not success:
         raise HTTPException(
@@ -144,9 +149,10 @@ async def browser_health(instance_id: str):
 
     - **instance_id**: 浏览器实例 ID
     """
-    from src.adapters.browser import BrowserManager
+    from src.adapters.browser import get_browser_manager
 
-    instance = BrowserManager.get_instance(instance_id)
+    manager = get_browser_manager()
+    instance = manager.get_instance(instance_id)
 
     if not instance:
         raise HTTPException(
@@ -172,9 +178,10 @@ async def set_default_browser(instance_id: str):
 
     - **instance_id**: 浏览器实例 ID
     """
-    from src.adapters.browser import BrowserManager
+    from src.adapters.browser import get_browser_manager
 
-    success = BrowserManager.set_default_instance(instance_id)
+    manager = get_browser_manager()
+    success = manager.set_default_instance(instance_id)
 
     if not success:
         raise HTTPException(
