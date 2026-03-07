@@ -161,15 +161,6 @@ class BusinessTool(Tool, ABC):
             return self.param_type
         return ToolParameters
 
-    def get_result_type(self) -> type:
-        """
-        获取结果类型
-
-        Returns:
-            type: 结果类型
-        """
-        return type
-
     # ========== 执行方法（直接执行） ==========
 
     async def execute(
@@ -284,49 +275,6 @@ class BusinessTool(Tool, ABC):
         )
 
 
-# 便捷类型别名
-# BusinessToolType = TypeVar('BusinessToolType', bound=BusinessTool)
-
-
-def create_business_tool(
-    name: str,
-    description: str,
-    site_type: Optional[type] = None,
-    operation_category: str = "general",
-    version: str = "1.0.0"
-):
-    """
-    动态创建业务工具类的装饰器函数
-
-    Args:
-        name: 工具名称
-        description: 工具描述
-        site_type: 网站适配器类型
-        operation_category: 操作类别
-        version: 版本号
-
-    Returns:
-        装饰器函数
-
-    Usage:
-        CheckLoginStatusTool = create_business_tool(
-            name="xhs_check_login_status",
-            description="检查小红书登录状态",
-            site_type=XiaohongshuSite,
-            operation_category="login"
-        )
-    """
-    def decorator(cls: type):
-        cls.name = name
-        cls.description = description
-        cls.site_type = site_type
-        cls.operation_category = operation_category
-        cls.version = version
-        return cls
-
-    return decorator
-
-
 import logging
 import re
 from typing import Optional, Type, Callable
@@ -428,6 +376,5 @@ def _auto_generate_name(cls: Type) -> str:
 
 __all__ = [
     "BusinessTool",
-    "create_business_tool",
     "business_tool",
 ]

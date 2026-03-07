@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Callable, Any, Dict
 if TYPE_CHECKING:
     pass
 
-from .errors import BusinessException
-
 
 # 默认的日志敏感字段列表
 DEFAULT_SENSITIVE_FIELDS = [
@@ -210,12 +208,8 @@ class BusinessLogger:
             error: 异常对象
             **kwargs: 额外字段
         """
-        if isinstance(error, BusinessException):
-            error_code = error.code.value if hasattr(error.code, 'value') else error.code
-            error_message = error.to_exception_message()
-        else:
-            error_code = "UNKNOWN"
-            error_message = str(error)
+        error_code = "UNKNOWN"
+        error_message = str(error)
 
         self._log(
             logging.ERROR,

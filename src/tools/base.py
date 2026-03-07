@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional, Dict, List
-from warnings import deprecated
 from pydantic import BaseModel, Field
 
 from src.core.result import Result, ResultMeta, Error, ErrorCode
@@ -418,129 +417,6 @@ class Tool(ABC):
         return Result.fail(Error.from_exception(exc, code, recoverable))
 
 
-# ========== 工具工厂 ==========
-
-# 模块级单例（支持依赖注入）
-_global_tool_factory: Optional['ToolFactory'] = None
-
-
-@deprecated("业务工具执行路径不经过此处，保留仅为兼容")
-class ToolFactory:
-    """
-    工具工厂（已废弃）
-
-    业务工具执行路径已改为：API → client.execute_tool() → _execute_business_tool()
-    此类保留仅为向后兼容，不再推荐使用。
-    """
-
-    def __init__(self):
-        """实例属性，避免类变量共享状态"""
-        self._tools: Dict[str, Tool] = {}
-
-    # ========== 实例方法（内部使用）==========
-    def _register_instance(self, tool: Tool) -> None:
-        """注册工具（内部方法）"""
-        self._tools[tool.name] = tool
-
-    def _get_instance(self, name: str) -> Optional[Tool]:
-        """获取工具（内部方法）"""
-        return self._tools.get(name)
-
-    def _list_tools_instance(self) -> List[str]:
-        """列出所有工具（内部方法）"""
-        return list(self._tools.keys())
-
-    def _clear_instance(self) -> None:
-        """清空所有工具（内部方法）"""
-        self._tools.clear()
-
-    def create_from_params(self, name: str, params_dict: dict) -> Optional[Result]:
-        """
-        根据参数字典创建参数对象
-
-        Args:
-            name: 工具名称
-            params_dict: 参数字典
-
-        Returns:
-            Result，包含参数对象
-        """
-        tool = self.get(name)
-        if not tool:
-            return Result.fail(
-                Error.tool_not_found(name),
-                meta=ResultMeta(tool_name=name, duration_ms=0)
-            )
-
-        try:
-            # 查找 ToolParams 类型并创建实例
-            params_type = getattr(tool, '__parameters_type__', None)
-            if params_type:
-                params = params_type(**params_dict)
-            else:
-                # 使用字典作为参数
-                params = params_dict
-            return Result.ok(params)
-        except Exception as e:
-            return Result.fail(
-                Error.validation(
-                    message=f"参数创建失败: {e}",
-                    details={"params": params_dict}
-                ),
-                meta=ResultMeta(tool_name=name, duration_ms=0)
-            )
-
-    # ========== 类方法兼容（委托给模块单例）==========
-    # 为保持向后兼容，保留类方法调用
-
-    @classmethod
-    def register(cls, tool: Tool) -> None:
-        """注册工具（兼容类方法）"""
-        get_tool_factory()._register_instance(tool)
-
-    @classmethod
-    def get(cls, name: str) -> Optional[Tool]:
-        """获取工具（兼容类方法）"""
-        return get_tool_factory()._get_instance(name)
-
-    @classmethod
-    def list_tools(cls) -> List[str]:
-        """列出所有工具（兼容类方法）"""
-        return get_tool_factory()._list_tools_instance()
-
-    @classmethod
-    def clear(cls) -> None:
-        """清空所有工具（兼容类方法）"""
-        get_tool_factory()._clear_instance()
-
-    @classmethod
-    def create_from_params(cls, name: str, params_dict: dict) -> Optional[Result]:
-        """创建参数对象（兼容类方法）"""
-        return get_tool_factory().create_from_params(name, params_dict)
-
-
-# ========== 便捷访问函数 ==========
-
-def get_tool_factory() -> ToolFactory:
-    """获取工具工厂（支持依赖注入）"""
-    global _global_tool_factory
-    if _global_tool_factory is None:
-        _global_tool_factory = ToolFactory()
-    return _global_tool_factory
-
-
-def set_tool_factory(factory: ToolFactory) -> None:
-    """注入工具工厂（用于测试）"""
-    global _global_tool_factory
-    _global_tool_factory = factory
-
-
-def reset_tool_factory() -> None:
-    """重置工具工厂（用于测试清理）"""
-    global _global_tool_factory
-    _global_tool_factory = None
-
-
 # ========== 便捷函数 ==========
 
 def tool(name: str, description: str = "", category: str = "general",
@@ -575,6 +451,5 @@ __all__ = [
     "ValidationResult",
     "ExecutionContext",
     "ToolExecutionLog",
-    "ToolFactory",
     "tool",
 ]

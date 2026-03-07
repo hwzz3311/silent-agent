@@ -13,7 +13,6 @@ from src.tools.base import ExecutionContext
 from src.core.result import Result, Error
 
 from src.tools.domain.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
-from src.tools.domain.errors import BusinessException
 
 
 class XianyuSiteConfig(SiteConfig):

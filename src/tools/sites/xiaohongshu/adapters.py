@@ -13,7 +13,6 @@ from src.tools.base import ExecutionContext
 from src.core.result import Result, Error
 
 from src.tools.domain.site_base import Site, SiteConfig, SiteSelectorSet, PageInfo
-from src.tools.domain.errors import BusinessException
 
 # 导入新框架的工具（替代旧的 src.tools.xhs）
 from .utils import (

@@ -6,7 +6,6 @@
 目录结构:
 - base.py    - 基类定义（BasePageSelectors, BaseExtraSelectors, BaseSelectorSet）
 - common.py  - 通用选择器（分页、弹窗、搜索、详情等）
-- manager.py - 运行时管理（SelectorManager, GlobalSelectorManager）
 """
 
 from .base import (
@@ -27,11 +26,6 @@ from .common import (
     create_common_page_selectors,
 )
 
-from .manager import (
-    SelectorType,
-    SelectorInfo,
-    SelectorTestResult,
-)
 
 __all__ = [
     # Base
@@ -48,8 +42,4 @@ __all__ = [
     "CommonPublishSelectors",
     "CommonExtraSelectors",
     "create_common_page_selectors",
-    # Manager
-    "SelectorType",
-    "SelectorInfo",
-    "SelectorTestResult",
 ]

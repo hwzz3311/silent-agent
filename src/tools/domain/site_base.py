@@ -307,7 +307,9 @@ class Site(ABC):
         Returns:
             Optional[str]: 选择器值，不存在返回 None
         """
-        return getattr(self.selectors, key, None)
+        # 直接使用字典访问
+        selectors_dict = self.selectors.model_dump() if hasattr(self.selectors, 'model_dump') else {}
+        return selector_dict.get(key) or getattr(self.selectors, key, None)
 
     def build_url(self, path: str, **kwargs) -> str:
         """
