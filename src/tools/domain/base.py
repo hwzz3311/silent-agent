@@ -80,7 +80,6 @@ class BusinessTool(Tool, ABC):
         self,
         params: Any,
         context: 'ExecutionContext',
-        site: Optional[Any] = None,
     ) -> Result[Any]:
         """
         核心执行逻辑
@@ -158,6 +157,8 @@ class BusinessTool(Tool, ABC):
             Any: 参数类型
         """
         # 通过装饰器或属性获取参数类型
+        if hasattr(self, '__parameter_type__') and self.__parameter_type__ is not None:
+            return self.__parameter_type__
         if hasattr(self, 'param_type') and self.param_type is not None:
             return self.param_type
         return ToolParameters
@@ -182,11 +183,11 @@ class BusinessTool(Tool, ABC):
             Result[Any]: 执行结果
         """
         # 1. 获取站点实例
-        site = self.get_site(context)
+        # site = self.get_site(context)
 
         # 2. 执行核心逻辑
         start_time = time.time()
-        result = await self._execute_core(params, context, site)
+        result = await self._execute_core(params, context)
 
         # 3. 记录执行时间
         if result.meta:
@@ -320,7 +321,6 @@ def business_tool(
         # 自动注册到注册表
         if enabled:
             get_registry().register_by_class(cls, enabled=True)
-            logger.info(f"Registered tool '{cls.name}' via @business_tool decorator")
 
         return cls
 
