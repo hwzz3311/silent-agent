@@ -266,11 +266,13 @@ class PuppeteerStarter:
             with urllib.request.urlopen(req, timeout=10) as response:
                 result = json.loads(response.read().decode("utf-8"))
                 instance_id = result.get("instance_id")
+                is_default = result.get("is_default", False)
                 if instance_id:
                     # 写入 .browser_id 文件
                     with open(BROWSER_ID_FILE, "w") as f:
                         f.write(instance_id)
-                    print(f"  已注册浏览器实例: {instance_id}")
+                    default_msg = " (默认)" if is_default else ""
+                    print(f"  已注册浏览器实例: {instance_id}{default_msg}")
                 else:
                     print("  警告: 未获取到实例 ID")
         except Exception as e:
