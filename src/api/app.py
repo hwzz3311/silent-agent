@@ -26,7 +26,10 @@ from src.api.routes import tools, execute, flows, browser
 from src.ports import BrowserPort
 
 # 配置日志
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+# 关闭第三方库 debug 日志
+logging.getLogger("websockets.client").setLevel(logging.WARNING)
+logging.getLogger("pyppeteer").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 logger.info(f"===== API 进程启动 (PID: {os.getpid()}) =====")
 
