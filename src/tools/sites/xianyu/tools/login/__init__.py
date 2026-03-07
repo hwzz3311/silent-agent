@@ -8,21 +8,21 @@
 from .types import (
     PasswordLoginParams,
     PasswordLoginResult,
-    GetCookieParams,
+    GetCookiesParams,
     GetCookieResult,
 )
 
 # Import tool classes from get_cookies module
-from .get_cookies import GetCookieTool, get_cookies
+from .get_cookies import GetCookiesTool, get_cookies
 
 # Import tool classes from password_login module
 from .password_login import PasswordLoginTool
 
 __all__ = [
     # Get Cookie
-    "GetCookieTool",
+    "GetCookiesTool",
     "get_cookies",
-    "GetCookieParams",
+    "GetCookiesParams",
     "GetCookieResult",
     # Password Login
     "PasswordLoginParams",

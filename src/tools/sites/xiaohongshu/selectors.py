@@ -2,7 +2,7 @@
 小红书选择器定义
 
 提供小红书各页面的 CSS 选择器定义。
-继承通用选择器并扩展小红书特定选择器。
+继承通用搜索选择器。
 """
 
 from typing import Optional, Dict, List
@@ -10,25 +10,15 @@ from pydantic import BaseModel, Field
 
 from ..selectors import (
     BaseSelectorSet,
-    CommonPaginationSelectors,
-    CommonModalSelectors,
     CommonSearchSelectors,
-    CommonFeedSelectors,
-    CommonDetailSelectors,
-    CommonProfileSelectors,
-    CommonPublishSelectors,
-    CommonExtraSelectors,
 )
 
 
-class XHSPageSelectors(CommonPaginationSelectors, CommonFeedSelectors, CommonDetailSelectors,
-                       CommonProfileSelectors, CommonSearchSelectors, CommonPublishSelectors,
-                       CommonModalSelectors, BaseModel):
+class XHSPageSelectors(CommonSearchSelectors, BaseModel):
     """
     小红书页面选择器
 
-    按页面类型组织的选择器集合。
-    通过多重继承组合通用选择器和特定选择器。
+    继承通用搜索选择器。
     """
 
     # ========== 首页选择器 ==========
@@ -42,11 +32,11 @@ class XHSPageSelectors(CommonPaginationSelectors, CommonFeedSelectors, CommonDet
     )
 
 
-class XHSExtraSelectors(CommonExtraSelectors, BaseModel):
+class XHSExtraSelectors(BaseModel):
     """
     小红书备用选择器
 
-    继承通用备用选择器，可扩展小红书特定备用选择器。
+    可扩展小红书特定备用选择器。
     """
     pass
 

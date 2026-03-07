@@ -238,7 +238,7 @@ class XiaohongshuSite(Site):
             return Result.ok(True)
 
         except Exception as e:
-            return self.error_from_exception(e)
+            return Result.fail(Error.from_exception(e))
 
     async def check_login_status(
         self,
@@ -1000,6 +1000,54 @@ class XiaohongshuSite(Site):
 
         except Exception as e:
             return Result.fail(Error.from_exception(e))
+
+    async def accept_cookies(self, context: 'ExecutionContext' = None) -> Result[bool]:
+        """
+        接受 Cookie 弹窗（如果有）
+
+        Args:
+            context: 执行上下文
+
+        Returns:
+            Result[bool]: 是否处理了 Cookie 弹窗
+        """
+        from src.tools.primitives.click import ClickTool
+        from src.tools.primitives.wait import WaitTool
+
+        selector = self.selectors.cookie_accept_button
+        if not selector:
+            return Result.ok(False)
+
+        try:
+            # 等待弹窗出现
+            wait_tool = WaitTool()
+            wait_result = await wait_tool.execute(
+                params=wait_tool._get_params_type()(
+                    selector=selector,
+                    timeout=5000
+                ),
+                context=context
+            )
+
+            if not wait_result.success:
+                return Result.ok(False)
+
+            # 点击接受按钮
+            click_tool = ClickTool()
+            click_result = await click_tool.execute(
+                params=click_tool._get_params_type()(
+                    selector=selector
+                ),
+                context=context
+            )
+
+            return Result.ok(click_result.success)
+
+        except Exception as e:
+            return Result.fail(
+                message=f"接受 Cookie 失败: {e}",
+                details={"site": self.site_name}
+            )
 
     # ========== Cookie 处理 ==========
 

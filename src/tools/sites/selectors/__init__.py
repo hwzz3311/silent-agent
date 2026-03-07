@@ -1,45 +1,25 @@
 """
 选择器模块
 
-所有网站共享的选择器定义和运行时管理。
+所有网站共享的选择器定义。
 
 目录结构:
-- base.py    - 基类定义（BasePageSelectors, BaseExtraSelectors, BaseSelectorSet）
-- common.py  - 通用选择器（分页、弹窗、搜索、详情等）
+- base.py    - 基类定义（BaseSelectorSet）
+- common.py  - 实际使用的通用选择器（仅 search_input, search_button）
 """
 
 from .base import (
-    BasePageSelectors,
-    BaseExtraSelectors,
     BaseSelectorSet,
 )
 
 from .common import (
-    CommonPaginationSelectors,
-    CommonModalSelectors,
     CommonSearchSelectors,
-    CommonFeedSelectors,
-    CommonDetailSelectors,
-    CommonProfileSelectors,
-    CommonPublishSelectors,
-    CommonExtraSelectors,
-    create_common_page_selectors,
 )
 
 
 __all__ = [
     # Base
-    "BasePageSelectors",
-    "BaseExtraSelectors",
     "BaseSelectorSet",
     # Common
-    "CommonPaginationSelectors",
-    "CommonModalSelectors",
     "CommonSearchSelectors",
-    "CommonFeedSelectors",
-    "CommonDetailSelectors",
-    "CommonProfileSelectors",
-    "CommonPublishSelectors",
-    "CommonExtraSelectors",
-    "create_common_page_selectors",
 ]

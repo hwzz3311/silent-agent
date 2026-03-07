@@ -199,102 +199,6 @@ class Site(ABC):
         """
         ...
 
-    # ========== 可选覆盖方法 ==========
-
-    async def get_page_info(self, context: 'ExecutionContext' = None) -> Result[PageInfo]:
-        """
-        获取当前页面信息
-
-        Args:
-            context: 执行上下文
-
-        Returns:
-            Result[PageInfo]: 页面信息
-        """
-        from src.tools.sites.xiaohongshu.utils.page_data import ReadPageDataTool
-
-        try:
-            tool = ReadPageDataTool()
-
-            # 获取 URL
-            url_result = await tool.execute(
-                params=tool._get_params_type()(
-                    path="location.href"
-                ),
-                context=context or self._create_default_context()
-            )
-
-            # 获取标题
-            title_result = await tool.execute(
-                params=tool._get_params_type()(
-                    path="document.title"
-                ),
-                context=context or self._create_default_context()
-            )
-
-            # 检查登录状态
-            login_status = await self.check_login_status(context, silent=True)
-
-            return Result.ok(PageInfo(
-                url=url_result.data if url_result.success else None,
-                title=title_result.data if title_result.success else None,
-                is_logged_in=login_status.data.get("is_logged_in", False) if login_status.success else False
-            ))
-
-        except Exception as e:
-            return Result.fail(
-                message=f"获取页面信息失败: {e}",
-                details={"site": self.site_name}
-            )
-
-    async def accept_cookies(self, context: 'ExecutionContext' = None) -> Result[bool]:
-        """
-        接受 Cookie 弹窗（如果有）
-
-        Args:
-            context: 执行上下文
-
-        Returns:
-            Result[bool]: 是否处理了 Cookie 弹窗
-        """
-        from src.tools.primitives.click import ClickTool
-        from src.tools.primitives.wait import WaitTool
-
-        selector = self.selectors.cookie_accept_button
-        if not selector:
-            return Result.ok(False)
-
-        try:
-            # 等待弹窗出现
-            wait_tool = WaitTool()
-            wait_result = await wait_tool.execute(
-                params=wait_tool._get_params_type()(
-                    selector=selector,
-                    timeout=5000
-                ),
-                context=context
-            )
-
-            if not wait_result.success:
-                return Result.ok(False)
-
-            # 点击接受按钮
-            click_tool = ClickTool()
-            click_result = await click_tool.execute(
-                params=click_tool._get_params_type()(
-                    selector=selector
-                ),
-                context=context
-            )
-
-            return Result.ok(click_result.success)
-
-        except Exception as e:
-            return Result.fail(
-                message=f"接受 Cookie 失败: {e}",
-                details={"site": self.site_name}
-            )
-
     # ========== 工具方法 ==========
 
     def get_selector(self, key: str) -> Optional[str]:
@@ -311,23 +215,6 @@ class Site(ABC):
         selectors_dict = self.selectors.model_dump() if hasattr(self.selectors, 'model_dump') else {}
         return selector_dict.get(key) or getattr(self.selectors, key, None)
 
-    def build_url(self, path: str, **kwargs) -> str:
-        """
-        构建完整 URL
-
-        Args:
-            path: 路径
-            kwargs: 路径参数
-
-        Returns:
-            str: 完整的 URL
-        """
-        if path.startswith("http"):
-            return path
-
-        formatted_path = path.format(**kwargs) if kwargs else path
-        return f"{self.base_url.rstrip('/')}/{formatted_path.lstrip('/')}"
-
     def _create_default_context(self) -> 'ExecutionContext':
         """创建默认执行上下文"""
         from src.tools.base import ExecutionContext
@@ -335,15 +222,6 @@ class Site(ABC):
             timeout=self.config.timeout,
             retry_count=self.config.retry_count
         )
-
-    def error_from_exception(
-        self,
-        exc: Exception,
-        code: ErrorCode = None,
-        recoverable: bool = False
-    ) -> Result[Any]:
-        """从异常创建失败结果"""
-        return Result.fail(Error.from_exception(exc, code, recoverable))
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(site={self.site_name})>"

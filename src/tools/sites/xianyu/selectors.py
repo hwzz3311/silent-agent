@@ -2,7 +2,7 @@
 闲鱼选择器定义
 
 提供闲鱼各页面的 CSS 选择器定义。
-继承通用选择器并扩展闲鱼特定选择器。
+继承通用搜索选择器。
 """
 
 from typing import Optional, Dict, List
@@ -10,25 +10,15 @@ from pydantic import BaseModel, Field
 
 from ..selectors import (
     BaseSelectorSet,
-    CommonPaginationSelectors,
-    CommonModalSelectors,
     CommonSearchSelectors,
-    CommonFeedSelectors,
-    CommonDetailSelectors,
-    CommonProfileSelectors,
-    CommonPublishSelectors,
-    CommonExtraSelectors,
 )
 
 
-class XianyuPageSelector(CommonPaginationSelectors, CommonFeedSelectors, CommonDetailSelectors,
-                         CommonProfileSelectors, CommonSearchSelectors, CommonPublishSelectors,
-                         CommonModalSelectors, BaseModel):
+class XianyuPageSelector(CommonSearchSelectors, BaseModel):
     """
     闲鱼页面选择器
 
-    按页面类型组织的选择器集合。
-    通过多重继承组合通用选择器和特定选择器。
+    继承通用搜索选择器并扩展闲鱼特定选择器。
     """
 
     # ========== 首页/商品列表选择器 ==========
@@ -71,11 +61,11 @@ class XianyuPageSelector(CommonPaginationSelectors, CommonFeedSelectors, CommonD
     order_goods: str = ".order-goods, [data-testid='order-goods']"
 
 
-class XianyuExtraSelector(CommonExtraSelectors, BaseModel):
+class XianyuExtraSelector(BaseModel):
     """
     闲鱼备用选择器
 
-    继承通用备用选择器，可扩展闲鱼特定备用选择器。
+    可扩展闲鱼特定备用选择器。
     """
     pass
 

@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Dict, Any, List
 
@@ -171,10 +172,10 @@ class BusinessTool(Tool, ABC):
         """
         执行工具（实现抽象方法）
 
-        直接执行核心逻辑，重试由父类 Tool.execute_with_retry() 统一处理。
+        直接执行核心逻辑，子类自己处理重试。
 
         Args:
-            params: 工具参数
+            param: 工具参数
             context: 执行上下文
 
         Returns:
@@ -183,15 +184,13 @@ class BusinessTool(Tool, ABC):
         # 1. 获取站点实例
         site = self.get_site(context)
 
-        # 2. 直接执行核心逻辑（重试由父类统一处理）
-        start_time = __import__('time').time()
-
-        # 执行核心逻辑
+        # 2. 执行核心逻辑
+        start_time = time.time()
         result = await self._execute_core(params, context, site)
 
-        # 记录执行时间
-        if start_time and result.meta:
-            result.meta.duration_ms = int((__import__('time').time() - start_time) * 1000)
+        # 3. 记录执行时间
+        if result.meta:
+            result.meta.duration_ms = int((time.time() - start_time) * 1000)
 
         return result
 
