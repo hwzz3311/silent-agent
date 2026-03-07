@@ -58,7 +58,6 @@ class GetCookiesTool(BusinessTool):
         self,
         params: GetCookiesParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 通过已存在的浏览器客户端获取 Cookie

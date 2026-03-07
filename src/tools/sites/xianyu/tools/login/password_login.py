@@ -66,7 +66,6 @@ class PasswordLoginTool(BusinessTool):
         self,
         params: PasswordLoginParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 使用 Playwright 进行密码登录

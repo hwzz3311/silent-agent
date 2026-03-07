@@ -51,7 +51,7 @@ class FavoriteFeedTool(BusinessTool):
     async def _execute_core(
         self,
         params: XHSFavoriteFeedParams,
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Any:
         """
         核心执行逻辑
@@ -59,7 +59,6 @@ class FavoriteFeedTool(BusinessTool):
         Args:
             params: 工具参数
             context: 执行上下文
-            site: 网站适配器实例
 
         Returns:
             XHSFavoriteFeedResult: 操作结果

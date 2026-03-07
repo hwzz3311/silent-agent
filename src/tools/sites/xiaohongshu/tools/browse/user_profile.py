@@ -58,7 +58,6 @@ class UserProfileTool(BusinessTool):
         self,
         params: XHSUserProfileParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 直接模式
@@ -66,7 +65,6 @@ class UserProfileTool(BusinessTool):
         Args:
             params: 工具参数
             context: 执行上下文（包含 client）
-            site: 网站适配器实例
 
         Returns:
             XHSUserProfileResult: 用户主页结果

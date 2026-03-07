@@ -58,7 +58,6 @@ class LikeFeedTool(BusinessTool):
         Args:
             params: 工具参数
             context: 执行上下文
-            site: 网站适配器实例
 
         Returns:
             XHSLikeFeedResult: 操作结果

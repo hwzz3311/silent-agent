@@ -66,7 +66,6 @@ class PublishVideoTool(BusinessTool):
         self,
         params: XHSPublishVideoParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 直接模式

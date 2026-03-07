@@ -65,7 +65,6 @@ class PublishContentTool(BusinessTool):
         self,
         params: XHSPublishContentParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 直接模式

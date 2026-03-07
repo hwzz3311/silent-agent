@@ -54,7 +54,6 @@ class GetLoginQrcodeTool(BusinessTool):
         self,
         params: XHSGetLoginQrcodeParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 参考 check_login_status.py 的多选择器遍历方式

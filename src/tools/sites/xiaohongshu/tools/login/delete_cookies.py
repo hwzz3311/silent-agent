@@ -48,6 +48,7 @@ class DeleteCookiesTool(BusinessTool):
         self,
         params: BHSDeleteCookiesParams,
         context: ExecutionContext,
+        site: Any = None,
     ) -> Any:
         """
         核心执行逻辑

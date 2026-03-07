@@ -50,7 +50,7 @@ class ReplyCommentTool(BusinessTool):
     async def _execute_core(
         self,
         params: XHSReplyCommentParams,
-        context: ExecutionContext
+        context: ExecutionContext,
     ) -> Any:
         """
         核心执行逻辑
@@ -58,7 +58,6 @@ class ReplyCommentTool(BusinessTool):
         Args:
             params: 工具参数
             context: 执行上下文
-            site: 网站适配器实例
 
         Returns:
             XHSReplyCommentResult: 回复结果

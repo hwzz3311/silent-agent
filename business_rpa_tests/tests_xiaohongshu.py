@@ -32,7 +32,8 @@ SECRET_KEY = "CG1PCGPNY2DHB2PKYMNLYWTOYNBPAGTO"
 
 # 浏览器实例 ID（用于多浏览器路由）- 可选，二选一即可
 # 如果传了 browser_id 则优先使用指定浏览器实例
-BROWSER_ID = "7da1213d-02f3-4cdc-8aba-47ee87014a89"
+# BROWSER_ID = "7da1213d-02f3-4cdc-8aba-47ee87014a89"
+BROWSER_ID = None
 
 # 颜色输出
 GREEN = "\033[92m"

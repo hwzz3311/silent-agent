@@ -67,7 +67,6 @@ class SchedulePublishTool(BusinessTool):
         self,
         params: XHSSchedulePublishParams,
         context: ExecutionContext,
-        site: Site
     ) -> Any:
         """
         核心执行逻辑 - 直接模式

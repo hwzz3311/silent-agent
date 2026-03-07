@@ -341,8 +341,12 @@ class SilentAgentClient:
                 meta=None
             )
 
+        # 将字典参数转换为正确的参数类型
+        param_type = tool.get_params_type()
+        tool_params = param_type(**(params or {}))
+
         # 执行工具
-        return tool.execute(params or {}, context)
+        return tool.execute(tool_params, context)
 
     def _convert_result(self, result: Any) -> Dict[str, Any]:
         """
