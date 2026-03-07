@@ -56,6 +56,12 @@ class SchedulePublishTool(BusinessTool):
     target_site_domain = "xiaohongshu.com"
     default_navigate_url = "https://www.xiaohongshu.com/"
 
+    # 提取硬编码选择器
+    selectors = {
+        "title_input": ".title-input, [contenteditable='true']",
+        "content_area": ".content-area, [contenteditable='true']",
+    }
+
     @log_operation("xhs_schedule_publish")
     async def _execute_core(
         self,
@@ -128,7 +134,7 @@ class SchedulePublishTool(BusinessTool):
         fill_tool = FillTool()
         await fill_tool.execute(
             params=fill_tool._get_params_type()(
-                selector=".title-input, [contenteditable='true']",
+                selector=self.get_selector("title_input"),
                 value=params.title or ""
             ),
             context=context
@@ -137,7 +143,7 @@ class SchedulePublishTool(BusinessTool):
         # 填写正文内容
         await fill_tool.execute(
             params=fill_tool._get_params_type()(
-                selector=".content-area, [contenteditable='true']",
+                selector=self.get_selector("content_area"),
                 value=params.content or ""
             ),
             context=context

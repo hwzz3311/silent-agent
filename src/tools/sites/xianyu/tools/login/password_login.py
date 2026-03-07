@@ -54,6 +54,13 @@ class PasswordLoginTool(BusinessTool):
     site_type = XianyuSite
     required_login = False  # 登录工具本身不需要登录
 
+    # 选择器定义（类属性）
+    selectors = {
+        "password_input": "#fm-login-password",
+        "agreement_checkbox": "#fm-agreement-checkbox",
+        "captcha_list": ".rc-virtual-list-holder-inner",
+    }
+
     @log_operation("xianyu_password_login")
     async def _execute_core(
         self,
@@ -385,7 +392,7 @@ class PasswordLoginTool(BusinessTool):
             login_frame: 登录表单上下文
             password: 密码
         """
-        selector = "#fm-login-password"
+        selector = self.get_selector("password_input")
 
         result = await client.execute_tool("read_page_data", {
             "path": f"""
@@ -415,7 +422,7 @@ class PasswordLoginTool(BusinessTool):
             client: 浏览器客户端
             login_frame: 登录表单上下文
         """
-        selector = "#fm-agreement-checkbox"
+        selector = self.get_selector("agreement_checkbox")
 
         result = await client.execute_tool("read_page_data", {
             "path": f"""
@@ -648,7 +655,7 @@ class PasswordLoginTool(BusinessTool):
             bool: 是否登录成功
         """
         # 使用页面元素检测登录成功
-        selector = ".rc-virtual-list-holder-inner"
+        selector = self.get_selector("captcha_list")
 
         result = await client.execute_tool("read_page_data", {
             "path": f"""

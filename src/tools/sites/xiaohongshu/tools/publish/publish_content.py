@@ -53,6 +53,13 @@ class PublishContentTool(BusinessTool):
     target_site_domain = "xiaohongshu.com"
     default_navigate_url = "https://www.xiaohongshu.com/"
 
+    # 提取硬编码选择器
+    selectors = {
+        "title_input": ".title-input, [contenteditable='true'], [data-testid='title-input']",
+        "content_area": ".content-area, [contenteditable='true'], [data-testid='content-area']",
+        "publish_button": ".publish-btn, .publish-button, [data-testid='publish-button']",
+    }
+
     @log_operation("xhs_publish_content")
     async def _execute_core(
         self,
@@ -111,7 +118,7 @@ class PublishContentTool(BusinessTool):
         fill_tool = FillTool()
         await fill_tool.execute(
             params=fill_tool._get_params_type()(
-                selector=".title-input, [contenteditable='true'], [data-testid='title-input']",
+                selector=self.get_selector("title_input"),
                 value=params.title or ""
             ),
             context=context
@@ -124,7 +131,7 @@ class PublishContentTool(BusinessTool):
 
         await fill_tool.execute(
             params=fill_tool._get_params_type()(
-                selector=".content-area, [contenteditable='true'], [data-testid='content-area']",
+                selector=self.get_selector("content_area"),
                 value=content_text
             ),
             context=context
@@ -135,7 +142,7 @@ class PublishContentTool(BusinessTool):
         click_tool = ClickTool()
         await click_tool.execute(
             params=click_tool._get_params_type()(
-                selector=".publish-btn, .publish-button, [data-testid='publish-button']",
+                selector=self.get_selector("publish_button"),
                 timeout=10000
             ),
             context=context

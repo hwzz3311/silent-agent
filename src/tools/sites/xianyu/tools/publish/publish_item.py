@@ -50,6 +50,13 @@ class PublishItemTool(BusinessTool):
     target_site_domain = "goofish.com"
     default_navigate_url = "https://www.goofish.com/publish"
 
+    # 选择器定义
+    selectors = {
+        "price_input": ".ant-input",
+        "description_editor": "div[class^='editor--']",
+        "category_select": "div.ant-select-selector",
+    }
+
     @log_operation("xianyu_publish_item")
     async def _execute_core(
         self,
@@ -114,7 +121,7 @@ class PublishItemTool(BusinessTool):
             # 2. 填写价格
             await fill_tool.execute(
                 params=fill_tool._get_params_type()(
-                    selector=".ant-input",
+                    selector=self.get_selector("price_input"),
                     value=params.price,
                     tab_id=tab_id
                 ),
@@ -125,7 +132,7 @@ class PublishItemTool(BusinessTool):
             # 3. 填写描述
             await fill_tool.execute(
                 params=fill_tool._get_params_type()(
-                    selector="div[class^='editor--']",
+                    selector=self.get_selector("description_editor"),
                     value=params.description,
                     tab_id=tab_id
                 ),
@@ -195,7 +202,7 @@ class PublishItemTool(BusinessTool):
                 # 点击分类下拉框
                 await click_tool.execute(
                     params=click_tool._get_params_type()(
-                        selector="div.ant-select-selector",
+                        selector=self.get_selector("category_select"),
                         timeout=5000,
                         tab_id=tab_id
                     ),

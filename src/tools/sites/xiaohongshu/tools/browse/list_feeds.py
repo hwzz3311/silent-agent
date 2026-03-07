@@ -53,6 +53,12 @@ class ListFeedsTool(BusinessTool):
     target_site_domain = "xiaohongshu.com"
     default_navigate_url = "https://www.xiaohongshu.com/"
 
+    # 频道选择器模板（类属性）
+    # 注意：这里使用动态生成的选择器模板，因为包含变量
+    # 使用 {dom_id} 占位符，运行时通过 .replace() 替换
+    CHANNEL_SELECTOR_TEMPLATE = "#channel-container > div#{dom_id}"
+    CHANNEL_ALT_SELECTOR_TEMPLATE = "div#{dom_id}.channel"
+
     @log_operation("xhs_list_feeds")
     async def _execute_core(
         self,
@@ -491,7 +497,7 @@ class ListFeedsTool(BusinessTool):
         # 构建选择器：#channel-container > div#{dom_id}
         # 注意：f-string 表达式中不能有反斜杠，所以先存储替换后的字符串
         escaped_dom_id = dom_id.replace('.', r'\.')
-        selector = f"#channel-container > div#{escaped_dom_id}"
+        selector = self.CHANNEL_SELECTOR_TEMPLATE.replace("{dom_id}", escaped_dom_id)
 
         # 检查频道 tab 是否存在
         check_code = f"document.querySelector('{selector}') !== null"
@@ -503,7 +509,7 @@ class ListFeedsTool(BusinessTool):
         if not (result.get("success") and result.get("data") is True):
             logger.warning(f"未找到频道 tab: {selector}")
             # 尝试备选选择器
-            alt_selector = f"div#{escaped_dom_id}.channel"
+            alt_selector = self.CHANNEL_ALT_SELECTOR_TEMPLATE.replace("{dom_id}", escaped_dom_id)
             check_alt = f"document.querySelector('{alt_selector}') !== null"
             alt_result = await client.execute_tool("inject_script", {
                 "code": check_alt,
