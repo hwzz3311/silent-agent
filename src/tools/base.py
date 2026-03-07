@@ -255,7 +255,6 @@ class Tool(ABC):
                         for arg in args:
                             if isinstance(arg, type):
                                 try:
-                                    from src.tools.base import ToolParameters
                                     is_params = (
                                         issubclass(arg, ToolParameters) or
                                         issubclass(arg, BaseModel)
