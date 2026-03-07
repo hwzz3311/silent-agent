@@ -285,7 +285,7 @@ async def download_video(
         video_id=video_id
     )
     tool = VideoDownloadTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 __all__ = [

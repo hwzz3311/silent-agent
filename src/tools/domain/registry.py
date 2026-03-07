@@ -4,9 +4,7 @@
 提供业务工具的注册、发现和管理功能。
 """
 
-from typing import (
-    Dict, Optional, Type, List, Set, Any
-)
+from typing import Dict, Optional, Type, List, Set
 import logging
 import inspect
 
@@ -41,31 +39,23 @@ class BusinessToolRegistry:
 
     功能:
     1. 工具注册与注销
-    2. 按名称/类别/网站类型查找工具
-    3. 工具版本管理
-    4. 工具自动发现
+    2. 按名称/网站类型查找工具
 
     设计: 依赖注入友好，支持应用级单例
 
     Usage:
-        # 创建实例
-        registry = BusinessToolRegistry()
+        # 获取应用级单例（推荐）
+        from src.tools.domain.registry import get_registry
+        registry = get_registry()
 
         # 注册工具
-        registry.register(CheckLoginStatusTool())
+        registry.register_by_class(CheckLoginStatusTool)
 
         # 按名称获取
         tool = registry.get("xhs_check_login_status")
 
         # 按网站类型获取
         xhs_tools = registry.get_by_site(XiaohongshuSite)
-
-        # 按类别获取
-        login_tools = registry.get_by_category("login")
-
-        # 应用级单例（推荐）
-        from src.tools.domain.registry import get_registry
-        registry = get_registry()
     """
 
     def __init__(self):
@@ -216,18 +206,6 @@ class BusinessToolRegistry:
         """
         return self._tools.get(tool_name)
 
-    def get_instance(self, tool_name: str) -> Optional[BusinessTool]:
-        """
-        获取工具实例（别名方法）
-
-        Args:
-            tool_name: 工具名称
-
-        Returns:
-            Optional[BusinessTool]: 工具实例
-        """
-        return self.get(tool_name)
-
     def create_instance(self, tool_name: str) -> Optional[BusinessTool]:
         """
         创建工具实例
@@ -284,54 +262,6 @@ class BusinessToolRegistry:
             for name in tool_names
             if name in self._tools
         }
-
-    def get_by_name_pattern(self, pattern: str) -> Dict[str, BusinessTool]:
-        """
-        按名称模式查找工具
-
-        Args:
-            pattern: 正则表达式模式
-
-        Returns:
-            Dict[str, BusinessTool]: 匹配的工具
-        """
-        import re
-        result = {}
-        for name, tool in self._tools.items():
-            if re.search(pattern, name, re.IGNORECASE):
-                result[name] = tool
-        return result
-
-    def search(self, query: str) -> Dict[str, BusinessTool]:
-        """
-        搜索工具（名称、描述、类别）
-
-        Args:
-            query: 搜索关键词
-
-        Returns:
-            Dict[str, BusinessTool]: 匹配的工具
-        """
-        query_lower = query.lower()
-        result = {}
-
-        for name, tool in self._tools.items():
-            # 检查名称
-            if query_lower in name.lower():
-                result[name] = tool
-                continue
-
-            # 检查描述
-            if query_lower in tool.description.lower():
-                result[name] = tool
-                continue
-
-            # 检查类别
-            if query_lower in tool.operation_category.lower():
-                result[name] = tool
-                continue
-
-        return result
 
     # ========== 列表方法 ==========
 
@@ -397,15 +327,6 @@ class BusinessToolRegistry:
         """
         return len(self._tools)
 
-    def enabled_count(self) -> int:
-        """
-        获取已启用工具数量
-
-        Returns:
-            int: 已启用工具数量
-        """
-        return sum(1 for info in self._tool_version.values() if info.enabled)
-
     def is_registered(self, tool_name: str) -> bool:
         """
         检查工具是否已注册
@@ -417,202 +338,6 @@ class BusinessToolRegistry:
             bool: 是否已注册
         """
         return tool_name in self._tools
-
-    def is_enabled(self, tool_name: str) -> bool:
-        """
-        检查工具是否已启用
-
-        Args:
-            tool_name: 工具名称
-
-        Returns:
-            bool: 是否已启用
-        """
-        info = self._tool_version.get(tool_name)
-        return info.enabled if info else False
-
-    # ========== 管理方法 ==========
-
-    def enable(self, tool_name: str) -> bool:
-        """
-        启用工具
-
-        Args:
-            tool_name: 工具名称
-
-        Returns:
-            bool: 是否操作成功
-        """
-        if tool_name not in self._tool_version:
-            return False
-
-        self._tool_version[tool_name].enabled = True
-        logger.info(f"Enabled tool: {tool_name}")
-        return True
-
-    def disable(self, tool_name: str) -> bool:
-        """
-        禁用工具
-
-        Args:
-            tool_name: 工具名称
-
-        Returns:
-            bool: 是否操作成功
-        """
-        if tool_name not in self._tool_version:
-            return False
-
-        self._tool_version[tool_name].enabled = False
-        logger.info(f"Disabled tool: {tool_name}")
-        return True
-
-    def clear(self) -> int:
-        """
-        清空所有注册
-
-        Returns:
-            int: 清空前工具数量
-        """
-        count = len(self._tools)
-        self._tools.clear()
-        self._tool_version.clear()
-        self._site_tools.clear()
-        self._categories = {cat: set() for cat in self._categories}
-        self._name_to_class.clear()
-        logger.info(f"Cleared {count} tools")
-        return count
-
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
-        """
-        获取工具详细信息
-
-        Args:
-            tool_name: 工具名称
-
-        Returns:
-            Optional[Dict[str, Any]]: 工具信息字典
-        """
-        tool = self._tools.get(tool_name)
-        if not tool:
-            return None
-
-        version_info = self._tool_version.get(tool_name)
-
-        return {
-            "name": tool.name,
-            "description": tool.description,
-            "version": tool.version if version_info else None,
-            "enabled": version_info.enabled if version_info else True,
-            "site_type": tool.site_type.__name__ if tool.site_type else None,
-            "category": tool.operation_category,
-            "required_login": tool.required_login,
-            "registered_at": version_info.registered_at if version_info else None,
-        }
-
-    def get_all_info(self) -> List[Dict[str, Any]]:
-        """
-        获取所有工具信息
-
-        Returns:
-            List[Dict[str, Any]]: 工具信息列表
-        """
-        return [
-            self.get_tool_info(name)
-            for name in self._tools.keys()
-        ]
-
-    def get_all(self) -> List[BusinessTool]:
-        """
-        获取所有已注册的业务工具
-
-        Returns:
-            List[BusinessTool]: 工具实例列表
-        """
-        return list(self._tools.values())
-
-    # ========== 自动发现 ==========
-
-    def discover_from_module(
-        self,
-        module,
-        prefix: str = "xhs_",
-        enabled: bool = True
-    ) -> int:
-        """
-        从模块自动发现并注册工具
-
-        工具类名必须以 Tool 结尾，且包含 site_type 类属性
-
-        Args:
-            module: Python 模块
-            prefix: 工具名称前缀
-            enabled: 是否启用
-
-        Returns:
-            int: 注册的工具数量
-        """
-        count = 0
-
-        for attr_name in dir(module):
-            if attr_name.startswith('_'):
-                continue
-
-            attr = getattr(module, attr_name)
-
-            # 检查是否是 BusinessTool 的子类
-            if (inspect.isclass(attr) and
-                issubclass(attr, BusinessTool) and
-                attr is not BusinessTool):
-
-                # 检查是否包含 site_type
-                if hasattr(attr, 'site_type') and attr.site_type:
-                    # 生成工具名称
-                    tool_name = f"{prefix}{attr_name.replace('Tool', '').lower()}"
-                    if not tool_name.endswith('_tool'):
-                        tool_name = f"{tool_name}_tool"
-
-                    # 注册工具
-                    if self.register_by_class(attr, enabled=enabled):
-                        count += 1
-
-        logger.info(f"Discovered {count} tools from module {module.__name__}")
-        return count
-
-    def discover_from_package(
-        self,
-        package_name: str,
-        prefix: str = "xhs_",
-        enabled: bool = True
-    ) -> int:
-        """
-        从包自动发现并注册工具
-
-        Args:
-            package_name: 包名称（如 'tools.sites.xiaohongshu'）
-            prefix: 工具名称前缀
-            enabled: 是否启用
-
-        Returns:
-            int: 注册的工具数量
-        """
-        try:
-            import importlib
-            package = importlib.import_module(package_name)
-
-            count = 0
-            for _, module_name in inspect.getmembers(package, inspect.ismodule):
-                count += self.discover_from_module(
-                    module_name,
-                    prefix=prefix,
-                    enabled=enabled
-                )
-
-            return count
-
-        except ImportError as e:
-            logger.error(f"Failed to discover from package {package_name}: {e}")
-            return 0
 
 
 # ========== 应用级单例访问器 ==========

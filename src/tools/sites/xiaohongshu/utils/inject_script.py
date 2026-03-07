@@ -176,7 +176,7 @@ async def inject_script(
         timeout=timeout
     )
     tool = InjectScriptTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 __all__ = [

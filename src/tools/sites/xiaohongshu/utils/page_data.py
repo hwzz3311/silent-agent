@@ -212,7 +212,7 @@ async def read_page_data(
     """读取小红书页面数据"""
     params = ReadPageDataParams(path=path, tab_id=tab_id)
     tool = ReadPageDataTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 __all__ = [

@@ -722,7 +722,7 @@ async def transfer_video_to_page(
         timeout=timeout
     )
     tool = VideoChunkTransferTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 __all__ = [

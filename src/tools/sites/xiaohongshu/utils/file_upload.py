@@ -378,7 +378,7 @@ async def upload_file(
         timeout=timeout
     )
     tool = UploadFileTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 async def set_files(
@@ -395,7 +395,7 @@ async def set_files(
         timeout=timeout
     )
     tool = SetFilesTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 __all__ = [

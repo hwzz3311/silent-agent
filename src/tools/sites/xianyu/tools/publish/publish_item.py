@@ -334,7 +334,7 @@ async def publish_item(
     )
     ctx = context or ExecutionContext()
 
-    result = await tool.execute_with_retry(params, ctx)
+    result = await tool.execute(params, ctx)
 
     if result.success:
         return result.data

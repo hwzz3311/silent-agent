@@ -316,7 +316,7 @@ async def intercept_upload(
         clear_after_upload=clear_after_upload
     )
     tool = VideoUploadInterceptTool()
-    return await tool.execute_with_retry(params, context or ExecutionContext())
+    return await tool.execute(params, context or ExecutionContext())
 
 
 __all__ = [

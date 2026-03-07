@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Dict, Any, List
 
 from src.tools.base import Tool, ToolParameters
-from src.core.result import Result, ResultMeta, Error, ErrorCode
+from src.core.result import Result, ResultMeta
 
 if TYPE_CHECKING:
     from src.tools.base import ExecutionContext
@@ -161,7 +161,7 @@ class BusinessTool(Tool, ABC):
             return self.param_type
         return ToolParameters
 
-    # ========== 执行方法（直接执行） ==========
+    # ========== 执行方法（统一由父类处理验证+重试） ==========
 
     async def execute(
         self,
@@ -171,7 +171,7 @@ class BusinessTool(Tool, ABC):
         """
         执行工具（实现抽象方法）
 
-        直接执行核心逻辑，包含参数验证和重试。
+        直接执行核心逻辑，重试由父类 Tool.execute_with_retry() 统一处理。
 
         Args:
             params: 工具参数
@@ -183,43 +183,17 @@ class BusinessTool(Tool, ABC):
         # 1. 获取站点实例
         site = self.get_site(context)
 
-        # 2. 核心执行（带重试）
-        last_error = None
-        for attempt in range(1, context.retry_count + 1):
-            start_time = None
-            try:
-                start_time = __import__('time').time()
+        # 2. 直接执行核心逻辑（重试由父类统一处理）
+        start_time = __import__('time').time()
 
-                # 执行核心逻辑
-                result = await self._execute_core(params, context, site)
+        # 执行核心逻辑
+        result = await self._execute_core(params, context, site)
 
-                # 记录执行时间
-                if start_time and result.meta:
-                    result.meta.duration_ms = int((__import__('time').time() - start_time) * 1000)
-                    result.meta.attempt = attempt
+        # 记录执行时间
+        if start_time and result.meta:
+            result.meta.duration_ms = int((__import__('time').time() - start_time) * 1000)
 
-                if result.success:
-                    return result
-
-                # 不可恢复错误直接返回
-                if result.error and not result.error.recoverable:
-                    return result
-
-                last_error = result.error
-
-            except Exception as e:
-                last_error = Error.from_exception(e, ErrorCode.EXECUTION_FAILED, recoverable=True)
-
-            # 判断是否需要重试
-            if attempt < context.retry_count:
-                delay = context.retry_delay / 1000
-                await asyncio.sleep(delay)
-
-        # 所有尝试都失败
-        return Result.fail(
-            last_error or Error.unknown("工具执行失败"),
-            meta=ResultMeta(tool_name=self.name, duration_ms=0, attempt=context.retry_count)
-        )
+        return result
 
     # ========== 类方法 ==========
 

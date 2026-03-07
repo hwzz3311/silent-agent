@@ -309,7 +309,7 @@ async def check_login_status(
 
     logger.info(f"执行工具: {tool.name}, params={params}, ctx: {ctx}")
 
-    result = await tool.execute_with_retry(params, ctx)
+    result = await tool.execute(params, ctx)
 
     if result.success:
         return result.data
