@@ -57,16 +57,18 @@ async def execute_tool(request: ExecuteRequest):
     # 获取客户端：优先使用 BrowserManager（多实例模式）
     from src.adapters.browser import get_browser_manager
 
+    # 获取管理器
+    manager = get_browser_manager()
+
     # 检查是否指定了 browser_id
     if request.browser_id:
         # 使用指定的浏览器实例
-        manager = get_browser_manager()
         client = await manager.get_client(request.browser_id)
         logger.info(f"[API] 使用指定浏览器实例: {request.browser_id}")
     else:
-        # 降级使用全局单例客户端
-        from src.api.app import get_client
-        client = await get_client()
+        # 使用默认浏览器实例
+        client = await manager.get_client()
+        logger.info(f"[API] 使用默认浏览器实例")
 
     if not client.is_connected:
         logger.warning("[API] 浏览器扩展未连接")
